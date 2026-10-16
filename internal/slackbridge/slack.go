@@ -15,6 +15,8 @@ import (
 const (
 	defaultAPIURL = "https://slack.com/api/"
 	maxRetries    = 3
+	// maxRetryWait caps one wait between retries. Slack's Retry-After can be longer; the job then fails.
+	maxRetryWait = 30 * time.Second
 	// maxFileSize caps a Slack file the bridge downloads.
 	maxFileSize = 25 << 20
 )
@@ -24,7 +26,19 @@ type slackAPI struct {
 	token   string
 	baseURL string
 	http    *http.Client
-	sleep   func(time.Duration)
+	// wait pauses between retries and returns early with ctx's error. Tests replace it.
+	wait func(ctx context.Context, d time.Duration) error
+}
+
+func waitContext(ctx context.Context, d time.Duration) error {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func newSlackAPI(token, baseURL string) *slackAPI {
@@ -34,7 +48,7 @@ func newSlackAPI(token, baseURL string) *slackAPI {
 	if !strings.HasSuffix(baseURL, "/") {
 		baseURL += "/"
 	}
-	return &slackAPI{token: token, baseURL: baseURL, http: &http.Client{Timeout: 15 * time.Second}, sleep: time.Sleep}
+	return &slackAPI{token: token, baseURL: baseURL, http: &http.Client{Timeout: 15 * time.Second}, wait: waitContext}
 }
 
 type slackResponse struct {
@@ -43,9 +57,11 @@ type slackResponse struct {
 }
 
 // call posts form values to a Web API method and decodes the JSON reply into out.
-// It retries on HTTP 429 after the Retry-After delay.
+// It retries a network error or an HTTP 5xx with backoff (1s, 2s, 4s), and an HTTP 429 after its
+// Retry-After delay. A delay longer than maxRetryWait fails the call instead of blocking the worker.
 func (a *slackAPI) call(ctx context.Context, method string, form url.Values, out any) error {
 	for attempt := 0; ; attempt++ {
+		backoff := time.Duration(1<<attempt) * time.Second
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, a.baseURL+method, strings.NewReader(form.Encode()))
 		if err != nil {
 			return err
@@ -54,6 +70,11 @@ func (a *slackAPI) call(ctx context.Context, method string, form url.Values, out
 		req.Header.Set("Authorization", "Bearer "+a.token)
 		resp, err := a.http.Do(req)
 		if err != nil {
+			if attempt < maxRetries && ctx.Err() == nil {
+				if werr := a.wait(ctx, backoff); werr == nil {
+					continue
+				}
+			}
 			return fmt.Errorf("slack %s: %w", method, err)
 		}
 		body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
@@ -61,10 +82,18 @@ func (a *slackAPI) call(ctx context.Context, method string, form url.Values, out
 		if err != nil {
 			return fmt.Errorf("slack %s: reading response: %w", method, err)
 		}
-		if resp.StatusCode == http.StatusTooManyRequests && attempt < maxRetries {
-			wait, _ := strconv.Atoi(resp.Header.Get("Retry-After"))
-			a.sleep(time.Duration(max(wait, 1)) * time.Second)
-			continue
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+			wait := backoff
+			if resp.StatusCode == http.StatusTooManyRequests {
+				secs, _ := strconv.Atoi(resp.Header.Get("Retry-After"))
+				wait = time.Duration(max(secs, 1)) * time.Second
+			}
+			if attempt < maxRetries && wait <= maxRetryWait {
+				if err := a.wait(ctx, wait); err != nil {
+					return fmt.Errorf("slack %s: %w", method, err)
+				}
+				continue
+			}
 		}
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("slack %s: HTTP %d", method, resp.StatusCode)
@@ -112,6 +141,11 @@ func (a *slackAPI) postMessage(ctx context.Context, channel, threadTS, text stri
 // updateMessage replaces the text of a message.
 func (a *slackAPI) updateMessage(ctx context.Context, channel, ts, text string) error {
 	return a.call(ctx, "chat.update", url.Values{"channel": {channel}, "ts": {ts}, "text": {text}}, nil)
+}
+
+// deleteMessage deletes a message the bot posted.
+func (a *slackAPI) deleteMessage(ctx context.Context, channel, ts string) error {
+	return a.call(ctx, "chat.delete", url.Values{"channel": {channel}, "ts": {ts}}, nil)
 }
 
 // addReaction adds an emoji reaction to a message. Slack reports already_reacted as an error; it is ignored.

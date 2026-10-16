@@ -42,6 +42,9 @@ const (
 	reactionReply = "outbox_tray"
 )
 
+// ErrQueueFull means a Slack event was not queued. The HTTP handler answers with an error, so Slack retries.
+var ErrQueueFull = errors.New("slack bridge queue is full")
+
 // Config holds the bridge settings from the [slack] config section.
 type Config struct {
 	BotToken      string
@@ -176,16 +179,21 @@ func (m *Manager) HandleSlackEvent(body []byte) (challenge string, err error) {
 		return env.Challenge, nil
 	case "event_callback":
 		ev := env.Event
-		m.enqueue(job{slack: &ev})
+		if !m.enqueue(job{slack: &ev}) {
+			return "", ErrQueueFull
+		}
 	}
 	return "", nil
 }
 
-func (m *Manager) enqueue(j job) {
+// enqueue queues a job. It returns false when the queue is full and the job was dropped.
+func (m *Manager) enqueue(j job) bool {
 	select {
 	case m.jobs <- j:
+		return true
 	default:
 		m.lo.Error("slack bridge queue is full, dropping event", "event", j.event)
+		return false
 	}
 }
 
@@ -305,10 +313,25 @@ func (m *Manager) ensureThread(ctx context.Context, conv cmodels.Conversation) (
 	if err != nil {
 		return t, err
 	}
-	if err := m.store.insertThread(conv.ID, m.cfg.ChannelID, ts); err != nil {
-		return t, err
+	insertErr := m.store.insertThread(conv.ID, m.cfg.ChannelID, ts)
+	saved, ok, err := m.store.threadByConversation(conv.ID)
+	if insertErr == nil && err == nil && ok && saved.ThreadTS == ts {
+		return thread{ConversationID: conv.ID, ChannelID: m.cfg.ChannelID, ThreadTS: ts, ConversationUUID: conv.UUID}, nil
 	}
-	return thread{ConversationID: conv.ID, ChannelID: m.cfg.ChannelID, ThreadTS: ts, ConversationUUID: conv.UUID}, nil
+	// The root was not saved as this conversation's thread. Delete it, so no thread exists in Slack
+	// that the bridge does not know about.
+	if delErr := m.api.deleteMessage(ctx, m.cfg.ChannelID, ts); delErr != nil {
+		m.lo.Error("deleting unsaved slack thread root", "conversation_id", conv.ID, "ts", ts, "error", delErr)
+	}
+	switch {
+	case insertErr != nil:
+		return t, insertErr
+	case err != nil:
+		return t, err
+	case ok:
+		return saved, nil
+	}
+	return t, fmt.Errorf("slack thread for conversation %d was not saved", conv.ID)
 }
 
 // updateRoot refreshes the thread root after a status, assignee or tag change.
@@ -518,15 +541,41 @@ func (m *Manager) handleSlack(ctx context.Context, ev slackEvent) error {
 	if err != nil || !ok {
 		return err
 	}
+	// Slack does not retry an event that was answered with 200, and the event is now claimed.
+	// Every failure from here on tells the Slack user, so they can send the message again.
+	if err := m.addFromSlack(ctx, ev, t, claimID, isAI); err != nil {
+		m.replyInThread(ctx, ev, err.userText)
+		return err.err
+	}
+	return nil
+}
 
+// slackError is a failure to add a Slack message, with the text shown to the Slack user.
+type slackError struct {
+	userText string
+	err      error
+}
+
+func failed(userText string, err error) *slackError {
+	return &slackError{userText: userText + " Please send it again.", err: err}
+}
+
+// addFromSlack adds a claimed Slack message to the conversation as a note or a customer reply.
+func (m *Manager) addFromSlack(ctx context.Context, ev slackEvent, t thread, claimID int, isAI bool) *slackError {
 	agent, email, err := m.agentFor(ctx, ev, isAI)
 	if err != nil {
-		m.replyInThread(ctx, ev, fmt.Sprintf("Not added to Libredesk: no Libredesk agent has the email %s.", orDefault(email, "of this Slack user")))
-		return err
+		if email != "" {
+			return &slackError{userText: fmt.Sprintf("Not added to Libredesk: no enabled Libredesk agent has the email %s.", email), err: err}
+		}
+		return failed("Not added to Libredesk: the Slack user's email could not be read.", err)
 	}
 
+	// Without the bot's own ID a mention cannot be told apart from a note, so stop instead of guessing.
 	botID := m.ensureBotUserID(ctx)
-	respond := botID != "" && strings.Contains(ev.Text, "<@"+botID+">")
+	if botID == "" {
+		return failed("Not added to Libredesk: the bridge could not identify its Slack bot.", errors.New("slack bot user ID unknown"))
+	}
+	respond := strings.Contains(ev.Text, "<@"+botID+">")
 	content := mrkdwnToHTML(stripMention(ev.Text, botID), func(id string) string {
 		if u, err := m.slackUser(ctx, id); err == nil {
 			return u.Name
@@ -536,8 +585,7 @@ func (m *Manager) handleSlack(ctx context.Context, ev slackEvent) error {
 
 	media, err := m.uploadFiles(ctx, ev.Files, agent.ID)
 	if err != nil {
-		m.replyInThread(ctx, ev, "Not added to Libredesk: a file could not be copied.")
-		return err
+		return failed("Not added to Libredesk: a file could not be copied.", err)
 	}
 	if content == "" && len(media) == 0 {
 		return nil
@@ -547,7 +595,7 @@ func (m *Manager) handleSlack(ctx context.Context, ev slackEvent) error {
 	if respond {
 		conv, err := m.convs.GetConversation(0, t.ConversationUUID, "")
 		if err != nil {
-			return err
+			return failed("Not sent to the customer: the conversation could not be loaded.", err)
 		}
 		var to []string
 		if conv.InboxChannel == "email" && conv.Contact.Email.String != "" {
@@ -555,18 +603,17 @@ func (m *Manager) handleSlack(ctx context.Context, ev slackEvent) error {
 		}
 		msg, err = m.convs.QueueReply(media, conv.InboxID, agent.ID, conv.ContactID, conv.UUID, content, to, nil, nil, "", map[string]any{"slack_ts": ev.TS})
 		if err != nil {
-			m.replyInThread(ctx, ev, "Not sent to the customer: "+err.Error())
-			return err
+			return failed("Not sent to the customer: "+err.Error()+".", err)
 		}
 	} else {
 		msg, err = m.convs.SendPrivateNote(media, agent.ID, t.ConversationUUID, content, nil)
 		if err != nil {
-			m.replyInThread(ctx, ev, "Not added to Libredesk: "+err.Error())
-			return err
+			return failed("Not added to Libredesk: "+err.Error()+".", err)
 		}
 	}
+	// The message exists in Libredesk; a failure here only risks posting it back to Slack.
 	if err := m.store.setMessageID(claimID, msg.ID); err != nil {
-		return err
+		m.lo.Error("recording slack message", "message_id", msg.ID, "error", err)
 	}
 	reaction := reactionNote
 	if respond {
@@ -597,7 +644,7 @@ func (m *Manager) agentFor(ctx context.Context, ev slackEvent, isAI bool) (umode
 		return umodels.User{}, email, err
 	}
 	if !agent.Enabled {
-		return umodels.User{}, email, fmt.Errorf("agent %s is disabled", email)
+		return umodels.User{}, email, fmt.Errorf("agent %d is disabled", agent.ID)
 	}
 	return agent, email, nil
 }

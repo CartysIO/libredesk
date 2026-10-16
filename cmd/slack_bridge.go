@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"time"
 
@@ -75,6 +76,10 @@ func handleSlackEvents(r *fastglue.Request) error {
 		return r.SendErrorEnvelope(fasthttp.StatusUnauthorized, "invalid signature", nil, envelope.PermissionError)
 	}
 	challenge, err := app.slackBridge.HandleSlackEvent(body)
+	if errors.Is(err, slackbridge.ErrQueueFull) {
+		// A non-2xx answer makes Slack send the event again later.
+		return r.SendErrorEnvelope(fasthttp.StatusServiceUnavailable, "busy", nil, envelope.GeneralError)
+	}
 	if err != nil {
 		app.lo.Warn("bad slack event", "error", err)
 		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, "bad event", nil, envelope.InputError)

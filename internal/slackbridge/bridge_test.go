@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	cmodels "github.com/abhinavxd/libredesk/internal/conversation/models"
 	mmodels "github.com/abhinavxd/libredesk/internal/media/models"
@@ -31,6 +32,9 @@ type fakeSlack struct {
 	calls []slackCall
 	next  int
 	srv   *httptest.Server
+	// failAuth makes auth.test fail; fail5xx makes the next N chat.postMessage calls answer HTTP 500.
+	failAuth bool
+	fail5xx  int
 }
 
 type slackCall struct {
@@ -55,10 +59,23 @@ func newFakeSlack(t *testing.T) *fakeSlack {
 		f.calls = append(f.calls, slackCall{method: method, form: r.PostForm})
 		f.next++
 		n := f.next
+		failAuth := f.failAuth
+		fail := method == "chat.postMessage" && f.fail5xx > 0
+		if fail {
+			f.fail5xx--
+		}
 		f.mu.Unlock()
+		if fail {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		switch method {
 		case "auth.test":
+			if failAuth {
+				io.WriteString(w, `{"ok":false,"error":"invalid_auth"}`)
+				return
+			}
 			io.WriteString(w, `{"ok":true,"user_id":"UBOT"}`)
 		case "chat.postMessage":
 			fmt.Fprintf(w, `{"ok":true,"ts":"1700000000.%06d"}`, n)
@@ -99,10 +116,12 @@ type fakeConversations struct {
 	reply  []cmodels.Message
 	to     [][]string
 	media  [][]mmodels.Media
+	// failGet makes GetConversation fail.
+	failGet bool
 }
 
 func (f *fakeConversations) GetConversation(id int, uuid, refNum string) (cmodels.Conversation, error) {
-	if uuid != f.conv.UUID {
+	if f.failGet || uuid != f.conv.UUID {
 		return cmodels.Conversation{}, errors.New("not found")
 	}
 	return f.conv, nil
@@ -214,6 +233,7 @@ func newHarness(t *testing.T) *harness {
 	if err != nil {
 		t.Fatal(err)
 	}
+	m.api.wait = func(context.Context, time.Duration) error { return nil }
 	convs := &fakeConversations{db: db, conv: conv, bridge: m, agents: agents}
 	m.SetConversationStore(convs)
 	return &harness{m: m, slack: slack, convs: convs, media: media, db: db, eran: eran}
@@ -453,5 +473,112 @@ func TestURLVerification(t *testing.T) {
 	got, err := h.m.HandleSlackEvent([]byte(`{"type":"url_verification","challenge":"abc123"}`))
 	if err != nil || got != "abc123" {
 		t.Fatalf("challenge %q, err %v", got, err)
+	}
+}
+
+func TestQueueFullIsReported(t *testing.T) {
+	h := newHarness(t)
+	h.m.jobs = make(chan job, 1)
+	body := []byte(`{"type":"event_callback","event":{"type":"message"}}`)
+	if _, err := h.m.HandleSlackEvent(body); err != nil {
+		t.Fatalf("first event: %v", err)
+	}
+	if _, err := h.m.HandleSlackEvent(body); !errors.Is(err, ErrQueueFull) {
+		t.Fatalf("want ErrQueueFull, got %v", err)
+	}
+}
+
+func TestUnknownBotIDDoesNotGuess(t *testing.T) {
+	h := newHarness(t)
+	h.contactMessage(t, "help")
+	h.drain(t)
+	h.slack.failAuth = true
+	ts := h.rootTS(t)
+	h.slackEvent(t, map[string]any{"type": "app_mention", "channel": testChannel, "user": "UERAN", "text": "<@UBOT> fixed", "ts": "1700000040.1", "thread_ts": ts})
+	h.drain(t)
+	if len(h.convs.notes)+len(h.convs.reply) != 0 {
+		t.Fatalf("message added without the bot ID: %d notes, %d replies", len(h.convs.notes), len(h.convs.reply))
+	}
+	posts := h.slack.byMethod("chat.postMessage")
+	if last := posts[len(posts)-1].form; last.Get("thread_ts") != ts || !strings.Contains(last.Get("text"), "send it again") {
+		t.Fatalf("want a warning in the thread, got %v", last)
+	}
+}
+
+func TestReplyWarnsWhenConversationFails(t *testing.T) {
+	h := newHarness(t)
+	h.contactMessage(t, "help")
+	h.drain(t)
+	ts := h.rootTS(t)
+	h.convs.failGet = true
+	h.slackEvent(t, map[string]any{"type": "app_mention", "channel": testChannel, "user": "UERAN", "text": "<@UBOT> fixed", "ts": "1700000050.1", "thread_ts": ts})
+	h.drain(t)
+	if len(h.convs.reply) != 0 {
+		t.Fatal("reply sent although the conversation failed to load")
+	}
+	posts := h.slack.byMethod("chat.postMessage")
+	if last := posts[len(posts)-1].form; last.Get("thread_ts") != ts || !strings.Contains(last.Get("text"), "Not sent to the customer") {
+		t.Fatalf("want a warning in the thread, got %v", last)
+	}
+}
+
+func TestSlackServerErrorIsRetried(t *testing.T) {
+	h := newHarness(t)
+	h.slack.fail5xx = 2
+	h.contactMessage(t, "help")
+	h.drain(t)
+	h.rootTS(t)
+	// 2 failed root posts, then root and message.
+	if n := len(h.slack.byMethod("chat.postMessage")); n != 4 {
+		t.Fatalf("want 4 postMessage calls, got %d", n)
+	}
+}
+
+func TestLongRetryAfterFailsFast(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Retry-After", "600")
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer srv.Close()
+	api := newSlackAPI("t", srv.URL)
+	waited := false
+	api.wait = func(context.Context, time.Duration) error { waited = true; return nil }
+	if _, err := api.postMessage(context.Background(), "C", "", "x"); err == nil || waited {
+		t.Fatalf("want an immediate error, got err=%v waited=%v", err, waited)
+	}
+}
+
+func TestRetryStopsWhenContextEnds(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+	}))
+	defer srv.Close()
+	api := newSlackAPI("t", srv.URL)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	start := time.Now()
+	if _, err := api.postMessage(ctx, "C", "", "x"); err == nil {
+		t.Fatal("want an error")
+	}
+	if time.Since(start) > time.Second {
+		t.Fatal("retry did not stop on a cancelled context")
+	}
+}
+
+func TestUnsavedRootIsDeleted(t *testing.T) {
+	h := newHarness(t)
+	// Another conversation already owns the ts that the fake Slack gives the next post, so saving the root fails.
+	var other int
+	h.db.QueryRow(`INSERT INTO conversations (contact_id, inbox_id, status_id) SELECT contact_id, inbox_id, status_id FROM conversations WHERE id = $1 RETURNING id`, h.convs.conv.ID).Scan(&other)
+	h.db.MustExec(`INSERT INTO slack_threads (conversation_id, channel_id, thread_ts) VALUES ($1, $2, '1700000000.000001')`, other, testChannel)
+
+	h.contactMessage(t, "help")
+	h.drain(t)
+	del := h.slack.byMethod("chat.delete")
+	if len(del) != 1 || del[0].form.Get("ts") != "1700000000.000001" {
+		t.Fatalf("want the unsaved root deleted, got %v", del)
+	}
+	if _, ok, _ := h.m.store.threadByConversation(h.convs.conv.ID); ok {
+		t.Fatal("thread saved although the insert failed")
 	}
 }
