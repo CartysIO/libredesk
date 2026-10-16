@@ -1,0 +1,35 @@
+# Builds the Clyr fork from source (upstream's Dockerfile expects a GoReleaser binary).
+FROM golang:1.25-bookworm AS build
+
+ARG LIBREDESK_VERSION=v0.0.0-clyr
+ENV LIBREDESK_VERSION=${LIBREDESK_VERSION}
+
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+	&& apt-get install -y --no-install-recommends nodejs \
+	&& npm install -g pnpm@9.15.3 \
+	&& rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/
+RUN cd frontend && pnpm install --frozen-lockfile
+
+COPY . .
+RUN make build
+
+FROM alpine:3.20
+
+RUN apk --no-cache add ca-certificates tzdata
+
+WORKDIR /libredesk
+
+COPY --from=build /src/libredesk .
+COPY config.sample.toml config.toml
+COPY deploy/start.sh .
+
+EXPOSE 9000
+
+CMD ["./start.sh"]

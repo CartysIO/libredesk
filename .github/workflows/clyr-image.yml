@@ -1,0 +1,49 @@
+name: Clyr image
+
+on:
+  push:
+    branches: [clyr]
+  pull_request:
+    branches: [clyr]
+  workflow_dispatch:
+
+concurrency:
+  group: clyr-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Version
+        id: version
+        run: echo "value=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.clyr
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          build-args: LIBREDESK_VERSION=${{ steps.version.outputs.value }}
+          tags: |
+            ghcr.io/cartysio/libredesk:clyr
+            ghcr.io/cartysio/libredesk:clyr-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
