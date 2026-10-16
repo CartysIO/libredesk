@@ -49,6 +49,8 @@ var migList = []migFunc{
 	{"v2.8.0", migrations.V2_8_0},
 	{"v2.9.0-rc.8", migrations.V2_9_0_RC8},
 	{"v2.9.0-rc.9", migrations.V2_9_0_RC9},
+	// Clyr fork migrations use a prerelease suffix of the upstream version they followed. The list must stay sorted.
+	{"v2.9.0-rc.9.clyr.1", migrations.V2_9_0_RC9_CLYR1},
 	{"v2.9.0-rc.10", migrations.V2_9_0_RC10},
 }
 

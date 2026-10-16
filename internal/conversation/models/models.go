@@ -136,6 +136,8 @@ type ConversationListItem struct {
 	InboxChannel          string                  `db:"inbox_channel" json:"inbox_channel"`
 	InboxName             string                  `db:"inbox_name" json:"inbox_name"`
 	SLAPolicyID           null.Int                `db:"sla_policy_id" json:"sla_policy_id"`
+	OrganizationID        null.Int                `db:"organization_id" json:"organization_id"`
+	OrganizationName      null.String             `db:"organization_name" json:"organization_name"`
 	FirstReplyAt          null.Time               `db:"first_reply_at" json:"first_reply_at"`
 	LastReplyAt           null.Time               `db:"last_reply_at" json:"last_reply_at"`
 	ResolvedAt            null.Time               `db:"resolved_at" json:"resolved_at"`
@@ -220,6 +222,8 @@ type Conversation struct {
 	LastInteractionSender     null.String            `db:"last_interaction_sender" json:"last_interaction_sender"`
 	Contact                   ConversationContact    `db:"contact" json:"contact"`
 	SLAPolicyID               null.Int               `db:"sla_policy_id" json:"sla_policy_id"`
+	OrganizationID            null.Int               `db:"organization_id" json:"organization_id"`
+	OrganizationName          null.String            `db:"organization_name" json:"organization_name"`
 	SlaPolicyName             null.String            `db:"sla_policy_name" json:"sla_policy_name"`
 	AppliedSLAID              null.Int               `db:"applied_sla_id" json:"applied_sla_id"`
 	NextSLADeadlineAt         null.Time              `db:"next_sla_deadline_at" json:"next_sla_deadline_at"`
@@ -255,6 +259,9 @@ type ConversationContact struct {
 	LastActiveAt           null.Time       `db:"last_active_at" json:"last_active_at"`
 	LastLoginAt            null.Time       `db:"last_login_at" json:"last_login_at"`
 	ExternalUserID         null.String     `db:"external_user_id" json:"external_user_id"`
+	OrganizationID         null.Int        `db:"organization_id" json:"organization_id"`
+	OrganizationName       null.String     `db:"organization_name" json:"organization_name"`
+	OrganizationExternalID null.String     `db:"organization_external_id" json:"organization_external_id"`
 
 	ChannelIdentities umodels.ChannelIdentities `db:"channel_identities" json:"channel_identities,omitempty"`
 }
