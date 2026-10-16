@@ -45,16 +45,21 @@ Config comes from environment variables: `LIBREDESK_<SECTION>__<KEY>`, for examp
 ## Infrastructure
 
 - Railway project `libredesk` (id `86f4a5dc-54b6-43b3-ad04-f88f0fd77916`, Clyr workspace).
-  - Environment `staging` (`b05dd541-5662-4ed7-a6f4-d0c0554b2c18`).
-  - Services: Postgres, Redis, and `Libredesk` (`7e663356-68f3-4c61-9343-adee48f9da3f`). URL: https://libredesk-staging-6deb.up.railway.app.
-  - The database and Redis connect through Railway reference variables.
+  - Environment `staging` (`b05dd541-5662-4ed7-a6f4-d0c0554b2c18`): https://libredesk-staging-6deb.up.railway.app.
+  - Environment `production` (`fce6e5f4-08f9-458f-a485-ed512e2404fe`): https://libredesk-production-eb2c.up.railway.app.
+  - Each environment has Postgres, Redis, a bucket, and `Libredesk` (`7e663356-68f3-4c61-9343-adee48f9da3f`, same service id in both). One process serves the API and the built UI; keep it that way (decided 2026-10-16).
+  - The database and Redis connect through Railway reference variables (`${{Postgres.*}}`, `${{Redis.REDIS_URL}}`). They live only on Railway, because Doppler cannot store `${{…}}` values.
+  - Production Postgres has daily, weekly and monthly backups. Better Stack monitor "Libredesk production" (id 5083974) checks the site every 3 minutes.
   - GHCR pull credentials are set on the service through GraphQL `serviceInstanceUpdate` (`registryCredentials`). The token is in Doppler `clyr-infra/prd` (`GHCR_PULL_USERNAME`, `GHCR_PULL_TOKEN`).
   - Deploy after config changes with GraphQL `serviceInstanceDeployV2`. `railway redeploy` reuses the previous deploy's settings.
   - To prove a deploy landed, compare the deploy's image digest with `docker buildx imagetools inspect ghcr.io/cartysio/libredesk:clyr-<sha>`.
-- Doppler project `libredesk` (configs `stg`, `prd`) holds the app secrets. It does not sync to Railway yet. Until it does, copy changed values to Railway by hand.
-- Cloudflare R2: wrangler reaches Clyr's account with `CLOUDFLARE_ACCOUNT_ID=fd9fae3a3d42838655d338dba386f4d2`. Bucket `libredesk-staging` exists. The wrangler login cannot create R2 S3 keys.
-  - Never give Libredesk the Clyr backend's R2 key: it reaches every bucket, receipts included.
-- Clerk: staging uses the dev instance (`sacred-chimp-95`). A production Clerk instance only works on clyr.io domains.
+- Doppler project `libredesk` (configs `stg`, `prd`) holds the app secrets. Each config syncs to the `Libredesk` service in its environment through the "Railway Connection" integration, and a change redeploys the service. Change secrets in Doppler, never on Railway.
+  - The sync adds, updates, and removes the keys it owns. It leaves Railway-only variables alone.
+  - Never create a sync with `service_id: "shared"`. Its failed initial sync made Doppler disable the whole Railway connection, clyr-v2 production syncs included (2026-10-16). Before you add any sync, ask Eran.
+- Uploads: Railway Buckets (S3 API, endpoint `https://t3.storageapi.dev`, region `auto`), one bucket per environment with its own keys. Settings are the `LIBREDESK_UPLOAD__S3__*` keys in Doppler.
+  - Cloudflare R2 is not used: the wrangler login cannot create R2 S3 keys. The bucket `libredesk-staging` in R2 is unused. Never give Libredesk the Clyr backend's R2 key: it reaches every bucket, receipts included.
+- Clerk: both environments use the dev instance (`sacred-chimp-95`). A production Clerk instance only works on clyr.io domains.
+- Agents: Eran, Omer and Rodrigo (`@clyr.io`, Admin) and "Dogfood E2E" exist on both environments.
 
 ## Working with the running instance
 
@@ -62,7 +67,7 @@ Config comes from environment variables: `LIBREDESK_<SECTION>__<KEY>`, for examp
 - The Clerk Backend API rejects requests that have no User-Agent: use `curl -A`.
 - The `rtk` shell hook rewrites the output of curl, grep and docker. Use `rtk proxy <cmd>` for raw output.
 - Browser checks: run `agent-browser` headless with a new session, `--session <name> --allowed-domains "<host>,*.clerk.accounts.dev,*.accounts.dev"`. The default session uses an allowlist from `~/.zshrc`.
-- The dogfood Clerk user is in Doppler `clyr-server-v2/stg` (`E2E_CLERK_USER_EMAIL`, `E2E_CLERK_USER_PASSWORD`). On staging it maps to the agent "Dogfood E2E".
+- The dogfood Clerk user is in Doppler `clyr-server-v2/stg` (`E2E_CLERK_USER_EMAIL`, `E2E_CLERK_USER_PASSWORD`). On both environments it maps to the agent "Dogfood E2E". For a headless sign-in, create a sign-in ticket with the Clerk Backend API (`POST /v1/sign_in_tokens`).
 
 ## Reporting to Eran
 
