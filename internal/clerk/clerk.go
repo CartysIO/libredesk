@@ -180,10 +180,24 @@ func (c *Client) PrimaryEmail(ctx context.Context, userID string) (string, error
 	return "", ErrNoVerifiedMail
 }
 
+// originOf returns the browser origin of rootURL: lowercase scheme and host,
+// without the default port, which is how browsers report it in azp.
 func originOf(rootURL string) (string, error) {
-	u, err := url.Parse(rootURL)
+	u, err := url.Parse(strings.TrimSpace(rootURL))
 	if err != nil || u.Scheme == "" || u.Host == "" {
 		return "", fmt.Errorf("app root url %q is not an absolute url", rootURL)
 	}
-	return u.Scheme + "://" + u.Host, nil
+	scheme := strings.ToLower(u.Scheme)
+	host := strings.ToLower(u.Hostname())
+	port := u.Port()
+	if (scheme == "https" && port == "443") || (scheme == "http" && port == "80") {
+		port = ""
+	}
+	if strings.Contains(host, ":") {
+		host = "[" + host + "]"
+	}
+	if port != "" {
+		host += ":" + port
+	}
+	return scheme + "://" + host, nil
 }

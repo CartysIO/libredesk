@@ -149,7 +149,13 @@ import { EMITTER_EVENTS } from '../../constants/emitterEvents.js'
 import { useAppSettingsStore } from '../../stores/appSettings'
 import AuthLayout from '@/layouts/auth/AuthLayout.vue'
 import { Eye, EyeOff } from 'lucide-vue-next'
-import { keepLoginError, loadClerk, takeLoginError, takeSignedOut } from '@main/utils/clerk.js'
+import {
+  clearSignedOut,
+  isMarkedSignedOut,
+  keepLoginError,
+  loadClerk,
+  takeLoginError
+} from '@main/utils/clerk.js'
 
 const emitter = useEmitter()
 const { t } = useI18n()
@@ -171,6 +177,10 @@ const clerkLoading = ref(false)
 const showPasswordForm = ref(false)
 let clerk = null
 let removeClerkListener = null
+// clerkActive turns false when the view unmounts or a password login starts,
+// so a late Clerk session never replaces that login.
+let clerkActive = true
+let unmounted = false
 
 // Demo build has the credentials prefilled.
 const isDemoBuild = import.meta.env.VITE_DEMO_BUILD === 'true'
@@ -201,6 +211,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  unmounted = true
+  clerkActive = false
   removeClerkListener?.()
   if (clerk && clerkSignInRef.value) clerk.unmountSignIn(clerkSignInRef.value)
 })
@@ -213,22 +225,33 @@ const initClerk = async () => {
   }
   try {
     clerk = await loadClerk(clerkPublishableKey.value)
-    // Logging out of Libredesk ends the Clerk session too.
-    if (takeSignedOut(window.sessionStorage) && clerk.session) {
-      await clerk.signOut()
+    if (!clerkActive) return
+    // Logging out of Libredesk ends the Clerk session too. The marker stays
+    // until Clerk confirms the session is gone.
+    if (isMarkedSignedOut(window.sessionStorage)) {
+      if (clerk.session) await clerk.signOut()
+      if (clerk.session) return
+      clearSignedOut(window.sessionStorage)
     }
-    removeClerkListener = clerk.addListener(({ session }) => {
-      if (session) exchangeClerkSession()
-    })
+    if (!clerkActive) return
+    listenForClerkSession()
     if (clerk.session) {
       await exchangeClerkSession()
     } else {
       await mountClerkSignIn()
     }
   } catch (error) {
+    if (!clerkActive) return
     errorMessage.value = handleHTTPError(error).message
     showPasswordForm.value = true
   }
+}
+
+const listenForClerkSession = () => {
+  removeClerkListener?.()
+  removeClerkListener = clerk.addListener(({ session }) => {
+    if (session) exchangeClerkSession()
+  })
 }
 
 const mountClerkSignIn = async () => {
@@ -266,14 +289,18 @@ const mountClerkSignIn = async () => {
 
 // exchangeClerkSession trades the Clerk session token for a Libredesk session.
 const exchangeClerkSession = async () => {
-  if (clerkLoading.value || !clerk?.session) return
+  if (!clerkActive || clerkLoading.value || !clerk?.session) return
+  if (isMarkedSignedOut(window.sessionStorage)) return
   clerkLoading.value = true
   errorMessage.value = ''
   try {
     const token = await clerk.session.getToken()
+    if (!clerkActive) return
     const resp = await api.clerkLogin({ token })
+    if (!clerkActive) return
     completeLogin(resp)
   } catch (error) {
+    if (!clerkActive) return
     errorMessage.value = handleHTTPError(error).message
     applyTemporaryClass('login-container', 'animate-shake')
     // End the Clerk session so the agent can try another account. Clerk can
@@ -354,6 +381,9 @@ const loginAction = () => {
 
   errorMessage.value = ''
   isLoading.value = true
+  // A password login wins over a Clerk session that loads later.
+  clerkActive = false
+  removeClerkListener?.()
 
   api
     .login({
@@ -364,6 +394,11 @@ const loginAction = () => {
     .catch((error) => {
       errorMessage.value = handleHTTPError(error).message
       applyTemporaryClass('login-container', 'animate-shake')
+      // The password login failed, so Clerk sign-in works again.
+      if (clerk && !unmounted) {
+        clerkActive = true
+        listenForClerkSession()
+      }
     })
     .finally(() => {
       isLoading.value = false

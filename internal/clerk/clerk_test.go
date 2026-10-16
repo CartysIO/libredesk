@@ -157,3 +157,23 @@ func TestPrimaryEmail(t *testing.T) {
 		t.Fatal("missing user: no error")
 	}
 }
+
+func TestOriginOf(t *testing.T) {
+	cases := map[string]string{
+		"https://support.example.com":          "https://support.example.com",
+		"https://support.example.com/":         "https://support.example.com",
+		"https://Support.Example.com:443/desk": "https://support.example.com",
+		"http://localhost:80":                  "http://localhost",
+		"http://localhost:19000":               "http://localhost:19000",
+		"HTTPS://support.example.com:8443":     "https://support.example.com:8443",
+	}
+	for in, want := range cases {
+		got, err := originOf(in)
+		if err != nil || got != want {
+			t.Errorf("originOf(%q) = %q, %v; want %q", in, got, err, want)
+		}
+	}
+	if _, err := originOf("support.example.com"); err == nil {
+		t.Error("relative url accepted")
+	}
+}

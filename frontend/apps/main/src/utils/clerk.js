@@ -69,13 +69,20 @@ export const markSignedOut = (storage) => {
   }
 }
 
-export const takeSignedOut = (storage) => {
+export const isMarkedSignedOut = (storage) => {
   try {
-    const value = storage?.getItem(SIGNED_OUT_KEY)
-    storage?.removeItem(SIGNED_OUT_KEY)
-    return value === '1'
+    return storage?.getItem(SIGNED_OUT_KEY) === '1'
   } catch {
     return false
+  }
+}
+
+// clearSignedOut removes the marker once the Clerk session has ended.
+export const clearSignedOut = (storage) => {
+  try {
+    storage?.removeItem(SIGNED_OUT_KEY)
+  } catch {
+    // Storage can be unavailable in private windows.
   }
 }
 

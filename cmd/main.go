@@ -37,6 +37,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/abhinavxd/libredesk/internal/automation"
+	"github.com/abhinavxd/libredesk/internal/clerk"
 	contextlink "github.com/abhinavxd/libredesk/internal/context_link"
 	"github.com/abhinavxd/libredesk/internal/conversation"
 	"github.com/abhinavxd/libredesk/internal/conversation/priority"
@@ -45,7 +46,6 @@ import (
 	"github.com/abhinavxd/libredesk/internal/importer"
 	"github.com/abhinavxd/libredesk/internal/inbox"
 	"github.com/abhinavxd/libredesk/internal/media"
-	"github.com/abhinavxd/libredesk/internal/clerk"
 	"github.com/abhinavxd/libredesk/internal/oidc"
 	"github.com/abhinavxd/libredesk/internal/ratelimit"
 	"github.com/abhinavxd/libredesk/internal/role"

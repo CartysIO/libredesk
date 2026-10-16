@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  clearSignedOut,
   clerkFrontendApi,
+  isMarkedSignedOut,
   keepLoginError,
   markSignedOut,
-  takeLoginError,
-  takeSignedOut
+  takeLoginError
 } from './clerk'
 
 const memoryStorage = () => {
@@ -34,12 +35,14 @@ describe('clerkFrontendApi', () => {
 })
 
 describe('signed-out flag', () => {
-  it('is read once', () => {
+  it('stays set until cleared', () => {
     const storage = memoryStorage()
-    expect(takeSignedOut(storage)).toBe(false)
+    expect(isMarkedSignedOut(storage)).toBe(false)
     markSignedOut(storage)
-    expect(takeSignedOut(storage)).toBe(true)
-    expect(takeSignedOut(storage)).toBe(false)
+    expect(isMarkedSignedOut(storage)).toBe(true)
+    expect(isMarkedSignedOut(storage)).toBe(true)
+    clearSignedOut(storage)
+    expect(isMarkedSignedOut(storage)).toBe(false)
   })
 })
 

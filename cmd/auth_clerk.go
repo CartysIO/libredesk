@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"strings"
 
 	amodels "github.com/abhinavxd/libredesk/internal/auth/models"
 	"github.com/abhinavxd/libredesk/internal/clerk"
@@ -55,7 +56,7 @@ func handleClerkLogin(r *fastglue.Request) error {
 	user, err := app.user.GetAgent(0, email)
 	if err != nil {
 		if e, ok := err.(envelope.Error); ok && e.ErrorType == envelope.NotFoundError {
-			app.lo.Warn("no agent account matching clerk email", "clerk_user_id", clerkUserID, "email", email)
+			app.lo.Warn("no agent account matching clerk email", "clerk_user_id", clerkUserID, "email", maskEmail(email))
 			return r.SendErrorEnvelope(fasthttp.StatusForbidden, app.i18n.T("auth.oidcNoAccount"), nil, envelope.PermissionError)
 		}
 		return clerkLoginFailed(r)
@@ -93,11 +94,20 @@ func handleClerkLogin(r *fastglue.Request) error {
 		app.lo.Error("error creating login activity log", "error", err)
 	}
 
-	app.lo.Info("clerk login successful", "user_id", user.ID, "email", user.Email.String)
+	app.lo.Info("clerk login successful", "user_id", user.ID, "clerk_user_id", clerkUserID)
 	return r.SendEnvelope(user)
 }
 
 func clerkLoginFailed(r *fastglue.Request) error {
 	app := r.Context.(*App)
 	return r.SendErrorEnvelope(fasthttp.StatusInternalServerError, app.i18n.T("auth.oidcLoginFailed"), nil, envelope.GeneralError)
+}
+
+// maskEmail keeps the first letter and the domain, e.g. "j***@clyr.io".
+func maskEmail(email string) string {
+	at := strings.LastIndex(email, "@")
+	if at < 1 {
+		return "***"
+	}
+	return email[:1] + "***" + email[at:]
 }
