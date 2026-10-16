@@ -25,7 +25,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useStorage } from '@vueuse/core'
-import { Inbox, Shield, FileLineChart, BookUser } from 'lucide-vue-next'
+import { Inbox, Shield, FileLineChart, BookUser, Building2 } from 'lucide-vue-next'
 import { SidebarMenuButton, SidebarMenuItem } from '@shared-ui/components/ui/sidebar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@shared-ui/components/ui/tooltip'
 import { useIsMobile } from '@shared-ui/composables'
@@ -66,6 +66,14 @@ const items = computed(() =>
       to: { name: 'contacts' },
       isActive: route.path.startsWith('/contacts'),
       show: userStore.can('contacts:read_all')
+    },
+    {
+      key: 'organizations',
+      icon: Building2,
+      label: t('globals.terms.organization', 2),
+      to: { name: 'organizations' },
+      isActive: route.path.startsWith('/organizations'),
+      show: userStore.can('contacts:read')
     },
     {
       key: 'reports',

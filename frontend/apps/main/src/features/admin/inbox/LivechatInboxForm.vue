@@ -1707,6 +1707,8 @@ const jwtPayloadExample = computed(() => {
   "phone_number": "9876543210",                // Optional: User's phone number (e.g. "199999999999")
   "phone_number_country_code": "IN",          // Optional: ISO 3166-1 alpha-2 country code (e.g. "IN", "US")
   "exp": 1735689600,                          // Required: Expiration time (Unix timestamp in seconds)
+  "organization_external_id": "team_42",      // Optional: Your ID for the user's company; creates or links the organization
+  "organization_name": "Acme Inc",            // Optional: Organization name; renames it when it changes
   "contact_custom_attributes": {              // Optional: Contact-level attributes
     "plan": "premium",
     "company": "Acme Inc"

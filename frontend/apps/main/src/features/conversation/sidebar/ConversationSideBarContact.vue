@@ -82,6 +82,30 @@
       </span>
     </div>
     <div
+      v-if="conversation?.contact?.organization_name"
+      class="flex gap-2 items-center"
+      data-cy="sidebar-organization"
+    >
+      <Building2 size="16" class="text-muted-foreground flex-shrink-0" />
+      <router-link
+        v-if="userStore.can('contacts:read') && conversation.contact.organization_id"
+        :to="{ name: 'organization-detail', params: { id: conversation.contact.organization_id } }"
+        class="sidebar-value min-w-0 truncate hover:underline"
+      >
+        {{ conversation.contact.organization_name }}
+      </router-link>
+      <span v-else class="sidebar-value min-w-0 truncate">
+        {{ conversation.contact.organization_name }}
+      </span>
+      <span
+        v-if="conversation.contact.organization_external_id"
+        class="sidebar-label shrink-0 truncate"
+        :title="conversation.contact.organization_external_id"
+      >
+        {{ conversation.contact.organization_external_id }}
+      </span>
+    </div>
+    <div
       v-for="identity in conversation?.contact?.channel_identities"
       :key="identity.channel + identity.identifier"
       class="flex gap-2 items-center"
@@ -148,7 +172,8 @@ import {
   Monitor,
   Smartphone,
   ShieldCheck,
-  ShieldQuestion
+  ShieldQuestion,
+  Building2
 } from 'lucide-vue-next'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@shared-ui/components/ui/tooltip'
 import WhatsAppIcon from '@main/components/icons/WhatsAppIcon.vue'

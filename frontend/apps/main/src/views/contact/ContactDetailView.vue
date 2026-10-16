@@ -103,6 +103,11 @@
           </div>
 
           <div class="mt-12 space-y-10">
+            <ContactOrganization
+              v-if="userStore.can('contacts:read')"
+              :contact="contact"
+              @updated="onOrganizationUpdated"
+            />
             <ContactForm :formLoading="formLoading" :onSubmit="onSubmit" />
             <ContactNotes :contactId="contact.id" v-if="userStore.can('contact_notes:read')" />
           </div>
@@ -196,6 +201,7 @@ import ContactDetail from '@/layouts/contact/ContactDetail.vue'
 import api from '@/api'
 import ContactForm from '@/features/contact/ContactForm.vue'
 import ContactNotes from '@/features/contact/ContactNotes.vue'
+import ContactOrganization from '@/features/contact/ContactOrganization.vue'
 import WhatsAppIcon from '@/components/icons/WhatsAppIcon.vue'
 import { createFormSchema } from '@/features/contact/formSchema.js'
 import { useEmitter } from '@/composables/useEmitter'
@@ -260,6 +266,15 @@ async function fetchContact() {
     showError(err)
   } finally {
     formLoading.value = false
+  }
+}
+
+function onOrganizationUpdated(updated) {
+  contact.value = {
+    ...contact.value,
+    organization_id: updated.organization_id,
+    organization_name: updated.organization_name,
+    organization_external_id: updated.organization_external_id
   }
 }
 
