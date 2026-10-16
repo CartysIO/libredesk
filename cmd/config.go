@@ -61,7 +61,10 @@ func handleGetConfig(r *fastglue.Request) error {
 
 	// Add SSO providers to the response
 	publicSettings["app.sso_providers"] = enabledProviders
-	publicSettings["auth.local_login_enabled"] = isLocalLoginEnabled(oidcProviders)
+	publicSettings["auth.local_login_enabled"] = isLocalLoginEnabled(oidcProviders, app.clerk != nil)
+	if app.clerk != nil {
+		publicSettings["auth.clerk_publishable_key"] = app.clerk.PublishableKey()
+	}
 
 	return r.SendEnvelope(publicSettings)
 }
@@ -70,9 +73,15 @@ func localLoginDisabledInConfig() bool {
 	return ko.Exists(localLoginEnabledKey) && !ko.Bool(localLoginEnabledKey)
 }
 
-func isLocalLoginEnabled(providers []oidcmodels.OIDC) bool {
+// isLocalLoginEnabled reports whether password login is allowed. Disabling it in
+// config takes effect only when another sign-in method exists (an enabled OIDC
+// provider or Clerk), so nobody is locked out.
+func isLocalLoginEnabled(providers []oidcmodels.OIDC, clerkEnabled bool) bool {
 	if !localLoginDisabledInConfig() {
 		return true
+	}
+	if clerkEnabled {
+		return false
 	}
 	for _, provider := range providers {
 		if provider.Enabled {

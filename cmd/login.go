@@ -26,10 +26,10 @@ func handleLogin(r *fastglue.Request) error {
 		if err != nil {
 			return sendErrorEnvelope(r, err)
 		}
-		if !isLocalLoginEnabled(oidcProviders) {
+		if !isLocalLoginEnabled(oidcProviders, app.clerk != nil) {
 			return r.SendErrorEnvelope(fasthttp.StatusForbidden, app.i18n.T("auth.localLoginDisabled"), nil, envelope.PermissionError)
 		}
-		app.lo.Warn("local login is disabled in config but no OIDC provider is enabled, allowing password login")
+		app.lo.Warn("local login is disabled in config but no OIDC provider or Clerk is enabled, allowing password login")
 	}
 
 	// Decode JSON request.

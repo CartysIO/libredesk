@@ -20,4 +20,17 @@ describe('createLogout', () => {
 
     expect(browser.location.href).toBe('/logout')
   })
+
+  it('asks the next login page to end the Clerk session', async () => {
+    const pushNotifications = { disable: vi.fn().mockResolvedValue() }
+    const stored = {}
+    const browser = {
+      location: { href: '' },
+      sessionStorage: { setItem: (k, v) => (stored[k] = v) }
+    }
+
+    await createLogout(pushNotifications, browser)()
+
+    expect(stored.libredesk_signed_out).toBe('1')
+  })
 })
