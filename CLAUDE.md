@@ -37,7 +37,12 @@ docker build -f Dockerfile.clyr -t libredesk-clyr:local .
   - `POST /api/v1/auth/clerk` checks the session token against the instance's JWKS. It checks the issuer, `exp`/`nbf`, and that `azp` equals the root URL origin. It then reads the user's verified primary email from the Clerk Backend API.
   - The agent with that email is signed in. Libredesk does not create accounts at sign-in.
   - Enabled when `[clerk] publishable_key` and `secret_key` are set.
-- Planned: organizations (customer companies keyed by Clyr teamId), a Slack bridge Go module for #user_support, and a Pylon import script in `scripts/`. See the plan doc for the design.
+- Organizations (`internal/organization`, `cmd/organizations.go`): customer companies keyed by Clyr teamId (`external_id`). Contacts and conversations have `organization_id`.
+- Slack bridge (`internal/slackbridge`, `cmd/slack_bridge.go`): one Slack thread per conversation in one channel.
+  - It gets conversation events through `eventFanout` (`cmd/slack_bridge.go`), which wraps the webhook manager. All its work runs on one worker goroutine, in order; that order is what stops a note from Slack being posted back.
+  - Slack sends events to `POST /webhooks/slack/events`, signed with the signing secret. A thread reply becomes a private note by the agent with the Slack user's email; a reply that mentions the bot is sent to the customer.
+  - Enabled when `[slack] bot_token`, `signing_secret` and `channel_id` are set. The app manifest is `deploy/slack-app-manifest.yml`.
+- Planned: a Pylon import script in `scripts/`. See the plan doc.
 
 ## Configuration
 

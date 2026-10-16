@@ -51,6 +51,7 @@ import (
 	"github.com/abhinavxd/libredesk/internal/ratelimit"
 	"github.com/abhinavxd/libredesk/internal/role"
 	"github.com/abhinavxd/libredesk/internal/setting"
+	"github.com/abhinavxd/libredesk/internal/slackbridge"
 	"github.com/abhinavxd/libredesk/internal/tag"
 	"github.com/abhinavxd/libredesk/internal/team"
 	"github.com/abhinavxd/libredesk/internal/template"
@@ -110,6 +111,7 @@ type App struct {
 	lo                 *logf.Logger
 	oidc               *oidc.Manager
 	clerk              *clerk.Client
+	slackBridge        *slackbridge.Manager
 	media              *media.Manager
 	setting            *setting.Manager
 	role               *role.Manager
@@ -276,7 +278,8 @@ func main() {
 		automation                  = initAutomationEngine(db, i18n)
 		ai                          = initAI(ctx, db, i18n, ssrfControl)
 		sla                         = initSLA(db, team, settings, businessHours, template, user, i18n, notifDispatcher)
-		conversation                = initConversations(i18n, sla, status, priority, wsHub, db, inbox, user, team, media, settings, csat, automation, template, webhook, notifDispatcher)
+		slackBridge                 = initSlackBridge(db, user, media, settings)
+		conversation                = initConversations(i18n, sla, status, priority, wsHub, db, inbox, user, team, media, settings, csat, automation, template, eventFanout{webhook: webhook, bridge: slackBridge}, notifDispatcher)
 		aiAgent                     = initAIAgent(db, i18n, ai, conversation, inbox, media, settings, user, notifier, rdb)
 		helpCenter                  = initHelpCenter(db, i18n, ai)
 		autoassigner                = initAutoAssigner(team, user, conversation)
@@ -291,6 +294,9 @@ func main() {
 	}
 	automation.SetSystemUserID(systemUser.ID)
 	conversation.SetAIAgent(aiAgent)
+	if slackBridge != nil {
+		slackBridge.SetConversationStore(conversation)
+	}
 
 	waClient := initWhatsAppClient()
 	waTemplates := initWhatsAppTemplates(db, i18n, waClient, inbox)
@@ -302,6 +308,9 @@ func main() {
 	go conversation.RunUnsnoozer(ctx, unsnoozeInterval)
 	go conversation.RunContinuity(ctx)
 	go webhook.Run(ctx)
+	if slackBridge != nil {
+		go slackBridge.Run(ctx)
+	}
 	go notifier.Run(ctx)
 	go sla.Run(ctx, slaEvaluationInterval)
 	go sla.SendNotifications(ctx)
@@ -324,6 +333,7 @@ func main() {
 		sla:              sla,
 		oidc:             oidc,
 		clerk:            clerkClient,
+		slackBridge:      slackBridge,
 		i18n:             i18n,
 		auth:             auth,
 		media:            media,

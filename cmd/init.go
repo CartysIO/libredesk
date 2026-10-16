@@ -306,7 +306,7 @@ func initConversations(
 	csat *csat.Manager,
 	automationEngine *automation.Engine,
 	template *tmpl.Manager,
-	webhook *webhook.Manager,
+	webhook eventFanout,
 	dispatcher *notifier.Dispatcher,
 ) *conversation.Manager {
 	continuityConfig := &conversation.ContinuityConfig{}

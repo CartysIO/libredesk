@@ -411,6 +411,9 @@ func initHandlers(g *fastglue.Fastglue, hub *ws.Hub) {
 	g.GET("/webhooks/whatsapp/{inbox_id}", rateLimit(handleWhatsAppWebhookVerify, "public"))
 	g.POST("/webhooks/whatsapp/{inbox_id}", handleWhatsAppWebhookEvent)
 
+	// Slack bridge (Clyr fork). Slack signs each request; handleSlackEvents checks the signature.
+	g.POST("/webhooks/slack/events", rateLimit(handleSlackEvents, "public"))
+
 	g.GET("/api/v1/whatsapp/contacts/{contact_id}/open-conversation", perm(handleGetWhatsAppOpenConversation, "conversations:read"))
 
 	// WhatsApp templates.
