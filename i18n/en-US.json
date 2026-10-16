@@ -666,6 +666,7 @@
   "auth.showPassword": "Show password",
   "auth.signIn": "Sign in to your account",
   "auth.signInButton": "Sign in",
+  "auth.signInWithPassword": "Sign in with password",
   "automation.deletionConfirmation": "This action cannot be undone. This will permanently delete this automation rule.",
   "automation.editRule": "Edit rule",
   "automation.newRule": "New rule",

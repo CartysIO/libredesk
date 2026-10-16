@@ -192,3 +192,9 @@ requests_per_minute = 100
 [rate_limit.media]
 enabled = true
 requests_per_minute = 300
+
+# Clerk sign-in. When both keys are set, the login page shows Clerk's SignIn
+# component, and agents sign in with the email of their Clerk account.
+[clerk]
+publishable_key = ""
+secret_key = ""
