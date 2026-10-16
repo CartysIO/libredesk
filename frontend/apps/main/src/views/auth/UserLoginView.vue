@@ -181,6 +181,7 @@ let removeClerkListener = null
 // so a late Clerk session never replaces that login.
 let clerkActive = true
 let unmounted = false
+let signInMounted = false
 
 // Demo build has the credentials prefilled.
 const isDemoBuild = import.meta.env.VITE_DEMO_BUILD === 'true'
@@ -256,7 +257,8 @@ const listenForClerkSession = () => {
 
 const mountClerkSignIn = async () => {
   await nextTick()
-  if (!clerk || !clerkSignInRef.value) return
+  if (!clerk || !clerkSignInRef.value || signInMounted) return
+  signInMounted = true
   clerk.mountSignIn(clerkSignInRef.value, {
     forceRedirectUrl: window.location.href,
     appearance: {
@@ -394,10 +396,11 @@ const loginAction = () => {
     .catch((error) => {
       errorMessage.value = handleHTTPError(error).message
       applyTemporaryClass('login-container', 'animate-shake')
-      // The password login failed, so Clerk sign-in works again.
-      if (clerk && !unmounted) {
+      // The password login failed, so Clerk sign-in works again. Clerk may
+      // still have been loading, so run its setup again.
+      if (clerkPublishableKey.value && !unmounted) {
         clerkActive = true
-        listenForClerkSession()
+        initClerk()
       }
     })
     .finally(() => {
