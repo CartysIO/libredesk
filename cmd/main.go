@@ -45,6 +45,7 @@ import (
 	"github.com/abhinavxd/libredesk/internal/importer"
 	"github.com/abhinavxd/libredesk/internal/inbox"
 	"github.com/abhinavxd/libredesk/internal/media"
+	"github.com/abhinavxd/libredesk/internal/clerk"
 	"github.com/abhinavxd/libredesk/internal/oidc"
 	"github.com/abhinavxd/libredesk/internal/ratelimit"
 	"github.com/abhinavxd/libredesk/internal/role"
@@ -107,6 +108,7 @@ type App struct {
 	i18n               *i18n.I18n
 	lo                 *logf.Logger
 	oidc               *oidc.Manager
+	clerk              *clerk.Client
 	media              *media.Manager
 	setting            *setting.Manager
 	role               *role.Manager
@@ -259,6 +261,7 @@ func main() {
 		webhook                     = initWebhook(db, i18n, ssrfControl)
 		user                        = initUser(i18n, db)
 		auth                        = initAuth(oidc, rdb, i18n, ssrfControl)
+		clerkClient                 = initClerk()
 		wsHub                       = initWS(user)
 		notifier                    = initNotifier()
 		userNotification            = initUserNotification(db, i18n)
@@ -317,6 +320,7 @@ func main() {
 		fs:               fs,
 		sla:              sla,
 		oidc:             oidc,
+		clerk:            clerkClient,
 		i18n:             i18n,
 		auth:             auth,
 		media:            media,

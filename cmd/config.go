@@ -62,6 +62,9 @@ func handleGetConfig(r *fastglue.Request) error {
 	// Add SSO providers to the response
 	publicSettings["app.sso_providers"] = enabledProviders
 	publicSettings["auth.local_login_enabled"] = isLocalLoginEnabled(oidcProviders)
+	if app.clerk != nil {
+		publicSettings["auth.clerk_publishable_key"] = app.clerk.PublishableKey()
+	}
 
 	return r.SendEnvelope(publicSettings)
 }

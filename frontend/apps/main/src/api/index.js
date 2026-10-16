@@ -156,6 +156,11 @@ const login = (data) => http.post(`/api/v1/auth/login`, data, {
     'Content-Type': 'application/json'
   }
 })
+const clerkLogin = (data) => http.post(`/api/v1/auth/clerk`, data, {
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
 const getAutomationRules = (type) =>
   http.get(`/api/v1/automations/rules`, {
     params: { type: type }
@@ -663,6 +668,7 @@ const getCampaignStats = (id, params) => http.get(`/api/v1/inboxes/${id}/campaig
 export default {
  getCampaignStats,
   login,
+  clerkLogin,
   deleteUser,
   importAgents,
   getAgentImportStatus,

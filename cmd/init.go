@@ -43,6 +43,7 @@ import (
 	notifier "github.com/abhinavxd/libredesk/internal/notification"
 	notificationchannels "github.com/abhinavxd/libredesk/internal/notification/channels"
 	emailnotifier "github.com/abhinavxd/libredesk/internal/notification/providers/email"
+	"github.com/abhinavxd/libredesk/internal/clerk"
 	"github.com/abhinavxd/libredesk/internal/oidc"
 	"github.com/abhinavxd/libredesk/internal/ratelimit"
 	"github.com/abhinavxd/libredesk/internal/report"
@@ -927,6 +928,22 @@ func initSSRFControl() ssrf.Control {
 }
 
 // initAuth initializes the authentication manager.
+// initClerk returns the Clerk sign-in client, or nil when the [clerk] keys are not set.
+func initClerk() *clerk.Client {
+	cfg := clerk.Config{
+		PublishableKey: ko.String("clerk.publishable_key"),
+		SecretKey:      ko.String("clerk.secret_key"),
+	}
+	if !cfg.Enabled() {
+		return nil
+	}
+	c, err := clerk.New(cfg)
+	if err != nil {
+		log.Fatalf("error initializing clerk: %v", err)
+	}
+	return c
+}
+
 func initAuth(o *oidc.Manager, rd *redis.Client, i18n *i18n.I18n, dialControl ssrf.Control) *auth_.Auth {
 	lo := initLogger("auth")
 
