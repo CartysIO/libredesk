@@ -87,6 +87,12 @@
               :placeholder="t('placeholders.selectValue')"
             />
 
+            <SelectOrganizationCombobox
+              v-else-if="fieldEntity === 'organization'"
+              v-model="leafValue"
+              :placeholder="t('placeholders.selectValue')"
+            />
+
             <SelectComboBox
               v-else-if="fieldOptions.length > 0"
               v-model="leafValue"
@@ -126,6 +132,7 @@ import CloseButton from '@/components/button/CloseButton.vue'
 import SelectComboBox from '@/components/combobox/SelectCombobox.vue'
 import SelectAgentCombobox from '@/components/combobox/SelectAgentCombobox.vue'
 import SelectTeamCombobox from '@/components/combobox/SelectTeamCombobox.vue'
+import SelectOrganizationCombobox from '@/components/combobox/SelectOrganizationCombobox.vue'
 import SelectTagCombobox from '@/components/combobox/SelectTagCombobox.vue'
 import SelectTag from '@shared-ui/components/ui/select/SelectTag.vue'
 import DateFilterValue from '@/components/filter/DateFilterValue.vue'

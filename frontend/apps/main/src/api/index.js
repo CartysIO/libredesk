@@ -241,6 +241,16 @@ const createTeam = (data) => http.post('/api/v1/teams', data, {
   }
 })
 const getTeamsCompact = (params) => http.get('/api/v1/teams/compact', { params })
+// Organizations (Clyr fork).
+const getOrganizations = (params) => http.get('/api/v1/organizations', { params })
+const getOrganization = (id) => http.get(`/api/v1/organizations/${id}`)
+const createOrganization = (data) => http.post('/api/v1/organizations', data)
+const updateOrganization = (id, data) => http.put(`/api/v1/organizations/${id}`, data)
+const deleteOrganization = (id) => http.delete(`/api/v1/organizations/${id}`)
+const getOrganizationContacts = (id, params) =>
+  http.get(`/api/v1/organizations/${id}/contacts`, { params })
+const setContactOrganization = (id, organizationID) =>
+  http.put(`/api/v1/contacts/${id}/organization`, { organization_id: organizationID })
 const deleteTeam = (id) => http.delete(`/api/v1/teams/${id}`)
 const updateUser = (id, data) =>
   http.put(`/api/v1/agents/${id}`, data, {
@@ -790,6 +800,13 @@ export default {
   updateStatus,
   deleteStatus,
   getTeamsCompact,
+  getOrganizations,
+  getOrganization,
+  createOrganization,
+  updateOrganization,
+  deleteOrganization,
+  getOrganizationContacts,
+  setContactOrganization,
   getUsersCompact,
   getEmailNotificationSettings,
   updateEmailNotificationSettings,

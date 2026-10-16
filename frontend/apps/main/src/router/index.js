@@ -45,6 +45,18 @@ const routes = [
         meta: { titleKey: 'globals.terms.contact', titleCount: 2 }
       },
       {
+        path: 'organizations',
+        name: 'organizations',
+        component: () => import('@main/views/organization/OrganizationsView.vue'),
+        meta: { titleKey: 'globals.terms.organization', titleCount: 2 }
+      },
+      {
+        path: 'organizations/:id',
+        name: 'organization-detail',
+        component: () => import('@main/views/organization/OrganizationDetailView.vue'),
+        meta: { titleKey: 'globals.terms.organization', titleCount: 2 }
+      },
+      {
         path: '/reports',
         name: 'reports',
         redirect: '/reports/overview',
