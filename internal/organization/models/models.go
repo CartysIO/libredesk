@@ -15,7 +15,6 @@ type Organization struct {
 	Name         string      `db:"name" json:"name"`
 	ExternalID   null.String `db:"external_id" json:"external_id"`
 	ContactCount int         `db:"contact_count" json:"contact_count"`
-	Total        int         `db:"total" json:"-"`
 }
 
 // Contact is a contact listed under an organization.

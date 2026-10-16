@@ -43,6 +43,7 @@ type Opts struct {
 }
 
 type queries struct {
+	CountOrganizations           *sqlx.Stmt `query:"count-organizations"`
 	GetOrganizations             *sqlx.Stmt `query:"get-organizations"`
 	GetOrganization              *sqlx.Stmt `query:"get-organization"`
 	GetOrganizationByExternalID  *sqlx.Stmt `query:"get-organization-by-external-id"`
@@ -65,14 +66,19 @@ func New(opts Opts) (*Manager, error) {
 
 // GetAll returns organizations whose name contains query or whose external ID equals it, ordered by name.
 func (m *Manager) GetAll(query string, page, pageSize int) ([]models.Organization, int, error) {
-	var orgs = make([]models.Organization, 0)
-	if err := m.q.GetOrganizations.Select(&orgs, strings.TrimSpace(query), pageSize, dbutil.PageOffset(page, pageSize)); err != nil {
-		m.lo.Error("error fetching organizations", "error", err)
+	var (
+		orgs  = make([]models.Organization, 0)
+		total int
+	)
+	query = strings.TrimSpace(query)
+	// Count separately, so a page past the last one still reports the total.
+	if err := m.q.CountOrganizations.Get(&total, query); err != nil {
+		m.lo.Error("error counting organizations", "error", err)
 		return orgs, 0, m.generalError()
 	}
-	total := 0
-	if len(orgs) > 0 {
-		total = orgs[0].Total
+	if err := m.q.GetOrganizations.Select(&orgs, query, pageSize, dbutil.PageOffset(page, pageSize)); err != nil {
+		m.lo.Error("error fetching organizations", "error", err)
+		return orgs, 0, m.generalError()
 	}
 	return orgs, total, nil
 }
@@ -137,7 +143,7 @@ func (m *Manager) Update(id int, name, externalID string) (models.Organization, 
 		m.lo.Error("error updating organization", "id", id, "error", err)
 		return org, m.generalError()
 	}
-	return org, nil
+	return m.Get(org.ID)
 }
 
 // UpsertByExternalID creates the organization with this external ID, or renames it when name is not empty.
@@ -178,6 +184,9 @@ func (m *Manager) Delete(id int) error {
 // GetContacts returns the contacts of an organization, ordered by first name.
 func (m *Manager) GetContacts(id, page, pageSize int) ([]models.Contact, error) {
 	var contacts = make([]models.Contact, 0)
+	if _, err := m.Get(id); err != nil {
+		return contacts, err
+	}
 	if err := m.q.GetOrganizationContacts.Select(&contacts, id, pageSize, dbutil.PageOffset(page, pageSize)); err != nil {
 		m.lo.Error("error fetching organization contacts", "id", id, "error", err)
 		return contacts, m.generalError()

@@ -50,7 +50,7 @@ func errType(err error) string {
 }
 
 func TestCreateUpdateAndValidate(t *testing.T) {
-	mgr, _ := newTestManager(t)
+	mgr, db := newTestManager(t)
 
 	org, err := mgr.Create("  Acme  ", " team_1 ")
 	if err != nil {
@@ -73,9 +73,13 @@ func TestCreateUpdateAndValidate(t *testing.T) {
 		t.Fatalf("empty name: err = %v, want input error", err)
 	}
 
+	var contact int
+	if err := db.Get(&contact, `INSERT INTO users (type, first_name, organization_id) VALUES ('contact', 'Ada', $1) RETURNING id`, org.ID); err != nil {
+		t.Fatal(err)
+	}
 	updated, err := mgr.Update(org.ID, "Acme Inc", "team_1")
-	if err != nil || updated.Name != "Acme Inc" {
-		t.Fatalf("Update = %+v, %v", updated, err)
+	if err != nil || updated.Name != "Acme Inc" || updated.ContactCount != 1 {
+		t.Fatalf("Update = %+v, %v; want the new name and contact_count 1", updated, err)
 	}
 	if _, err := mgr.Update(noExt.ID, "No external ID", "team_1"); errType(err) != envelope.ConflictError {
 		t.Fatalf("update to a used external ID: err = %v, want conflict", err)
@@ -145,6 +149,13 @@ func TestSetContactOrganization(t *testing.T) {
 	all, total, err := mgr.GetAll("acm", 1, 10)
 	if err != nil || total != 1 || all[0].ContactCount != 1 {
 		t.Fatalf("GetAll search = %+v, total %d, %v", all, total, err)
+	}
+	pastEnd, total, err := mgr.GetAll("", 5, 10)
+	if err != nil || len(pastEnd) != 0 || total != 2 {
+		t.Fatalf("page past the end = %d rows, total %d, %v; want 0 rows, total 2", len(pastEnd), total, err)
+	}
+	if _, err := mgr.GetContacts(999999, 1, 10); errType(err) != envelope.NotFoundError {
+		t.Fatalf("contacts of a missing organization: err = %v, want not found", err)
 	}
 	byExt, _, _ := mgr.GetAll("team_2", 1, 10)
 	if len(byExt) != 1 || byExt[0].ID != globex.ID {

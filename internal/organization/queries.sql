@@ -1,6 +1,11 @@
+-- name: count-organizations
+-- $1 = search text on name or external_id ('' for all).
+SELECT COUNT(*) FROM organizations o
+WHERE ($1 = '' OR o.name ILIKE '%' || $1 || '%' OR o.external_id = $1);
+
 -- name: get-organizations
 -- $1 = search text on name or external_id ('' for all), $2 = limit, $3 = offset.
-SELECT COUNT(*) OVER() AS total, o.id, o.created_at, o.updated_at, o.name, o.external_id,
+SELECT o.id, o.created_at, o.updated_at, o.name, o.external_id,
     (SELECT COUNT(*) FROM users u WHERE u.organization_id = o.id AND u.deleted_at IS NULL) AS contact_count
 FROM organizations o
 WHERE ($1 = '' OR o.name ILIKE '%' || $1 || '%' OR o.external_id = $1)
