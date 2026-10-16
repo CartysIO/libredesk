@@ -164,6 +164,16 @@ func initHandlers(g *fastglue.Fastglue, hub *ws.Hub) {
 	g.DELETE("/api/v1/contacts/{id}", perm(handleDeleteContact, "contacts:delete"))
 	g.GET("/api/v1/contacts/{id}/export", perm(handleExportContact, "contacts:export"))
 
+	g.PUT("/api/v1/contacts/{id}/organization", perm(handleSetContactOrganization, "contacts:write"))
+
+	// Organizations (Clyr fork). They reuse the contact permissions.
+	g.GET("/api/v1/organizations", perm(handleGetOrganizations, "contacts:read"))
+	g.POST("/api/v1/organizations", perm(handleCreateOrganization, "contacts:write"))
+	g.GET("/api/v1/organizations/{id}", perm(handleGetOrganization, "contacts:read"))
+	g.PUT("/api/v1/organizations/{id}", perm(handleUpdateOrganization, "contacts:write"))
+	g.DELETE("/api/v1/organizations/{id}", perm(handleDeleteOrganization, "contacts:delete"))
+	g.GET("/api/v1/organizations/{id}/contacts", perm(handleGetOrganizationContacts, "contacts:read"))
+
 	// Contact notes.
 	g.GET("/api/v1/contacts/{id}/notes", perm(handleGetContactNotes, "contact_notes:read"))
 	g.POST("/api/v1/contacts/{id}/notes", perm(handleCreateContactNote, "contact_notes:write"))
@@ -425,6 +435,7 @@ func initHandlers(g *fastglue.Fastglue, hub *ws.Hub) {
 	g.GET("/views/{all:*}", authPage(serveIndexPage))
 	g.GET("/admin/{all:*}", authPage(serveIndexPage))
 	g.GET("/contacts/{all:*}", authPage(serveIndexPage))
+	g.GET("/organizations/{all:*}", authPage(serveIndexPage))
 	g.GET("/reports/{all:*}", authPage(serveIndexPage))
 	g.GET("/account/{all:*}", authPage(serveIndexPage))
 	g.GET("/reset-password", notAuthPage(serveIndexPage))

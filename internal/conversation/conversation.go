@@ -58,7 +58,7 @@ var (
 	errConversationNotFound         = errors.New("conversation not found")
 	ErrConversationAlreadyAssigned  = errors.New("conversation already assigned")
 	ErrMessageNotFound              = errors.New("message not found")
-	conversationsAllowedFields      = []string{"status_id", "priority_id", "assigned_team_id", "assigned_user_id", "inbox_id", "last_message_at", "last_interaction_at", "last_interaction_sender", "created_at", "waiting_since", "next_sla_deadline_at", "snoozed_until", "sla_policy_id"}
+	conversationsAllowedFields      = []string{"status_id", "priority_id", "assigned_team_id", "assigned_user_id", "inbox_id", "last_message_at", "last_interaction_at", "last_interaction_sender", "created_at", "waiting_since", "next_sla_deadline_at", "snoozed_until", "sla_policy_id", "organization_id"}
 	conversationStatusAllowedFields = []string{"id", "name"}
 	usersAllowedFields              = []string{"email", "external_user_id"}
 	inboxesAllowedFields            = []string{"channel"}
@@ -77,7 +77,8 @@ const (
 
 var ListFilterRenderers = dbutil.FieldRenderers{
 	"conversations": {
-		"tags": renderTagFilter,
+		"tags":                     renderTagFilter,
+		"organization_external_id": renderOrganizationExternalIDFilter,
 	},
 }
 
@@ -2435,6 +2436,28 @@ func renderTagFilter(operator, value string, paramIndex int) (string, []any, err
 		return "NOT EXISTS (SELECT 1 FROM conversation_tags WHERE conversation_id = conversations.id)", nil, nil
 	default:
 		return "", nil, fmt.Errorf("invalid operator for tags: %s", operator)
+	}
+}
+
+// renderOrganizationExternalIDFilter filters conversations by the external ID of their organization (Clyr fork).
+func renderOrganizationExternalIDFilter(operator, value string, paramIndex int) (string, []any, error) {
+	switch operator {
+	case "equals", "not equals":
+		if strings.TrimSpace(value) == "" {
+			return "", nil, fmt.Errorf("operator %q requires a value", operator)
+		}
+		op := "IN"
+		if operator == "not equals" {
+			op = "NOT IN"
+		}
+		sql := fmt.Sprintf("COALESCE(conversations.organization_id, 0) %s (SELECT id FROM organizations WHERE external_id = $%d)", op, paramIndex)
+		return sql, []any{value}, nil
+	case "set":
+		return "conversations.organization_id IS NOT NULL", nil, nil
+	case "not set":
+		return "conversations.organization_id IS NULL", nil, nil
+	default:
+		return "", nil, fmt.Errorf("invalid operator for organization_external_id: %s", operator)
 	}
 }
 

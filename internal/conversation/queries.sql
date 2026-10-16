@@ -15,7 +15,7 @@ reference_number AS (
     SELECT generate_reference_number($7) AS reference_number
 )
 INSERT INTO conversations
-(contact_id, status_id, inbox_id, last_message, last_message_at, subject, reference_number, meta, custom_attributes)
+(contact_id, status_id, inbox_id, last_message, last_message_at, subject, reference_number, meta, custom_attributes, organization_id)
 SELECT
    $1,
    (SELECT id FROM status_id),
@@ -28,7 +28,8 @@ SELECT
    END,
    (SELECT reference_number FROM reference_number),
    $9,
-   $10
+   $10,
+   (SELECT organization_id FROM users WHERE id = $1)
 WHERE $12::int = 0 OR (SELECT COUNT(*) FROM conversations WHERE contact_id = $1 AND created_at >= $11) < $12::int
 RETURNING id, uuid;
 
@@ -67,6 +68,8 @@ SELECT
     conversations.priority_id,
     conversations.assigned_user_id,
     conversations.assigned_team_id,
+    conversations.organization_id,
+    organizations.name as organization_name,
     (
     SELECT CASE WHEN COUNT(*) > 9 THEN 10 ELSE COUNT(*) END
     FROM (
@@ -103,6 +106,7 @@ SELECT
     FROM conversations
     JOIN users ON contact_id = users.id
     JOIN inboxes ON inbox_id = inboxes.id  
+    LEFT JOIN organizations ON organizations.id = conversations.organization_id
     LEFT JOIN conversation_statuses ON status_id = conversation_statuses.id
     LEFT JOIN conversation_priorities ON priority_id = conversation_priorities.id
     LEFT JOIN LATERAL (
@@ -152,6 +156,8 @@ SELECT
     conversations.priority_id,
     conversations.assigned_user_id,
     conversations.assigned_team_id,
+    conversations.organization_id,
+    organizations.name as organization_name,
     conversation_statuses.name as status,
     conversation_priorities.name as priority,
     as_latest.first_response_deadline_at,
@@ -162,6 +168,7 @@ SELECT
 FROM conversations
 JOIN users ON contact_id = users.id
 JOIN inboxes ON inbox_id = inboxes.id
+LEFT JOIN organizations ON organizations.id = conversations.organization_id
 LEFT JOIN conversation_statuses ON status_id = conversation_statuses.id
 LEFT JOIN conversation_priorities ON priority_id = conversation_priorities.id
 LEFT JOIN LATERAL (
@@ -245,6 +252,11 @@ SELECT
    ct.last_active_at as "contact.last_active_at",
    ct.last_login_at as "contact.last_login_at",
    ct.external_user_id as "contact.external_user_id",
+   ct.organization_id as "contact.organization_id",
+   ct_org.name as "contact.organization_name",
+   ct_org.external_id as "contact.organization_external_id",
+   c.organization_id,
+   c_org.name as organization_name,
    (SELECT json_agg(json_build_object('channel', cci.channel, 'identifier', cci.identifier))
       FROM contact_channel_identities cci WHERE cci.contact_id = ct.id) as "contact.channel_identities",
    as_latest.first_response_deadline_at,
@@ -260,6 +272,8 @@ SELECT
    csat.response_timestamp as csat_responded_at
 FROM conversations c
 JOIN users ct ON c.contact_id = ct.id
+LEFT JOIN organizations ct_org ON ct_org.id = ct.organization_id
+LEFT JOIN organizations c_org ON c_org.id = c.organization_id
 JOIN inboxes inb ON c.inbox_id = inb.id
 LEFT JOIN LATERAL (
     SELECT rating, feedback, response_timestamp

@@ -47,6 +47,7 @@ import (
 	"github.com/abhinavxd/libredesk/internal/inbox"
 	"github.com/abhinavxd/libredesk/internal/media"
 	"github.com/abhinavxd/libredesk/internal/oidc"
+	"github.com/abhinavxd/libredesk/internal/organization"
 	"github.com/abhinavxd/libredesk/internal/ratelimit"
 	"github.com/abhinavxd/libredesk/internal/role"
 	"github.com/abhinavxd/libredesk/internal/setting"
@@ -114,6 +115,7 @@ type App struct {
 	role               *role.Manager
 	user               *user.Manager
 	team               *team.Manager
+	organization       *organization.Manager
 	status             *status.Manager
 	priority           *priority.Manager
 	tag                *tag.Manager
@@ -257,6 +259,7 @@ func main() {
 		media                       = initMedia(db, i18n, settings)
 		inbox                       = initInbox(db, i18n)
 		team                        = initTeam(db, i18n)
+		organization                = initOrganization(db, i18n)
 		businessHours               = initBusinessHours(db, i18n)
 		webhook                     = initWebhook(db, i18n, ssrfControl)
 		user                        = initUser(i18n, db)
@@ -328,6 +331,7 @@ func main() {
 		inbox:            inbox,
 		user:             user,
 		team:             team,
+		organization:     organization,
 		csat:             csat,
 		status:           status,
 		priority:         priority,
