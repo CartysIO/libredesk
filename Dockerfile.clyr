@@ -22,13 +22,17 @@ RUN make build
 
 FROM alpine:3.20
 
-RUN apk --no-cache add ca-certificates tzdata
+RUN apk --no-cache add ca-certificates tzdata \
+	&& addgroup -S libredesk && adduser -S -G libredesk libredesk
 
 WORKDIR /libredesk
 
 COPY --from=build /src/libredesk .
 COPY config.sample.toml config.toml
 COPY deploy/start.sh .
+RUN mkdir uploads && chown libredesk:libredesk uploads
+
+USER libredesk
 
 EXPOSE 9000
 
