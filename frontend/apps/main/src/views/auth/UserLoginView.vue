@@ -208,7 +208,10 @@ onMounted(async () => {
   }
   fetchOIDCProviders()
   showOIDCError()
-  if (clerkPublishableKey.value) initClerk()
+  if (clerkPublishableKey.value) {
+    showKeptLoginError()
+    initClerk()
+  }
 })
 
 onBeforeUnmount(() => {
@@ -218,12 +221,15 @@ onBeforeUnmount(() => {
   if (clerk && clerkSignInRef.value) clerk.unmountSignIn(clerkSignInRef.value)
 })
 
-const initClerk = async () => {
+const showKeptLoginError = () => {
   const keptError = takeLoginError(window.sessionStorage)
   if (keptError) {
     errorMessage.value = keptError
     applyTemporaryClass('login-container', 'animate-shake')
   }
+}
+
+const initClerk = async () => {
   try {
     clerk = await loadClerk(clerkPublishableKey.value)
     if (!clerkActive) return
@@ -399,6 +405,7 @@ const loginAction = () => {
       // The password login failed, so Clerk sign-in works again. Clerk may
       // still have been loading, so run its setup again.
       if (clerkPublishableKey.value && !unmounted) {
+        takeLoginError(window.sessionStorage)
         clerkActive = true
         initClerk()
       }
