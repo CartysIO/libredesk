@@ -45,6 +45,7 @@ import (
 	notificationchannels "github.com/abhinavxd/libredesk/internal/notification/channels"
 	emailnotifier "github.com/abhinavxd/libredesk/internal/notification/providers/email"
 	"github.com/abhinavxd/libredesk/internal/oidc"
+	"github.com/abhinavxd/libredesk/internal/organization"
 	"github.com/abhinavxd/libredesk/internal/ratelimit"
 	"github.com/abhinavxd/libredesk/internal/report"
 	"github.com/abhinavxd/libredesk/internal/role"
@@ -571,6 +572,20 @@ func initTeam(db *sqlx.DB, i18n *i18n.I18n) *team.Manager {
 	})
 	if err != nil {
 		log.Fatalf("error initializing team manager: %v", err)
+	}
+	return mgr
+}
+
+// initOrganization inits the organization manager.
+func initOrganization(db *sqlx.DB, i18n *i18n.I18n) *organization.Manager {
+	var lo = initLogger("organization-manager")
+	mgr, err := organization.New(organization.Opts{
+		DB:   db,
+		Lo:   lo,
+		I18n: i18n,
+	})
+	if err != nil {
+		log.Fatalf("error initializing organization manager: %v", err)
 	}
 	return mgr
 }

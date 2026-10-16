@@ -176,6 +176,20 @@ CREATE TABLE roles (
 	CONSTRAINT constraint_roles_on_description CHECK (length(description) <= 300)
 );
 
+DROP TABLE IF EXISTS organizations CASCADE;
+CREATE TABLE organizations (
+	id BIGSERIAL PRIMARY KEY,
+	created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+	updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+	"name" TEXT NOT NULL,
+	-- ID of the organization in the customer's own system, set by the widget JWT.
+	external_id TEXT NULL,
+	CONSTRAINT constraint_organizations_on_name CHECK (length("name") <= 255),
+	CONSTRAINT constraint_organizations_on_external_id CHECK (length(external_id) <= 128)
+);
+CREATE UNIQUE INDEX index_unique_organizations_on_external_id ON organizations (external_id) WHERE external_id IS NOT NULL;
+CREATE INDEX index_tgrm_organizations_on_name ON organizations USING GIN ("name" gin_trgm_ops);
+
 DROP TABLE IF EXISTS users CASCADE;
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
@@ -203,6 +217,7 @@ CREATE TABLE users (
 	api_key TEXT NULL,
 	api_secret TEXT NULL,
 	api_key_last_used_at TIMESTAMPTZ NULL,
+	organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL ON UPDATE CASCADE NULL,
     CONSTRAINT constraint_users_on_country CHECK (LENGTH(country) <= 140),
     CONSTRAINT constraint_users_on_phone_number CHECK (LENGTH(phone_number) <= 20),
 	CONSTRAINT constraint_users_on_phone_number_country_code CHECK (LENGTH(phone_number_country_code) <= 10),
@@ -223,6 +238,7 @@ CREATE UNIQUE INDEX index_unique_users_on_ext_id_when_type_is_contact
 CREATE UNIQUE INDEX index_unique_users_on_email_when_no_ext_id_contact
 	ON users (email)
 	WHERE type = 'contact' AND deleted_at IS NULL AND external_user_id IS NULL;
+CREATE INDEX index_users_on_organization_id ON users(organization_id) WHERE organization_id IS NOT NULL;
 
 DROP TABLE IF EXISTS user_roles CASCADE;
 CREATE TABLE user_roles (
@@ -273,6 +289,9 @@ CREATE TABLE conversations (
 	-- Set to NULL when SLA policy is deleted.
 	sla_policy_id INT REFERENCES sla_policies(id) ON DELETE SET NULL ON UPDATE CASCADE,
 
+	-- The contact's organization when the conversation was created. Set to NULL when the organization is deleted.
+	organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL ON UPDATE CASCADE,
+
     -- Cascade deletes when inbox is deleted.
 	inbox_id INT REFERENCES inboxes(id) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL,
 
@@ -306,6 +325,7 @@ CREATE TABLE conversations (
 );
 CREATE INDEX index_conversations_on_assigned_user_id ON conversations (assigned_user_id);
 CREATE INDEX index_conversations_on_assigned_team_id ON conversations (assigned_team_id);
+CREATE INDEX index_conversations_on_organization_id ON conversations (organization_id) WHERE organization_id IS NOT NULL;
 CREATE INDEX index_conversations_on_snoozed_until ON conversations (snoozed_until);
 CREATE INDEX index_conversations_on_contact_id ON conversations (contact_id);
 CREATE INDEX index_conversations_on_inbox_id ON conversations (inbox_id);

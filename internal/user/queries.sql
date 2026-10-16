@@ -1,5 +1,6 @@
 -- name: get-users-compact
-SELECT COUNT(*) OVER() as total, users.id, users.avatar_url, users.type, users.created_at, users.updated_at, users.first_name, users.last_name, users.email, users.enabled, users.external_user_id, users.availability_status
+SELECT COUNT(*) OVER() as total, users.id, users.avatar_url, users.type, users.created_at, users.updated_at, users.first_name, users.last_name, users.email, users.enabled, users.external_user_id, users.availability_status,
+    users.organization_id, (SELECT o.name FROM organizations o WHERE o.id = users.organization_id) AS organization_name
 FROM users
 -- email != 'System' also drops NULL-email users (anonymous visitors); AI assistants have no email and must still be listed.
 WHERE (users.email != 'System' OR users.type = 'ai_assistant') AND users.deleted_at IS NULL AND type = ANY($1)
@@ -63,6 +64,9 @@ SELECT
     u.external_user_id,
     u.api_secret,
     u.custom_attributes,
+    u.organization_id,
+    org.name AS organization_name,
+    org.external_id AS organization_external_id,
     array_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL) AS roles,
     COALESCE(
         (SELECT json_agg(json_build_object('id', t.id, 'name', t.name, 'emoji', t.emoji))
@@ -76,11 +80,12 @@ FROM users u
 LEFT JOIN user_roles ur ON ur.user_id = u.id
 LEFT JOIN roles r ON r.id = ur.role_id
 LEFT JOIN LATERAL unnest(r.permissions) AS p ON true
+LEFT JOIN organizations org ON org.id = u.organization_id
 WHERE u.deleted_at IS NULL
     AND ($1 = 0 OR u.id = $1)
     AND ($2 = '' OR u.email = $2)
     AND (COALESCE(cardinality($3::text[]), 0) = 0 OR u.type::text = ANY($3::text[]))
-GROUP BY u.id
+GROUP BY u.id, org.id
 ORDER BY u.id ASC
 LIMIT 1;
 

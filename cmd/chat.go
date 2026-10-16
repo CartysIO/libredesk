@@ -43,6 +43,7 @@ const (
 	maxEmailLength                  = 254
 	maxNameLength                   = 128
 	maxExternalUserIDLength         = 128
+	maxOrganizationNameLength       = 255
 	maxPhoneNumberLength            = 20
 	maxPhoneCountryCodeLength       = 10
 	fieldTypePhone                  = "phone"
@@ -68,6 +69,9 @@ type Claims struct {
 	PhoneNumber             string         `json:"phone_number,omitempty"`
 	PhoneNumberCountryCode  string         `json:"phone_number_country_code,omitempty"`
 	ContactCustomAttributes map[string]any `json:"contact_custom_attributes,omitempty"`
+	// Clyr fork: the contact's organization. It is created when its external ID is new.
+	OrganizationExternalID string `json:"organization_external_id,omitempty"`
+	OrganizationName       string `json:"organization_name,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -403,6 +407,12 @@ func handleAuthExchange(r *fastglue.Request) error {
 	if len(claims.PhoneNumberCountryCode) > maxPhoneCountryCodeLength {
 		claims.PhoneNumberCountryCode = ""
 	}
+	if len(claims.OrganizationExternalID) > maxExternalUserIDLength {
+		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, app.i18n.Ts("globals.messages.fieldTooLong", "field", "organization_external_id", "max", strconv.Itoa(maxExternalUserIDLength)), nil, envelope.InputError)
+	}
+	if len(claims.OrganizationName) > maxOrganizationNameLength {
+		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, app.i18n.Ts("globals.messages.fieldTooLong", "field", "organization_name", "max", strconv.Itoa(maxOrganizationNameLength)), nil, envelope.InputError)
+	}
 
 	// Resolve or create the contact.
 	contactID, err := resolveOrCreateExternalContact(app, claims)
@@ -415,6 +425,13 @@ func handleAuthExchange(r *fastglue.Request) error {
 	if len(claims.ContactCustomAttributes) > 0 {
 		if err := app.user.SaveCustomAttributes(contactID, claims.ContactCustomAttributes, false); err != nil {
 			app.lo.Error("error saving custom attributes during auth exchange", "contact_id", contactID, "error", err)
+		}
+	}
+
+	// Link the contact to its organization. A failure does not block the chat.
+	if claims.OrganizationExternalID != "" {
+		if err := linkContactOrganization(app, contactID, claims.OrganizationExternalID, claims.OrganizationName); err != nil {
+			app.lo.Error("error linking contact organization during auth exchange", "contact_id", contactID, "error", err)
 		}
 	}
 
