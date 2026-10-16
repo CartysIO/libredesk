@@ -198,3 +198,14 @@ requests_per_minute = 300
 [clerk]
 publishable_key = ""
 secret_key = ""
+
+# Slack bridge (Clyr fork): mirrors each conversation into a thread in one Slack channel.
+# Off unless bot_token, signing_secret and channel_id are set.
+[slack]
+bot_token = ""
+signing_secret = ""
+channel_id = ""
+# bot_id of the Slack AI agent, and the email of the Libredesk agent its messages are added as.
+ai_bot_id = ""
+ai_agent_email = ""
+queue_size = 1000

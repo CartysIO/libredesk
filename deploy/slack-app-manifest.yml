@@ -1,0 +1,38 @@
+# Slack app for the Libredesk Slack bridge (internal/slackbridge).
+# Create it at https://api.slack.com/apps -> Create New App -> From a manifest, in the Clyr workspace.
+#
+# After you create it:
+# 1. Install it to the workspace. Copy the Bot User OAuth Token (xoxb-...) and the Signing Secret
+#    (Basic Information) into Doppler libredesk/prd as LIBREDESK_SLACK__BOT_TOKEN and
+#    LIBREDESK_SLACK__SIGNING_SECRET. Set LIBREDESK_SLACK__CHANNEL_ID to the channel's ID.
+# 2. Invite the bot to the channel: /invite @respond
+# 3. When Libredesk has redeployed with the keys, open Event Subscriptions and check that the
+#    Request URL shows "Verified". Slack can only verify it after Libredesk knows the signing secret.
+display_information:
+  name: respond
+  description: Mirrors Libredesk support conversations into Slack threads.
+features:
+  bot_user:
+    display_name: respond
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read
+      - channels:history
+      - groups:history
+      - chat:write
+      - files:read
+      - reactions:write
+      - users:read
+      - users:read.email
+settings:
+  event_subscriptions:
+    request_url: https://libredesk-production-eb2c.up.railway.app/webhooks/slack/events
+    bot_events:
+      - app_mention
+      - message.channels
+      - message.groups
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

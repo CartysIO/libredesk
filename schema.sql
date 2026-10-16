@@ -365,6 +365,32 @@ CREATE INDEX index_conversation_messages_on_source_id ON conversation_messages (
 CREATE INDEX index_conversation_messages_on_status ON conversation_messages (status);
 CREATE INDEX index_conversation_messages_on_conversation_id_and_created_at ON conversation_messages (conversation_id, created_at);
 
+-- Slack bridge (Clyr fork): one Slack thread per conversation, and the Slack messages the bridge has handled.
+DROP TABLE IF EXISTS slack_threads CASCADE;
+CREATE TABLE slack_threads (
+	id BIGSERIAL PRIMARY KEY,
+	created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+	conversation_id BIGINT REFERENCES conversations(id) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL,
+	channel_id TEXT NOT NULL,
+	thread_ts TEXT NOT NULL,
+	CONSTRAINT constraint_slack_threads_on_conversation_id_unique UNIQUE (conversation_id),
+	CONSTRAINT constraint_slack_threads_on_channel_thread_unique UNIQUE (channel_id, thread_ts)
+);
+
+DROP TABLE IF EXISTS slack_messages CASCADE;
+CREATE TABLE slack_messages (
+	id BIGSERIAL PRIMARY KEY,
+	created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+	channel_id TEXT NOT NULL,
+	slack_ts TEXT NOT NULL,
+	-- 'in': a Slack message the bridge turned into a note or reply. 'out': a Libredesk message the bridge posted.
+	direction TEXT NOT NULL,
+	message_id BIGINT REFERENCES conversation_messages(id) ON DELETE CASCADE ON UPDATE CASCADE NULL,
+	CONSTRAINT constraint_slack_messages_on_direction CHECK (direction IN ('in', 'out')),
+	CONSTRAINT constraint_slack_messages_on_channel_ts_unique UNIQUE (channel_id, slack_ts)
+);
+CREATE INDEX index_slack_messages_on_message_id ON slack_messages (message_id) WHERE message_id IS NOT NULL;
+
 DROP TABLE IF EXISTS automation_rules CASCADE;
 CREATE TABLE automation_rules (
     id SERIAL PRIMARY KEY,
