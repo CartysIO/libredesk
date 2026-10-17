@@ -5,15 +5,15 @@
 # 1. Install it to the workspace. Copy the Bot User OAuth Token (xoxb-...) and the Signing Secret
 #    (Basic Information) into Doppler libredesk/prd as LIBREDESK_SLACK__BOT_TOKEN and
 #    LIBREDESK_SLACK__SIGNING_SECRET. Set LIBREDESK_SLACK__CHANNEL_ID to the channel's ID.
-# 2. Invite the bot to the channel: /invite @respond
+# 2. Invite the bot to the channel: /invite @Customer
 # 3. When Libredesk has redeployed with the keys, open Event Subscriptions and check that the
 #    Request URL shows "Verified". Slack can only verify it after Libredesk knows the signing secret.
 display_information:
-  name: respond
+  name: Customer
   description: Mirrors Libredesk support conversations into Slack threads.
 features:
   bot_user:
-    display_name: respond
+    display_name: Customer
     always_online: true
 oauth_config:
   scopes:
@@ -28,7 +28,7 @@ oauth_config:
       - users:read.email
 settings:
   event_subscriptions:
-    request_url: https://libredesk-production-eb2c.up.railway.app/webhooks/slack/events
+    request_url: https://clyr-support.up.railway.app/webhooks/slack/events
     bot_events:
       - app_mention
       - message.channels
