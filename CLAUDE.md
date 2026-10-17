@@ -37,6 +37,7 @@ docker build -f Dockerfile.clyr -t libredesk-clyr:local .
   - `POST /api/v1/auth/clerk` checks the session token against the instance's JWKS. It checks the issuer, `exp`/`nbf`, and that `azp` equals the root URL origin. It then reads the user's verified primary email from the Clerk Backend API.
   - The agent with that email is signed in. Libredesk does not create accounts at sign-in.
   - Enabled when `[clerk] publishable_key` and `secret_key` are set.
+  - When the domain changes, set `app.root_url` to the new origin (`PUT /api/v1/settings/general`). Until then every Clerk sign-in fails with "authorized party … want …". Change the Slack app's Request URL too.
 - Organizations (`internal/organization`, `cmd/organizations.go`): customer companies keyed by Clyr teamId (`external_id`). Contacts and conversations have `organization_id`.
 - Slack bridge (`internal/slackbridge`, `cmd/slack_bridge.go`): one Slack thread per conversation in one channel.
   - It gets conversation events through `eventFanout` (`cmd/slack_bridge.go`), which wraps the webhook manager. All its work runs on one worker goroutine, in order; that order is what stops a note from Slack being posted back.
@@ -52,7 +53,7 @@ Config comes from environment variables: `LIBREDESK_<SECTION>__<KEY>`, for examp
 
 - Railway project `libredesk` (id `86f4a5dc-54b6-43b3-ad04-f88f0fd77916`, Clyr workspace).
   - Environment `staging` (`b05dd541-5662-4ed7-a6f4-d0c0554b2c18`): https://libredesk-staging-6deb.up.railway.app.
-  - Environment `production` (`fce6e5f4-08f9-458f-a485-ed512e2404fe`): https://libredesk-production-eb2c.up.railway.app.
+  - Environment `production` (`fce6e5f4-08f9-458f-a485-ed512e2404fe`): https://clyr-support.up.railway.app.
   - Each environment has Postgres, Redis, a bucket, and `Libredesk` (`7e663356-68f3-4c61-9343-adee48f9da3f`, same service id in both). One process serves the API and the built UI; keep it that way (decided 2026-10-16).
   - The database and Redis connect through Railway reference variables (`${{Postgres.*}}`, `${{Redis.REDIS_URL}}`). They live only on Railway, because Doppler cannot store `${{…}}` values.
   - Production Postgres has daily, weekly and monthly backups. Better Stack monitor "Libredesk production" (id 5083974) checks the site every 3 minutes.
