@@ -54,5 +54,23 @@ export function useBulkActions() {
   const bulkUpdateStatus = (status) =>
     runBulkAction((uuid) => api.updateConversationStatus(uuid, { status }))
 
-  return { bulkLoading, runBulkAction, bulkAssign, bulkAddTag, bulkUpdateStatus }
+  const bulkDelete = () => runBulkAction((uuid) => api.deleteConversation(uuid))
+
+  // Marking one conversation as spam also deletes the contact's other selected conversations, so a 404 is not a failure.
+  const bulkMarkSpam = () =>
+    runBulkAction((uuid) =>
+      api.markConversationSpam(uuid).catch((error) => {
+        if (error.response?.status !== 404) throw error
+      })
+    )
+
+  return {
+    bulkLoading,
+    runBulkAction,
+    bulkAssign,
+    bulkAddTag,
+    bulkUpdateStatus,
+    bulkDelete,
+    bulkMarkSpam
+  }
 }

@@ -47,6 +47,17 @@
         </Popover>
 
         <Button
+          :variant="blockedOnly ? 'default' : 'outline'"
+          size="sm"
+          class="flex items-center gap-1 h-8"
+          :aria-pressed="blockedOnly"
+          @click="toggleBlockedOnly"
+        >
+          <ShieldOffIcon size="14" />
+          {{ $t('contact.blockedOnly') }}
+        </Button>
+
+        <Button
           v-if="userStore.can('contacts:write')"
           size="sm"
           class="flex items-center h-8 ml-auto"
@@ -97,6 +108,9 @@
                       : $t('contact.type.contact')
                   }}
                 </Badge>
+                <Badge v-if="!contact.enabled" variant="destructive" class="text-xs px-1.5 py-0">
+                  {{ $t('globals.terms.blocked') }}
+                </Badge>
               </div>
               <p class="text-xs text-muted-foreground truncate">
                 {{ contact.email }}
@@ -139,7 +153,7 @@ import {
 } from '@shared-ui/components/ui/select'
 import { Input } from '@shared-ui/components/ui/input'
 import { Button } from '@shared-ui/components/ui/button'
-import { ArrowDownWideNarrow, IdCardIcon } from 'lucide-vue-next'
+import { ArrowDownWideNarrow, IdCardIcon, ShieldOffIcon } from 'lucide-vue-next'
 import { Popover, PopoverContent, PopoverTrigger } from '@shared-ui/components/ui/popover'
 import { useDebounceFn } from '@vueuse/core'
 import { EMITTER_EVENTS } from '@main/constants/emitterEvents.js'
@@ -160,6 +174,7 @@ const orderByField = ref('users.created_at')
 const orderByDirection = ref('desc')
 const total = ref(0)
 const showCreateDialog = ref(false)
+const blockedOnly = ref(false)
 const emitter = useEmitter()
 const router = useRouter()
 const userStore = useUserStore()
@@ -176,17 +191,19 @@ const fetchContactsDebounced = useDebounceFn(() => {
 const fetchContacts = async () => {
   const requestId = ++fetchRequestId
   loading.value = true
-  let filterJSON = ''
+  const filters = []
   if (searchTerm.value && searchTerm.value.length >= 3) {
-    filterJSON = JSON.stringify([
-      {
-        model: 'users',
-        field: 'email',
-        operator: 'ilike',
-        value: searchTerm.value
-      }
-    ])
+    filters.push({
+      model: 'users',
+      field: 'email',
+      operator: 'ilike',
+      value: searchTerm.value
+    })
   }
+  if (blockedOnly.value) {
+    filters.push({ model: 'users', field: 'enabled', operator: 'equals', value: 'false' })
+  }
+  const filterJSON = filters.length ? JSON.stringify(filters) : ''
   try {
     const response = await api.getContacts({
       page: page.value,
@@ -208,6 +225,11 @@ const fetchContacts = async () => {
   } finally {
     if (requestId === fetchRequestId) loading.value = false
   }
+}
+
+const toggleBlockedOnly = () => {
+  blockedOnly.value = !blockedOnly.value
+  fetchContactsDebounced()
 }
 
 const getInitials = (firstName, lastName) => {

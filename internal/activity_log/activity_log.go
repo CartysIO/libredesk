@@ -278,6 +278,27 @@ func (al *Manager) ContactDeleted(actorID int, actorEmail, ip string, contactID 
 	)
 }
 
+// ConversationDeleted records permanent deletion of a conversation; spam marks a deletion by "mark as spam".
+func (al *Manager) ConversationDeleted(actorID int, actorEmail, ip string, conversationID int, referenceNumber, contactEmail string, spam bool) error {
+	key := "activityLog.conversationDeleted"
+	if spam {
+		key = "activityLog.conversationDeletedSpam"
+	}
+	description := al.i18n.Ts(key,
+		"actorEmail", actorEmail,
+		"actorId", fmt.Sprintf("#%d", actorID),
+		"reference", referenceNumber,
+		"contactEmail", contactEmail)
+	return al.create(
+		models.ConversationDeleted,
+		description,
+		actorID,
+		"conversation",
+		conversationID,
+		ip,
+	)
+}
+
 // ContactDataExported records an export of a contact's stored data.
 func (al *Manager) ContactDataExported(actorID int, actorEmail, ip string, contactID int, contactEmail string) error {
 	description := al.i18n.Ts("activityLog.contactDataExported",
