@@ -789,6 +789,14 @@ WHERE m.id = $1;
 -- name: delete-conversation
 DELETE FROM conversations WHERE uuid = $1;
 
+-- name: delete-spam-conversations
+-- $1 = contact id, $2 = the conversation marked as spam. Deletes it and the contact's other unresolved conversations.
+DELETE FROM conversations c
+USING conversation_statuses s
+WHERE c.status_id = s.id AND c.contact_id = $1
+  AND (c.uuid = $2::uuid OR s.category != 'resolved')
+RETURNING c.id, c.uuid, c.reference_number;
+
 -- MESSAGE queries.
 -- name: delete-message
 DELETE FROM conversation_messages WHERE CASE

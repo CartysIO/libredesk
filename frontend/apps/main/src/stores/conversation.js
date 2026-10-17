@@ -921,6 +921,17 @@ export const useConversationStore = defineStore('conversation', () => {
     applyConversationRead(response.data.data)
   }
 
+  // removeConversations drops deleted conversations from the list and the selection.
+  function removeConversations (uuids) {
+    const removed = new Set(uuids)
+    const before = conversations.data?.length || 0
+    conversations.data = (conversations.data || []).filter(c => !removed.has(c.uuid))
+    conversations.total = Math.max(0, conversations.total - (before - conversations.data.length))
+    const selected = new Set([...selectedUUIDs.value].filter(uuid => !removed.has(uuid)))
+    selectedUUIDs.value = selected
+    fetchSidebarCounts({ force: true })
+  }
+
   function isConversationInList (uuid) {
     return Boolean(conversations.data?.find(c => c.uuid === uuid))
   }
@@ -1295,6 +1306,7 @@ export const useConversationStore = defineStore('conversation', () => {
 
   return {
     macros,
+    removeConversations,
     conversations,
     conversation,
     messages,

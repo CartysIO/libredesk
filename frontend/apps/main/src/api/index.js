@@ -338,6 +338,8 @@ const createConversation = (data) =>
       'Content-Type': 'application/json'
     }
   })
+const deleteConversation = (uuid) => http.delete(`/api/v1/conversations/${uuid}`)
+const markConversationSpam = (uuid) => http.post(`/api/v1/conversations/${uuid}/spam`)
 const updateConversationStatus = (uuid, data) =>
   http.put(`/api/v1/conversations/${uuid}/status`, data, {
     headers: {
@@ -743,6 +745,8 @@ export default {
   updateCurrentUser,
   updateAssignee,
   updateConversationStatus,
+  deleteConversation,
+  markConversationSpam,
   updateConversationPriority,
   upsertTags,
   updateConversationCustomAttribute,
