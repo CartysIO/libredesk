@@ -53,6 +53,7 @@ type queries struct {
 	DeleteOrganization           *sqlx.Stmt `query:"delete-organization"`
 	GetOrganizationContacts      *sqlx.Stmt `query:"get-organization-contacts"`
 	SetContactOrganization       *sqlx.Stmt `query:"set-contact-organization"`
+	SetContactOrganizationIfNone *sqlx.Stmt `query:"set-contact-organization-if-unset"`
 }
 
 // New creates and returns a new Manager.
@@ -209,6 +210,20 @@ func (m *Manager) SetContactOrganization(contactID int, orgID null.Int) error {
 		return envelope.NewError(envelope.NotFoundError, m.i18n.T("validation.notFoundUser"), nil)
 	}
 	return nil
+}
+
+// SetContactOrganizationIfNone sets the contact's organization only when it has none, in one statement.
+// It returns false when the contact already has an organization or does not exist.
+func (m *Manager) SetContactOrganizationIfNone(contactID, orgID int) (bool, error) {
+	var updated int
+	if err := m.q.SetContactOrganizationIfNone.Get(&updated, contactID, orgID); err != nil {
+		if dbutil.IsForeignKeyError(err) {
+			return false, envelope.NewError(envelope.NotFoundError, m.i18n.T("validation.notFoundOrganization"), nil)
+		}
+		m.lo.Error("error setting contact organization", "contact_id", contactID, "organization_id", orgID, "error", err)
+		return false, m.generalError()
+	}
+	return updated > 0, nil
 }
 
 func (m *Manager) validate(name, externalID string) (string, null.String, error) {

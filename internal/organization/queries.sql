@@ -59,3 +59,15 @@ WITH contact AS (
     WHERE $2::BIGINT IS NOT NULL AND organization_id IS NULL AND contact_id IN (SELECT id FROM contact)
 )
 SELECT COUNT(*) FROM contact;
+
+-- name: set-contact-organization-if-unset
+-- Sets the contact's organization only when it has none. Returns 0 rows changed when it already has one.
+WITH contact AS (
+    UPDATE users SET organization_id = $2, updated_at = NOW()
+    WHERE id = $1 AND type IN ('contact', 'visitor') AND deleted_at IS NULL AND organization_id IS NULL
+    RETURNING id
+), convs AS (
+    UPDATE conversations SET organization_id = $2
+    WHERE organization_id IS NULL AND contact_id IN (SELECT id FROM contact)
+)
+SELECT COUNT(*) FROM contact;
