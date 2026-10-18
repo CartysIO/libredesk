@@ -26,8 +26,9 @@ export const CONVERSATION_DEFAULT_STATUSES_LIST = [
   ...Object.values(CONVERSATION_BOARD_STATUSES)
 ]
 
-// List-only status choice: not a real status. It lists every active ticket.
-export const CONVERSATION_ACTIVE_STATUS = 'Active'
+// List-only status choice: not a real status. It lists every active ticket. The value is an identifier,
+// not the label, so a custom status named "Active" stays an exact-name filter.
+export const CONVERSATION_ACTIVE_STATUS = '__active__'
 export const CONVERSATION_ACTIVE_STATUS_NAMES = [
   CONVERSATION_DEFAULT_STATUSES.OPEN,
   CONVERSATION_BOARD_STATUSES.ON_YOU,

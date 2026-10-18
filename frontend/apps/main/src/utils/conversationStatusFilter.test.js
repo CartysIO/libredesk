@@ -19,14 +19,25 @@ describe('listStatusFilter', () => {
   })
 
   it('accepts Active even though it is not a status row', () => {
-    expect(isValidListStatus('Active', [{ name: 'Open' }])).toBe(true)
+    expect(isValidListStatus(CONVERSATION_ACTIVE_STATUS, [{ name: 'Open' }])).toBe(true)
     expect(isValidListStatus('Open', [{ name: 'Open' }])).toBe(true)
     expect(isValidListStatus('Gone', [{ name: 'Open' }])).toBe(false)
   })
 
+  it('keeps a custom status named Active on the exact-name path', () => {
+    expect(listStatusFilter('Active')).toEqual({
+      model: 'conversation_statuses',
+      field: 'name',
+      operator: 'equals',
+      value: 'Active'
+    })
+    expect(matchesListStatus('Active', 'Active')).toBe(true)
+    expect(matchesListStatus('On you', 'Active')).toBe(false)
+  })
+
   it('matches conversations client-side', () => {
-    expect(matchesListStatus('On you', 'Active')).toBe(true)
-    expect(matchesListStatus('Resolved', 'Active')).toBe(false)
+    expect(matchesListStatus('On you', CONVERSATION_ACTIVE_STATUS)).toBe(true)
+    expect(matchesListStatus('Resolved', CONVERSATION_ACTIVE_STATUS)).toBe(false)
     expect(matchesListStatus('Open', 'Open')).toBe(true)
     expect(matchesListStatus('On you', 'Open')).toBe(false)
     expect(matchesListStatus('Closed', '')).toBe(true)
