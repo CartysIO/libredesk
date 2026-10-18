@@ -8,6 +8,7 @@ const DEFAULT_STATUS_KEY = {
   Snoozed: 'globals.terms.snoozed',
   Resolved: 'globals.terms.resolved',
   Closed: 'globals.terms.closed'
+  // On you / On customer have no translation key; the status name shows as is.
 }
 
 export const createColumns = (t, { onEdit } = {}) => [
@@ -19,7 +20,7 @@ export const createColumns = (t, { onEdit } = {}) => [
     cell: function ({ row }) {
       const name = row.getValue('name')
       const isDefault = CONVERSATION_DEFAULT_STATUSES_LIST.includes(name)
-      const label = isDefault ? t(DEFAULT_STATUS_KEY[name]) : name
+      const label = isDefault ? DEFAULT_STATUS_KEY[name] ? t(DEFAULT_STATUS_KEY[name]) : name : name
       return h('div', null,
         onEdit && !isDefault
           ? h('span', {

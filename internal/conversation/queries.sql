@@ -1,8 +1,14 @@
 -- name: unsnooze-all
+-- Expired snoozes return to "On you" if an agent already replied, else "Open" ("On you" falls back to "Open" if removed).
 UPDATE conversations
-SET snoozed_until = NULL, status_id = (SELECT id FROM conversation_statuses WHERE name = 'Open')
+SET snoozed_until = NULL,
+    status_id = COALESCE(
+      (SELECT s.id FROM conversation_statuses s WHERE s.name = 'On you' AND conversations.first_reply_at IS NOT NULL),
+      (SELECT s.id FROM conversation_statuses s WHERE s.name = 'Open')
+    )
 WHERE snoozed_until <= NOW()
-  AND status_id = (SELECT id FROM conversation_statuses WHERE name = 'Snoozed');
+  AND status_id = (SELECT id FROM conversation_statuses WHERE name = 'Snoozed')
+RETURNING uuid, (SELECT name FROM conversation_statuses WHERE id = conversations.status_id) AS status;
 
 -- name: insert-conversation
 -- $11 = rate limit window start (timestamptz), $12 = max conversations (0 = unlimited)
@@ -88,6 +94,7 @@ SELECT
              WHERE conversation_id = conversations.id AND user_id = $1),
             '1970-01-01'::TIMESTAMPTZ
         )
+        AND type != 'activity'
         AND (meta IS NULL OR NOT COALESCE((meta->>'continuity_email')::boolean, false))
         LIMIT 10
     ) t
@@ -584,6 +591,30 @@ updated_at = NOW()
 WHERE uuid = $1;
 
 
+-- name: update-conversation-status-if-current
+-- Same update as update-conversation-status, but only when the conversation is still in one of the
+-- statuses in $3. Returns the previous status name, or no row when the status changed meanwhile.
+WITH new_status AS (
+    SELECT id, category FROM conversation_statuses WHERE name = $2
+),
+prev AS (
+    SELECT c.id, s.name AS prev_status
+    FROM conversations c
+    JOIN conversation_statuses s ON s.id = c.status_id
+    WHERE c.uuid = $1 AND s.name = ANY($3::text[])
+    FOR UPDATE OF c
+)
+UPDATE conversations
+SET status_id        = (SELECT id FROM new_status),
+    resolved_at      = COALESCE(resolved_at, CASE WHEN (SELECT category FROM new_status) = 'resolved' THEN NOW() END),
+    last_resolved_at = CASE WHEN (SELECT category FROM new_status) = 'resolved' THEN NOW() ELSE last_resolved_at END,
+    closed_at        = COALESCE(closed_at,   CASE WHEN $2 = 'Closed'                                  THEN NOW() END),
+    snoozed_until    = CASE WHEN $2 = 'Snoozed' THEN $4::timestamptz ELSE NULL END,
+    updated_at       = NOW()
+FROM prev
+WHERE conversations.id = prev.id AND EXISTS (SELECT 1 FROM new_status)
+RETURNING prev.prev_status;
+
 -- name: update-conversation-status
 WITH new_status AS (
     SELECT id, category FROM conversation_statuses WHERE name = $2
@@ -793,26 +824,36 @@ SET
 WHERE uuid = $1;
 
 -- name: re-open-conversation
--- Open conversation if it is not already open and unset the assigned user if they are away and reassigning.
+-- Move a conversation that is not Open or On you back to a customer-facing status and unset the assigned user
+-- if they are away and reassigning. The target is "On you" when the conversation was waiting on the customer
+-- or already has an agent reply, else "Open". "On you" falls back to "Open" if an admin removed that status.
+WITH target AS (
+  SELECT
+    c.id AS conversation_id,
+    COALESCE(
+      (SELECT s.id FROM conversation_statuses s WHERE s.name = 'On you' AND (cur.name = 'On customer' OR c.first_reply_at IS NOT NULL)),
+      (SELECT s.id FROM conversation_statuses s WHERE s.name = 'Open')
+    ) AS status_id
+  FROM conversations c
+  JOIN conversation_statuses cur ON cur.id = c.status_id
+  WHERE c.uuid = $1 AND cur.name NOT IN ('Open', 'On you')
+)
 UPDATE conversations
-SET 
-  status_id = (SELECT id FROM conversation_statuses WHERE name = 'Open'),
+SET
+  status_id = target.status_id,
   snoozed_until = NULL,
   updated_at = NOW(),
   assigned_user_id = CASE
     WHEN EXISTS (
-      SELECT 1 FROM users 
-      WHERE users.id = conversations.assigned_user_id 
+      SELECT 1 FROM users
+      WHERE users.id = conversations.assigned_user_id
         AND users.availability_status = 'away_and_reassigning'
     ) THEN NULL
     ELSE assigned_user_id
   END
-WHERE 
-  uuid = $1
-  AND status_id IN (
-    SELECT id FROM conversation_statuses WHERE name NOT IN ('Open')
-  )
-RETURNING id;
+FROM target
+WHERE conversations.id = target.conversation_id
+RETURNING conversations.id, (SELECT name FROM conversation_statuses WHERE id = conversations.status_id) AS status;
 
 -- name: get-conversation-by-message-id
 SELECT
@@ -1336,6 +1377,7 @@ last_msg AS (
     SELECT created_at - INTERVAL '1 second' AS ts
     FROM conversation_messages
     WHERE conversation_id = (SELECT id FROM target)
+      AND type != 'activity'
       AND (meta IS NULL OR NOT COALESCE((meta->>'continuity_email')::boolean, false))
     ORDER BY created_at DESC LIMIT 1
 ),

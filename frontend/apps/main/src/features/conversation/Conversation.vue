@@ -96,6 +96,15 @@
             </template>
           </DropdownMenuContent>
         </DropdownMenu>
+        <Button
+          v-if="isBoard && !isMobile"
+          variant="ghost"
+          :class="MOBILE_ICON_BUTTON_CLASS"
+          :aria-label="t('kanban.backToBoard')"
+          @click="goBackToList"
+        >
+          <X class="w-4 h-4" />
+        </Button>
       </div>
     </div>
 
@@ -144,7 +153,9 @@ const MOBILE_ICON_BUTTON_CLASS = 'w-11 h-11 lg:w-8 lg:h-8 p-0'
 
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useConversationStore } from '@main/stores/conversation'
+import { useConversationBoardStore } from '@main/stores/conversationBoard'
 import { useUserStore } from '@main/stores/user'
+import { useBoardMode } from '@main/composables/useBoardMode'
 import {
   Clock,
   MoreHorizontal,
@@ -152,7 +163,8 @@ import {
   PanelRight,
   PanelRightClose,
   ShieldBan,
-  Trash2
+  Trash2,
+  X
 } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import { useIsMobile } from '@shared-ui/composables'
@@ -192,6 +204,7 @@ import api from '@main/api'
 import { permissions as perms } from '@main/constants/permissions.js'
 defineProps({ detailsOpen: { type: Boolean, default: false } })
 const conversationStore = useConversationStore()
+const boardStore = useConversationBoardStore()
 const userStore = useUserStore()
 const emitter = useEmitter()
 const palette = useCommandPalette()
@@ -199,6 +212,7 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const isMobile = useIsMobile()
+const { isBoard } = useBoardMode()
 const canCompose = computed(
   () => userStore.can(perms.MESSAGES_WRITE) || userStore.can(perms.MESSAGES_WRITE_PRIVATE)
 )
@@ -243,6 +257,7 @@ const runConfirmedAction = async () => {
       await api.deleteConversation(conversation.uuid)
     }
     conversationStore.removeConversations(deletedUUIDs)
+    boardStore.removeConversations(deletedUUIDs)
     emitter.emit(EMITTER_EVENTS.SHOW_TOAST, {
       description: t(action === 'spam' ? 'conversation.markedAsSpam' : 'conversation.deleted')
     })

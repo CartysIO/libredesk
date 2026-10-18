@@ -20,6 +20,9 @@ var (
 	StatusResolved = "Resolved"
 	StatusClosed   = "Closed"
 	StatusSnoozed  = "Snoozed"
+	// Kanban statuses: "On you" means the customer is waiting on us, "On customer" means we are waiting on the customer.
+	StatusOnYou      = "On you"
+	StatusOnCustomer = "On customer"
 
 	AssigneeTypeTeam = "team"
 	AssigneeTypeUser = "user"
