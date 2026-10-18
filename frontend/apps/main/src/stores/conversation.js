@@ -12,7 +12,8 @@ import { subscribeToConversation, sendTypingIndicator, subscribeListReplace } fr
 import { playNotificationSound } from '@shared-ui/composables/useNotificationSound'
 import MessageCache from '@main/utils/conversation-message-cache'
 import { getI18n } from '@main/i18n'
-import { CONVERSATION_LIST_TYPE, CONVERSATION_DEFAULT_STATUSES, TAG_ACTION } from '@/constants/conversation'
+import { CONVERSATION_LIST_TYPE, CONVERSATION_DEFAULT_STATUSES, CONVERSATION_ACTIVE_STATUS, TAG_ACTION } from '@/constants/conversation'
+import { listStatusFilter, isValidListStatus, matchesListStatus } from '@/utils/conversationStatusFilter'
 import { useThrottleFn, useStorage } from '@vueuse/core'
 import { useUserStore } from '@/stores/user'
 import { useNotificationStore } from '@/stores/notification'
@@ -113,6 +114,11 @@ export const useConversationStore = defineStore('conversation', () => {
   const statusOptions = computed(() => {
     return statuses.value.map(s => ({ label: s.name, value: s.id }))
   })
+  // List filter choices: "Active" first, then every status.
+  const listStatusOptions = computed(() => [
+    { label: CONVERSATION_ACTIVE_STATUS, value: CONVERSATION_ACTIVE_STATUS },
+    ...statusOptions.value
+  ])
   const statusOptionsNoSnooze = computed(() =>
     statuses.value.filter(s => s.name !== CONVERSATION_DEFAULT_STATUSES.SNOOZED).map(s => ({
       label: s.name,
@@ -213,7 +219,7 @@ export const useConversationStore = defineStore('conversation', () => {
     priority_first: 'conversation.sort.priorityFirst'
   }
 
-  const persistedListStatus = useStorage('conversationListStatus', CONVERSATION_DEFAULT_STATUSES.OPEN)
+  const persistedListStatus = useStorage('conversationListStatus', CONVERSATION_ACTIVE_STATUS)
   const persistedListSortField = useStorage('conversationListSortField', 'newest')
   if (!sortFieldMap[persistedListSortField.value]) {
     persistedListSortField.value = 'newest'
@@ -319,8 +325,8 @@ export const useConversationStore = defineStore('conversation', () => {
         id: status.id.toString()
       }))
       // A remembered status can point at one that has since been deleted.
-      if (conversations.status && !statuses.value.some(s => s.name === conversations.status)) {
-        setListStatus(CONVERSATION_DEFAULT_STATUSES.OPEN)
+      if (conversations.status && !isValidListStatus(conversations.status, statuses.value)) {
+        setListStatus(CONVERSATION_ACTIVE_STATUS)
       }
     } catch (error) {
       emitter.emit(EMITTER_EVENTS.SHOW_TOAST, {
@@ -368,7 +374,7 @@ export const useConversationStore = defineStore('conversation', () => {
     if (!conversations.data) return []
     let filteredConversations = conversations.data
     if (conversations.status !== "") {
-      filteredConversations = filteredConversations.filter(conv => conv.status === conversations.status)
+      filteredConversations = filteredConversations.filter(conv => matchesListStatus(conv.status, conversations.status))
     }
     filteredConversations = filteredConversations.filter(belongsToList)
 
@@ -676,12 +682,7 @@ export const useConversationStore = defineStore('conversation', () => {
     if (viewID) conversations.viewID = viewID
     if (conversations.status) {
       filters = filters.filter(f => f.model !== 'conversation_statuses')
-      filters.push({
-        model: 'conversation_statuses',
-        field: 'name',
-        operator: 'equals',
-        value: conversations.status
-      })
+      filters.push(listStatusFilter(conversations.status))
     }
     conversations.listFilters = filters
     const guard = showLoader ? delayedLoading(conversations, 'loading') : null
@@ -1108,7 +1109,7 @@ export const useConversationStore = defineStore('conversation', () => {
   }
 
   function isInCurrentList (conv) {
-    return (conversations.status === '' || conv.status === conversations.status) && belongsToList(conv)
+    return matchesListStatus(conv.status, conversations.status) && belongsToList(conv)
   }
 
   // Keeps the list total in step when a live update moves a loaded row into or out of the current list.
@@ -1133,7 +1134,7 @@ export const useConversationStore = defineStore('conversation', () => {
       return
     }
     if (!canPushInsert(payload)) return
-    if (conversations.status !== '' && payload.status !== conversations.status) return
+    if (!matchesListStatus(payload.status, conversations.status)) return
     if (!conversations.data) conversations.data = []
     conversations.data.unshift(payload)
     conversations.total += 1
@@ -1365,6 +1366,7 @@ export const useConversationStore = defineStore('conversation', () => {
     fetchPriorities,
     setListSortField,
     setListStatus,
+    listStatusOptions,
     removeMacroAction,
     getMacro,
     setMacro,

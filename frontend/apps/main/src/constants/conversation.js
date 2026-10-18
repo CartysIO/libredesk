@@ -14,13 +14,25 @@ export const CONVERSATION_DEFAULT_STATUSES = {
   CLOSED: 'Closed',
 }
 
-export const CONVERSATION_DEFAULT_STATUSES_LIST = Object.values(CONVERSATION_DEFAULT_STATUSES);
-
 // Kanban board statuses. "On you" and "On customer" are added by the backend.
 export const CONVERSATION_BOARD_STATUSES = {
   ON_YOU: 'On you',
   ON_CUSTOMER: 'On customer'
 }
+
+// The backend treats the board statuses as default (protected) statuses too.
+export const CONVERSATION_DEFAULT_STATUSES_LIST = [
+  ...Object.values(CONVERSATION_DEFAULT_STATUSES),
+  ...Object.values(CONVERSATION_BOARD_STATUSES)
+]
+
+// List-only status choice: not a real status. It lists every active ticket.
+export const CONVERSATION_ACTIVE_STATUS = 'Active'
+export const CONVERSATION_ACTIVE_STATUS_NAMES = [
+  CONVERSATION_DEFAULT_STATUSES.OPEN,
+  CONVERSATION_BOARD_STATUSES.ON_YOU,
+  CONVERSATION_BOARD_STATUSES.ON_CUSTOMER
+]
 
 // Board columns in display order. `status` is the conversation status name each column lists.
 // Class strings are written out in full so Tailwind keeps them.
