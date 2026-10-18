@@ -11,6 +11,9 @@ func TestV2_9_0_RC9_CLYR4KanbanStatuses(t *testing.T) {
 	// A database from before this migration does not have the two statuses.
 	db.MustExec(`DELETE FROM conversation_statuses WHERE name IN ('On you', 'On customer')`)
 
+	// An admin created "On you" with the wrong category before the migration ran.
+	db.MustExec(`INSERT INTO conversation_statuses (name, category) VALUES ('On you', 'waiting')`)
+
 	// Running it twice proves it is idempotent, which matters because a fresh install runs every migration.
 	for range 2 {
 		if err := V2_9_0_RC9_CLYR4(db, nil, nil); err != nil {

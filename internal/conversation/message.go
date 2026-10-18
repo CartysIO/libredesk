@@ -277,7 +277,8 @@ func (m *Manager) moveToOnCustomerAfterReply(message models.Message, status stri
 		m.lo.Error("error fetching reply sender for status change", "sender_id", message.SenderID, "error", err)
 		return
 	}
-	if err := m.UpdateConversationStatus(message.ConversationUUID, 0, models.StatusOnCustomer, "", actor); err != nil {
+	// Guarded in SQL: a snooze or resolve that landed after the status snapshot must not be overwritten.
+	if err := m.updateConversationStatus(message.ConversationUUID, 0, models.StatusOnCustomer, "", actor, []string{models.StatusOpen, models.StatusOnYou}); err != nil {
 		m.lo.Error("error moving conversation to On customer after reply", "conversation_uuid", message.ConversationUUID, "error", err)
 	}
 }

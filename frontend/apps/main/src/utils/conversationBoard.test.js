@@ -81,6 +81,33 @@ describe('moving cards', () => {
     expect(findBoardCard(columns, 'a').card.status).toBe('Open')
   })
 
+  it('undo does nothing when a live update moved the card meanwhile', () => {
+    const columns = board()
+    const move = applyBoardMove(columns, 'a', 'Snoozed')
+    // A websocket update moved the card on to Resolved before the request failed.
+    applyBoardMove(columns, 'a', 'Resolved')
+    expect(undoBoardMove(columns, move)).toBe(false)
+    expect(findBoardCard(columns, 'a').status).toBe('Resolved')
+    expect(columns.Open.items.map((c) => c.uuid)).toEqual(['b'])
+    expect(columns.Snoozed.items).toEqual([])
+    expect([columns.Open.total, columns.Snoozed.total, columns.Resolved.total]).toEqual([1, 0, 2])
+  })
+
+  it('undo does nothing when the card was removed meanwhile, and never duplicates it', () => {
+    const columns = board()
+    const move = applyBoardMove(columns, 'a', 'Snoozed')
+    columns.Snoozed.items.splice(0, 1)
+    columns.Snoozed.total = 0
+    expect(undoBoardMove(columns, move)).toBe(false)
+    expect(findBoardCard(columns, 'a')).toBeNull()
+    // The card moved back to Open by a live update: undo must not add a second copy.
+    const again = board()
+    const m2 = applyBoardMove(again, 'a', 'Snoozed')
+    applyBoardMove(again, 'a', 'Open')
+    expect(undoBoardMove(again, m2)).toBe(false)
+    expect(again.Open.items.filter((c) => c.uuid === 'a')).toHaveLength(1)
+  })
+
   it('drops a card moved to a status that has no column', () => {
     const columns = board()
     applyBoardMove(columns, 'a', 'Closed')

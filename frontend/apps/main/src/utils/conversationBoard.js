@@ -49,18 +49,20 @@ export const applyBoardMove = (columns, uuid, toStatus) => {
   return { uuid, card: found.card, fromStatus: found.status, fromIndex: found.index, toStatus }
 }
 
+// Reverts applyBoardMove. Does nothing when the card is no longer in the column it was moved to
+// (a live update moved or removed it meanwhile), so a rollback cannot duplicate it or restore a stale column.
 export const undoBoardMove = (columns, move) => {
-  if (!move) return
+  if (!move) return false
+  const found = findBoardCard(columns, move.uuid)
+  if (!found || found.status !== move.toStatus) return false
   const to = columns[move.toStatus]
-  if (to) {
-    const i = to.items.findIndex((c) => c.uuid === move.uuid)
-    if (i !== -1) to.items.splice(i, 1)
-    to.total = Math.max(0, to.total - 1)
-  }
+  to.items.splice(found.index, 1)
+  to.total = Math.max(0, to.total - 1)
   move.card.status = move.fromStatus
   const from = columns[move.fromStatus]
   from.items.splice(Math.min(move.fromIndex, from.items.length), 0, move.card)
   from.total += 1
+  return true
 }
 
 // true / false when the assignment scope decides, null when only the server knows (views, mentions).

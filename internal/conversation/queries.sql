@@ -86,6 +86,7 @@ SELECT
              WHERE conversation_id = conversations.id AND user_id = $1),
             '1970-01-01'::TIMESTAMPTZ
         )
+        AND type != 'activity'
         AND (meta IS NULL OR NOT COALESCE((meta->>'continuity_email')::boolean, false))
         LIMIT 10
     ) t
@@ -559,6 +560,30 @@ SET assigned_team_id = $2,
 updated_at = NOW()
 WHERE uuid = $1;
 
+
+-- name: update-conversation-status-if-current
+-- Same update as update-conversation-status, but only when the conversation is still in one of the
+-- statuses in $3. Returns the previous status name, or no row when the status changed meanwhile.
+WITH new_status AS (
+    SELECT id, category FROM conversation_statuses WHERE name = $2
+),
+prev AS (
+    SELECT c.id, s.name AS prev_status
+    FROM conversations c
+    JOIN conversation_statuses s ON s.id = c.status_id
+    WHERE c.uuid = $1 AND s.name = ANY($3::text[])
+    FOR UPDATE OF c
+)
+UPDATE conversations
+SET status_id        = (SELECT id FROM new_status),
+    resolved_at      = COALESCE(resolved_at, CASE WHEN (SELECT category FROM new_status) = 'resolved' THEN NOW() END),
+    last_resolved_at = CASE WHEN (SELECT category FROM new_status) = 'resolved' THEN NOW() ELSE last_resolved_at END,
+    closed_at        = COALESCE(closed_at,   CASE WHEN $2 = 'Closed'                                  THEN NOW() END),
+    snoozed_until    = CASE WHEN $2 = 'Snoozed' THEN $4::timestamptz ELSE NULL END,
+    updated_at       = NOW()
+FROM prev
+WHERE conversations.id = prev.id AND EXISTS (SELECT 1 FROM new_status)
+RETURNING prev.prev_status;
 
 -- name: update-conversation-status
 WITH new_status AS (
@@ -1275,6 +1300,7 @@ last_msg AS (
     SELECT created_at - INTERVAL '1 second' AS ts
     FROM conversation_messages
     WHERE conversation_id = (SELECT id FROM target)
+      AND type != 'activity'
       AND (meta IS NULL OR NOT COALESCE((meta->>'continuity_email')::boolean, false))
     ORDER BY created_at DESC LIMIT 1
 ),

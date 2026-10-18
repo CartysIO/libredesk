@@ -149,6 +149,7 @@ const MOBILE_ICON_BUTTON_CLASS = 'w-11 h-11 lg:w-8 lg:h-8 p-0'
 
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useConversationStore } from '@main/stores/conversation'
+import { useConversationBoardStore } from '@main/stores/conversationBoard'
 import { useUserStore } from '@main/stores/user'
 import { useBoardMode } from '@main/composables/useBoardMode'
 import { Clock, MoreHorizontal, ChevronLeft, PanelRight, ShieldBan, Trash2, X } from 'lucide-vue-next'
@@ -189,6 +190,7 @@ import { downloadBlobResponse, parseBlobError } from '@shared-ui/utils/file'
 import api from '@main/api'
 import { permissions as perms } from '@main/constants/permissions.js'
 const conversationStore = useConversationStore()
+const boardStore = useConversationBoardStore()
 const userStore = useUserStore()
 const emitter = useEmitter()
 const palette = useCommandPalette()
@@ -241,6 +243,7 @@ const runConfirmedAction = async () => {
       await api.deleteConversation(conversation.uuid)
     }
     conversationStore.removeConversations(deletedUUIDs)
+    boardStore.removeConversations(deletedUUIDs)
     emitter.emit(EMITTER_EVENTS.SHOW_TOAST, {
       description: t(action === 'spam' ? 'conversation.markedAsSpam' : 'conversation.deleted')
     })

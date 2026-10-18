@@ -106,7 +106,7 @@
                   <Reply
                     class="text-success inline-block align-[-2px] mr-0.5"
                     :size="14"
-                    v-if="conversation.last_message_sender === 'agent'"
+                    v-if="(conversation.last_interaction_sender || conversation.last_message_sender) === 'agent'"
                   />{{ trimmedLastMessage }}
                 </template>
               </p>
@@ -238,14 +238,14 @@ onUnmounted(() => {
 })
 
 const trimmedLastMessage = computed(() => {
-  const message = props.conversation.last_message || ''
+  // last_interaction skips activity rows ("X marked the conversation as ..."), which every auto-move adds.
+  const message = props.conversation.last_interaction || props.conversation.last_message || ''
   return message.length > 120 ? message.slice(0, 120) + '...' : message
 })
 
 const relativeLastMessageTime = computed(() => {
-  return props.conversation.last_message_at
-    ? getRelativeTime(props.conversation.last_message_at, now.value)
-    : ''
+  const at = props.conversation.last_interaction_at || props.conversation.last_message_at
+  return at ? getRelativeTime(at, now.value) : ''
 })
 
 const hasSlaDeadlines = computed(() => {

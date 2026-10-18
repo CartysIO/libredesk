@@ -24,6 +24,8 @@ import api from '@main/api'
 // A view cannot be filtered by status on the server, so its pages are split into columns here.
 const VIEW_INITIAL_PAGES = 4
 const REFRESH_THROTTLE_MS = 5000
+// A refresh reloads every page the column holds, up to this many.
+const REFRESH_MAX_PAGES = 8
 
 export const useConversationBoardStore = defineStore('conversationBoard', () => {
   const conversationStore = useConversationStore()
@@ -70,13 +72,6 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
     }
   }
 
-  // Replaces the first page and keeps rows the user already scrolled to.
-  function mergeFirstPage(col, fresh) {
-    const freshIDs = new Set(fresh.map((c) => c.uuid))
-    const rest = col.items.slice(fresh.length).filter((c) => !freshIDs.has(c.uuid))
-    col.items = [...fresh, ...rest]
-  }
-
   async function fetchColumn(status, { reset = false } = {}) {
     if (isView()) return reset ? loadView(true) : loadMoreView()
     const col = columns[status]
@@ -87,17 +82,30 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
     col.fetching = true
     if (!col.items.length) col.loading = true
     try {
-      const response = await requestPage(page, status)
-      if (mySeq !== seq) return
-      const data = response.data.data
-      const results = data.results || []
+      let data
       if (reset) {
-        if (col.page > 1) mergeFirstPage(col, results)
-        else col.items = results
-        col.page = Math.max(col.page, 1)
+        // Reload every page the column holds, so cards deleted or moved on the server drop out.
+        const pages = Math.min(Math.max(col.page, 1), REFRESH_MAX_PAGES)
+        const rows = []
+        let current = 0
+        let hasMore = true
+        while (hasMore && current < pages) {
+          current += 1
+          const response = await requestPage(current, status)
+          if (mySeq !== seq) return
+          data = response.data.data
+          rows.push(...(data.results || []))
+          hasMore = data.total_pages > current
+        }
+        const seen = new Set()
+        col.items = rows.filter((c) => !seen.has(c.uuid) && seen.add(c.uuid))
+        col.page = current
       } else {
+        const response = await requestPage(page, status)
+        if (mySeq !== seq) return
+        data = response.data.data
         const known = new Set(col.items.map((c) => c.uuid))
-        col.items.push(...results.filter((c) => !known.has(c.uuid)))
+        col.items.push(...(data.results || []).filter((c) => !known.has(c.uuid)))
         col.page = page
       }
       col.hasMore = data.total_pages > col.page
@@ -232,6 +240,14 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
     col.total = Math.max(0, col.total - 1)
   }
 
+  // Drops deleted or spam conversations. The server sends no event for them.
+  function removeConversations(uuids) {
+    for (const uuid of uuids) removeCard(uuid)
+  }
+
+  const cardUUIDs = () =>
+    context.active ? CONVERSATION_BOARD_STATUS_LIST.flatMap((s) => columns[s].items.map((c) => c.uuid)) : []
+
   const scopeOf = (conv) =>
     conversationMatchesScope(context.listType, conv, {
       userID: userStore.userID,
@@ -311,6 +327,7 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
       conversationStore.refreshSidebarCounts?.()
       return true
     } catch (error) {
+      // A websocket update may have moved the card meanwhile. Undo only when it is still where we put it.
       undoBoardMove(columns, move)
       toast(error)
       return false
@@ -343,6 +360,8 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
     handleConvPush,
     mergeConversationUpdate,
     mergeContactUpdate,
+    removeConversations,
+    cardUUIDs,
     incrementUnread,
     applyConversationRead
   }

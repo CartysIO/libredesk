@@ -1,12 +1,17 @@
 package conversation
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"github.com/lib/pq"
 	"testing"
 	"time"
 
 	"github.com/abhinavxd/libredesk/internal/conversation/models"
 	"github.com/abhinavxd/libredesk/internal/dbutil"
+	nmodels "github.com/abhinavxd/libredesk/internal/notification/models"
 	"github.com/abhinavxd/libredesk/internal/testutil"
 	"github.com/zerodha/logf"
 )
@@ -189,5 +194,130 @@ func TestUnsnoozeAllQuery(t *testing.T) {
 	fallback := create(true, "-1 minute")
 	if got := unsnooze(); got[fallback] != models.StatusOpen {
 		t.Fatalf("fallback: %v, want Open", got)
+	}
+}
+
+// TestUpdateConversationStatusIfCurrentQuery checks that the guarded update changes only a conversation that
+// is still in an allowed status, and keeps a snooze that landed after the caller's status snapshot.
+func TestUpdateConversationStatusIfCurrentQuery(t *testing.T) {
+	db := testutil.NewDB(t, "conversation_status_if_current")
+	lo := logf.New(logf.Opts{})
+	m := &Manager{db: db, lo: &lo, i18n: testutil.NewI18n(t), settingsStore: utcSettings{}}
+	if err := dbutil.ScanSQLFile("queries.sql", &m.q, db, efs); err != nil {
+		t.Fatal(err)
+	}
+	var inbox, contact int
+	if err := db.Get(&inbox, `INSERT INTO inboxes (name, channel) VALUES ('Mail', 'email') RETURNING id`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Get(&contact, `INSERT INTO users (type, first_name, last_name, email) VALUES ('contact', 'Ada', '', 'ada@example.com') RETURNING id`); err != nil {
+		t.Fatal(err)
+	}
+	create := func(status string) string {
+		var id int
+		var uuid string
+		if err := m.q.InsertConversation.QueryRow(contact, status, inbox, "", time.Now(), status, "", false, []byte("{}"), []byte("{}"), time.Time{}, 0, "").Scan(&id, &uuid); err != nil {
+			t.Fatal(err)
+		}
+		return uuid
+	}
+	allowed := pq.Array([]string{models.StatusOpen, models.StatusOnYou})
+
+	for _, from := range []string{models.StatusOpen, models.StatusOnYou} {
+		uuid := create(from)
+		var prev string
+		if err := m.q.UpdateConversationStatusIfCurrent.QueryRow(uuid, models.StatusOnCustomer, allowed, time.Time{}).Scan(&prev); err != nil {
+			t.Fatalf("%s: %v", from, err)
+		}
+		if prev != from {
+			t.Fatalf("previous status = %q, want %q", prev, from)
+		}
+		var got string
+		db.Get(&got, `SELECT s.name FROM conversations c JOIN conversation_statuses s ON s.id = c.status_id WHERE c.uuid = $1`, uuid)
+		if got != models.StatusOnCustomer {
+			t.Fatalf("status = %q, want On customer", got)
+		}
+	}
+
+	// A snooze that landed after the caller read "Open" stays, with its snoozed_until.
+	uuid := create(models.StatusOpen)
+	until := time.Now().Add(time.Hour)
+	if _, err := m.q.UpdateConversationStatus.Exec(uuid, models.StatusSnoozed, until); err != nil {
+		t.Fatal(err)
+	}
+	var prev string
+	err := m.q.UpdateConversationStatusIfCurrent.QueryRow(uuid, models.StatusOnCustomer, allowed, time.Time{}).Scan(&prev)
+	if !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("guarded update on a snoozed conversation: err %v prev %q, want sql.ErrNoRows", err, prev)
+	}
+	var got string
+	var snoozedUntil sql.NullTime
+	if err := db.QueryRow(`SELECT s.name, c.snoozed_until FROM conversations c JOIN conversation_statuses s ON s.id = c.status_id WHERE c.uuid = $1`, uuid).Scan(&got, &snoozedUntil); err != nil {
+		t.Fatal(err)
+	}
+	if got != models.StatusSnoozed || !snoozedUntil.Valid {
+		t.Fatalf("status = %q snoozed_until valid = %v, want Snoozed with snoozed_until kept", got, snoozedUntil.Valid)
+	}
+}
+
+// TestUnreadCountSkipsActivity checks that activity rows (status change notes) do not count as unread
+// in the conversation list, and that "mark as unread" anchors on the last real message.
+func TestUnreadCountSkipsActivity(t *testing.T) {
+	db := testutil.NewDB(t, "conversation_unread_activity")
+	lo := logf.New(logf.Opts{})
+	m := &Manager{db: db, lo: &lo, i18n: testutil.NewI18n(t), settingsStore: utcSettings{}}
+	if err := dbutil.ScanSQLFile("queries.sql", &m.q, db, efs); err != nil {
+		t.Fatal(err)
+	}
+	var inbox, contact, agent int
+	if err := db.Get(&inbox, `INSERT INTO inboxes (name, channel) VALUES ('Mail', 'email') RETURNING id`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Get(&contact, `INSERT INTO users (type, first_name, last_name, email) VALUES ('contact', 'Ada', '', 'ada@example.com') RETURNING id`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Get(&agent, `INSERT INTO users (type, first_name, last_name, email) VALUES ('agent', 'Ann', '', 'ann@example.com') RETURNING id`); err != nil {
+		t.Fatal(err)
+	}
+	var convID int
+	var uuid string
+	if err := m.q.InsertConversation.QueryRow(contact, models.StatusOnYou, inbox, "", time.Now(), "s", "", false, []byte("{}"), []byte("{}"), time.Time{}, 0, "").Scan(&convID, &uuid); err != nil {
+		t.Fatal(err)
+	}
+	insert := func(typ string, ago string) {
+		db.MustExec(`INSERT INTO conversation_messages (type, status, conversation_id, content, text_content, content_type, sender_id, sender_type, created_at)
+			VALUES ($1, 'sent', $2, 'x', 'x', 'text', $3, 'contact', NOW() - $4::interval)`, typ, convID, contact, ago)
+	}
+	insert("incoming", "3 minutes")
+	insert("activity", "2 minutes")
+	insert("activity", "1 minute")
+
+	unread := func() int {
+		var n int
+		rows, err := db.Queryx(fmt.Sprintf(m.q.GetConversations, "AND conversations.uuid = '"+uuid+"'"), agent, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			row := map[string]any{}
+			if err := rows.MapScan(row); err != nil {
+				t.Fatal(err)
+			}
+			n = int(row["unread_message_count"].(int64))
+		}
+		return n
+	}
+	if got := unread(); got != 1 {
+		t.Fatalf("unread = %d, want 1 (the activity rows must not count)", got)
+	}
+
+	// Mark as unread anchors one second before the last real message, so the count stays 1.
+	var state models.ConversationReadState
+	if err := m.q.MarkConversationUnread.Get(&state, agent, uuid, pq.Array(nmodels.ReplyTypes)); err != nil {
+		t.Fatal(err)
+	}
+	if got := unread(); got != 1 {
+		t.Fatalf("unread after mark-as-unread = %d, want 1", got)
 	}
 }

@@ -967,6 +967,11 @@ export const useConversationStore = defineStore('conversation', () => {
     conv.last_message = message.text_content || message.content || getMediaPreview(message.attachments)
     conv.last_message_at = message.created_at
     conv.last_message_sender = message.sender_type
+    if (message.type !== 'activity' && !message.private) {
+      conv.last_interaction = conv.last_message
+      conv.last_interaction_at = message.created_at
+      conv.last_interaction_sender = message.sender_type
+    }
   }
 
   async function updateConversationMessage (message) {

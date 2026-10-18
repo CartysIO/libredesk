@@ -76,6 +76,38 @@ describe('board loading', () => {
     expect(store.columns.Open.hasMore).toBe(false)
   })
 
+  it('refresh reloads every loaded page, so deleted or moved cards drop out', async () => {
+    const server = { rows: [1, 2, 3, 4].map((n) => ({ uuid: `o${n}`, status: 'Open' })) }
+    api.getAssignedConversations.mockImplementation((params) => {
+      const status = JSON.parse(params.filters)[0].value
+      if (status !== 'Open') return Promise.resolve(page([]))
+      // Two rows per page.
+      const rows = server.rows.slice((params.page - 1) * 2, params.page * 2)
+      return Promise.resolve(page(rows, { page: params.page, total_pages: Math.ceil(server.rows.length / 2), total: server.rows.length }))
+    })
+    const store = useConversationBoardStore()
+    await store.activate({ listType: 'assigned' })
+    await store.fetchColumn('Open')
+    expect(store.columns.Open.items.map((c) => c.uuid)).toEqual(['o1', 'o2', 'o3', 'o4'])
+    // o4 was deleted and o3 was moved away on the server.
+    server.rows = server.rows.filter((c) => c.uuid === 'o1' || c.uuid === 'o2')
+    await store.refreshAll()
+    expect(store.columns.Open.items.map((c) => c.uuid)).toEqual(['o1', 'o2'])
+    expect(store.columns.Open.hasMore).toBe(false)
+  })
+
+  it('removes deleted conversations from the board', async () => {
+    api.getAssignedConversations.mockImplementation(
+      answerByStatus({ Open: [{ uuid: 'a', status: 'Open' }, { uuid: 'b', status: 'Open' }] })
+    )
+    const store = useConversationBoardStore()
+    await store.activate({ listType: 'assigned' })
+    store.removeConversations(['a', 'zzz'])
+    expect(store.columns.Open.items.map((c) => c.uuid)).toEqual(['b'])
+    expect(store.columns.Open.total).toBe(1)
+    expect(store.cardUUIDs()).toEqual(['b'])
+  })
+
   it('splits view pages into columns on the client', async () => {
     api.getViewConversations.mockResolvedValue(
       page([
@@ -137,6 +169,20 @@ describe('drag and drop moves', () => {
     expect(store.columns.Resolved.items).toEqual([])
     expect(store.columns.Open.total).toBe(1)
     expect(emit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ variant: 'destructive', description: 'nope' }))
+  })
+
+  it('leaves the card alone when a live update moved it before the API failed', async () => {
+    const store = await loaded()
+    let fail
+    api.updateConversationStatus.mockReturnValue(new Promise((_, reject) => (fail = reject)))
+    const pending = store.moveCard('a', 'Resolved')
+    // Another agent moved it to Snoozed while the request was in flight.
+    store.mergeConversationUpdate({ uuid: 'a', status: 'Snoozed' })
+    fail(new Error('nope'))
+    expect(await pending).toBe(false)
+    expect(store.columns.Snoozed.items.map((c) => c.uuid)).toEqual(['a'])
+    expect(store.columns.Open.items).toEqual([])
+    expect(store.columns.Resolved.items).toEqual([])
   })
 })
 

@@ -64,7 +64,11 @@ export class WebSocketClient {
     this.flushMessageQueue()
     if (wasReconnect) {
       // RESUB!
-      const uuids = this.convStore.conversations.data?.map(c => c.uuid) || []
+      // The board replaces the list subscription while it is active, so cover its cards too.
+      const boardUUIDs = this.boardStore.cardUUIDs()
+      const uuids = boardUUIDs.length
+        ? boardUUIDs
+        : this.convStore.conversations.data?.map(c => c.uuid) || []
       this.subscribeListReplace(uuids)
       const openUUID = this.convStore.conversation.data?.uuid
       if (openUUID) this.subscribeToConversation(openUUID)
@@ -88,6 +92,8 @@ export class WebSocketClient {
           const isOpen = this.convStore.conversation.data?.uuid === uuid
           const isFromContact = data.data.sender_type === 'contact'
           const convPayload = data.data.conversation
+          // Activity rows ("X marked the conversation as ...") are not unread messages.
+          const isActivity = data.data.type === 'activity'
 
           if (convPayload) {
             this.convStore.handleConvPush(convPayload)
@@ -98,6 +104,12 @@ export class WebSocketClient {
               last_message: data.data.preview,
               last_message_at: data.data.created_at,
               last_message_sender: data.data.sender_type,
+            }
+            // The list preview shows last_interaction, which skips activity rows.
+            if (!isActivity) {
+              update.last_interaction = data.data.preview
+              update.last_interaction_at = data.data.created_at
+              update.last_interaction_sender = data.data.sender_type
             }
             this.convStore.mergeConversationUpdate(update)
             this.boardStore.mergeConversationUpdate(update)
@@ -111,10 +123,10 @@ export class WebSocketClient {
             }
           }
 
-          if (this.convStore.isConversationInList(uuid)) {
+          if (!isActivity && this.convStore.isConversationInList(uuid)) {
             this.convStore.incrementUnread(uuid, data.data.created_at)
           }
-          if (isFromContact) this.boardStore.incrementUnread(uuid)
+          if (isFromContact && !isActivity) this.boardStore.incrementUnread(uuid)
 
           this.convStore.updateConversationMessage(data.data)
         },

@@ -13,7 +13,7 @@ func V2_9_0_RC9_CLYR4(db *sqlx.DB, fs stuffbin.FileSystem, ko *koanf.Koanf) erro
 		INSERT INTO conversation_statuses (name, category) VALUES
 		('On you', 'open'),
 		('On customer', 'waiting')
-		ON CONFLICT (name) DO NOTHING;
+		ON CONFLICT (name) DO UPDATE SET category = EXCLUDED.category;
 	`)
 	return err
 }

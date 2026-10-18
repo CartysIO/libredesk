@@ -366,6 +366,7 @@ type queries struct {
 	UpdateConversationCustomAttributes  *sqlx.Stmt `query:"update-conversation-custom-attributes"`
 	UpdateConversationPriority          *sqlx.Stmt `query:"update-conversation-priority"`
 	UpdateConversationStatus            *sqlx.Stmt `query:"update-conversation-status"`
+	UpdateConversationStatusIfCurrent   *sqlx.Stmt `query:"update-conversation-status-if-current"`
 	UpdateConversationLastMessage       *sqlx.Stmt `query:"update-conversation-last-message"`
 	InsertConversationParticipant       *sqlx.Stmt `query:"insert-conversation-participant"`
 	InsertConversation                  *sqlx.Stmt `query:"insert-conversation"`
@@ -1073,6 +1074,13 @@ func (c *Manager) UpdateConversationPriority(uuid string, priorityID int, priori
 
 // UpdateConversationStatus updates the status of a conversation.
 func (c *Manager) UpdateConversationStatus(uuid string, statusID int, status, snoozeDur string, actor umodels.User) error {
+	return c.updateConversationStatus(uuid, statusID, status, snoozeDur, actor, nil)
+}
+
+// updateConversationStatus is UpdateConversationStatus with an optional guard. When onlyFrom is not empty, the
+// status changes only if the conversation is still in one of those statuses at update time. Otherwise nothing
+// happens and no side effect runs, so a concurrent change (snooze, resolve) is never overwritten.
+func (c *Manager) updateConversationStatus(uuid string, statusID int, status, snoozeDur string, actor umodels.User, onlyFrom []string) error {
 	// Fetch the status name if status ID is provided.
 	if statusID > 0 {
 		s, err := c.statusStore.Get(statusID)
@@ -1111,7 +1119,19 @@ func (c *Manager) UpdateConversationStatus(uuid string, statusID int, status, sn
 	}
 
 	// Update the conversation status.
-	if _, err := c.q.UpdateConversationStatus.Exec(uuid, status, snoozeUntil); err != nil {
+	if len(onlyFrom) > 0 {
+		var prevStatus string
+		err := c.q.UpdateConversationStatusIfCurrent.QueryRow(uuid, status, pq.Array(onlyFrom), snoozeUntil).Scan(&prevStatus)
+		if errors.Is(err, sql.ErrNoRows) {
+			c.lo.Debug("no status update: conversation status changed concurrently", "uuid", uuid, "new_status", status)
+			return nil
+		}
+		if err != nil {
+			c.lo.Error("error updating conversation status", "error", err)
+			return envelope.NewError(envelope.GeneralError, c.i18n.T("globals.messages.somethingWentWrong"), nil)
+		}
+		oldStatus = prevStatus
+	} else if _, err := c.q.UpdateConversationStatus.Exec(uuid, status, snoozeUntil); err != nil {
 		c.lo.Error("error updating conversation status", "error", err)
 		return envelope.NewError(envelope.GeneralError, c.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
