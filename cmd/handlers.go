@@ -171,6 +171,7 @@ func initHandlers(g *fastglue.Fastglue, hub *ws.Hub) {
 	// Organizations (Clyr fork). They reuse the contact permissions.
 	g.GET("/api/v1/organizations", perm(handleGetOrganizations, "contacts:read"))
 	g.POST("/api/v1/organizations", perm(handleCreateOrganization, "contacts:write"))
+	g.POST("/api/v1/organizations/sync", perm(handleSyncOrganizations, "contacts:write"))
 	g.GET("/api/v1/organizations/{id}", perm(handleGetOrganization, "contacts:read"))
 	g.PUT("/api/v1/organizations/{id}", perm(handleUpdateOrganization, "contacts:write"))
 	g.DELETE("/api/v1/organizations/{id}", perm(handleDeleteOrganization, "contacts:delete"))

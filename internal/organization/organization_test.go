@@ -184,6 +184,37 @@ func TestSetContactOrganization(t *testing.T) {
 	}
 }
 
+func TestSetContactOrganizationIfNone(t *testing.T) {
+	mgr, db := newTestManager(t)
+	acme, _ := mgr.Create("Acme", "team_1")
+	globex, _ := mgr.Create("Globex", "team_2")
+	contact := seedContact(t, db, "ada")
+	open := seedConversation(t, db, contact, null.Int{})
+
+	linked, err := mgr.SetContactOrganizationIfNone(contact, acme.ID)
+	if err != nil || !linked {
+		t.Fatalf("first link = %v, %v; want true", linked, err)
+	}
+	linked, err = mgr.SetContactOrganizationIfNone(contact, globex.ID)
+	if err != nil || linked {
+		t.Fatalf("second link = %v, %v; want false (contact already has one)", linked, err)
+	}
+	var contactOrg, openOrg null.Int
+	db.Get(&contactOrg, `SELECT organization_id FROM users WHERE id = $1`, contact)
+	db.Get(&openOrg, `SELECT organization_id FROM conversations WHERE id = $1`, open)
+	if contactOrg.Int != acme.ID || openOrg.Int != acme.ID {
+		t.Fatalf("contact org %v, conversation org %v; want both %d", contactOrg, openOrg, acme.ID)
+	}
+
+	if linked, err := mgr.SetContactOrganizationIfNone(999999, acme.ID); err != nil || linked {
+		t.Fatalf("unknown contact = %v, %v; want false, nil", linked, err)
+	}
+	other := seedContact(t, db, "bob")
+	if _, err := mgr.SetContactOrganizationIfNone(other, 999999); errType(err) != envelope.NotFoundError {
+		t.Fatalf("unknown organization: err = %v, want not found", err)
+	}
+}
+
 func TestDeleteKeepsContactsAndConversations(t *testing.T) {
 	mgr, db := newTestManager(t)
 	acme, _ := mgr.Create("Acme", "team_1")
