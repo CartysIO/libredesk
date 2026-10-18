@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConversationStore } from '@/stores/conversation'
+import { useConversationBoardStore } from '@/stores/conversationBoard'
 import { useEmitter } from '@/composables/useEmitter'
 import { EMITTER_EVENTS } from '@/constants/emitterEvents'
 import { TAG_ACTION } from '@/constants/conversation'
@@ -10,6 +11,7 @@ const bulkLoading = ref(false)
 
 export function useBulkActions() {
   const conversationStore = useConversationStore()
+  const boardStore = useConversationBoardStore()
   const emitter = useEmitter()
   const { t } = useI18n()
 
@@ -59,6 +61,7 @@ export function useBulkActions() {
     const removed = []
     await runBulkAction(async (uuid) => removed.push(...(await actionFn(uuid))))
     conversationStore.removeConversations(removed)
+    boardStore.removeConversations(removed)
   }
 
   const bulkDelete = () =>

@@ -366,6 +366,7 @@ type queries struct {
 	UpdateConversationCustomAttributes  *sqlx.Stmt `query:"update-conversation-custom-attributes"`
 	UpdateConversationPriority          *sqlx.Stmt `query:"update-conversation-priority"`
 	UpdateConversationStatus            *sqlx.Stmt `query:"update-conversation-status"`
+	UpdateConversationStatusIfCurrent   *sqlx.Stmt `query:"update-conversation-status-if-current"`
 	UpdateConversationLastMessage       *sqlx.Stmt `query:"update-conversation-last-message"`
 	InsertConversationParticipant       *sqlx.Stmt `query:"insert-conversation-participant"`
 	InsertConversation                  *sqlx.Stmt `query:"insert-conversation"`
@@ -791,10 +792,15 @@ func (c *Manager) GetConversations(viewingUserID, userID int, teamIDs []int, lis
 	return conversations, nil
 }
 
-// ReOpenConversation reopens a conversation if it's snoozed, resolved or closed.
+// ReOpenConversation moves a conversation that is not Open or On you back to a customer-facing status
+// after a customer message. The new status is "On you" if the conversation was "On customer" or already
+// has an agent reply, else "Open". Returns true if the status changed.
 func (c *Manager) ReOpenConversation(conversationUUID string, actor umodels.User) (bool, error) {
-	var conversationID int
-	if err := c.q.ReOpenConversation.QueryRow(conversationUUID).Scan(&conversationID); err != nil {
+	var (
+		conversationID int
+		newStatus      string
+	)
+	if err := c.q.ReOpenConversation.QueryRow(conversationUUID).Scan(&conversationID, &newStatus); err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil
 		}
@@ -807,13 +813,13 @@ func (c *Manager) ReOpenConversation(conversationUUID string, actor umodels.User
 		c.lo.Error("error evaluating SLA after reopen", "uuid", conversationUUID, "error", err)
 	}
 
-	c.BroadcastConversationUpdate(conversationUUID, map[string]any{"status": models.StatusOpen})
+	c.BroadcastConversationUpdate(conversationUUID, map[string]any{"status": newStatus})
 	// Reopening unassigns an agent who is away and reassigning.
 	if conv, err := c.GetConversationListItem(conversationUUID); err == nil {
 		c.retainAuthorizedSubscribers(&conv)
 	}
 
-	if err := c.RecordStatusChange(models.StatusOpen, conversationUUID, actor); err != nil {
+	if err := c.RecordStatusChange(newStatus, conversationUUID, actor); err != nil {
 		return true, err
 	}
 	return true, nil
@@ -1068,6 +1074,13 @@ func (c *Manager) UpdateConversationPriority(uuid string, priorityID int, priori
 
 // UpdateConversationStatus updates the status of a conversation.
 func (c *Manager) UpdateConversationStatus(uuid string, statusID int, status, snoozeDur string, actor umodels.User) error {
+	return c.updateConversationStatus(uuid, statusID, status, snoozeDur, actor, nil)
+}
+
+// updateConversationStatus is UpdateConversationStatus with an optional guard. When onlyFrom is not empty, the
+// status changes only if the conversation is still in one of those statuses at update time. Otherwise nothing
+// happens and no side effect runs, so a concurrent change (snooze, resolve) is never overwritten.
+func (c *Manager) updateConversationStatus(uuid string, statusID int, status, snoozeDur string, actor umodels.User, onlyFrom []string) error {
 	// Fetch the status name if status ID is provided.
 	if statusID > 0 {
 		s, err := c.statusStore.Get(statusID)
@@ -1106,7 +1119,19 @@ func (c *Manager) UpdateConversationStatus(uuid string, statusID int, status, sn
 	}
 
 	// Update the conversation status.
-	if _, err := c.q.UpdateConversationStatus.Exec(uuid, status, snoozeUntil); err != nil {
+	if len(onlyFrom) > 0 {
+		var prevStatus string
+		err := c.q.UpdateConversationStatusIfCurrent.QueryRow(uuid, status, pq.Array(onlyFrom), snoozeUntil).Scan(&prevStatus)
+		if errors.Is(err, sql.ErrNoRows) {
+			c.lo.Debug("no status update: conversation status changed concurrently", "uuid", uuid, "new_status", status)
+			return nil
+		}
+		if err != nil {
+			c.lo.Error("error updating conversation status", "error", err)
+			return envelope.NewError(envelope.GeneralError, c.i18n.T("globals.messages.somethingWentWrong"), nil)
+		}
+		oldStatus = prevStatus
+	} else if _, err := c.q.UpdateConversationStatus.Exec(uuid, status, snoozeUntil); err != nil {
 		c.lo.Error("error updating conversation status", "error", err)
 		return envelope.NewError(envelope.GeneralError, c.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}

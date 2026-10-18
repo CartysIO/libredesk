@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { ArrowUpDown, CheckSquare, CircleDot, Filter } from 'lucide-vue-next'
 import { useConversationStore } from '@main/stores/conversation'
 import { useBulkActionPermissions } from '@main/composables/useBulkActionPermissions'
+import { CONVERSATION_ACTIVE_STATUS } from '@main/constants/conversation'
 import { SECTIONS } from '../sections'
 
 const SORT_FIELDS = [
@@ -42,11 +43,11 @@ export function useListCommands() {
           icon: Filter,
           group: true
         },
-        ...conversationStore.statusOptions
+        ...conversationStore.listStatusOptions
           .filter((status) => status.label !== conversationStore.getListStatus)
           .map((status) => ({
             id: `list.status.${status.value}`,
-            label: status.label,
+            label: status.value === CONVERSATION_ACTIVE_STATUS ? t('globals.terms.active') : status.label,
             parent: 'list.status',
             icon: CircleDot,
             run: () => conversationStore.setListStatus(status.label)

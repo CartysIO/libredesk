@@ -59,10 +59,12 @@ import { useEmitter } from '@main/composables/useEmitter'
 import { EMITTER_EVENTS } from '@main/constants/emitterEvents'
 import { formatSnoozeDuration } from './providers/useConversationCommands'
 
-defineProps({
-  open: { type: Boolean, default: false }
+const props = defineProps({
+  open: { type: Boolean, default: false },
+  // External: emit the chosen duration instead of snoozing the open conversation.
+  external: { type: Boolean, default: false }
 })
-const emit = defineEmits(['update:open'])
+const emit = defineEmits(['update:open', 'snoozed'])
 
 const { t } = useI18n()
 const emitter = useEmitter()
@@ -90,7 +92,9 @@ const snooze = () => {
     })
     return
   }
-  conversationStore.snoozeConversation(formatSnoozeDuration(diffMinutes))
+  const duration = formatSnoozeDuration(diffMinutes)
+  if (props.external) emit('snoozed', duration)
+  else conversationStore.snoozeConversation(duration)
   emit('update:open', false)
 }
 </script>

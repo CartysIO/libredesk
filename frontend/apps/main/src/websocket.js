@@ -1,4 +1,5 @@
 import { useConversationStore } from './stores/conversation'
+import { useConversationBoardStore } from './stores/conversationBoard'
 import { useNotificationStore } from './stores/notification'
 import { useUsersStore } from './stores/users'
 import { useConnectionStore } from './stores/connection'
@@ -18,6 +19,7 @@ export class WebSocketClient {
     this.pingInterval = null
     this.lastPong = Date.now()
     this.convStore = useConversationStore()
+    this.boardStore = useConversationBoardStore()
     this.notificationStore = useNotificationStore()
     this.usersStore = useUsersStore()
     this.connectionStore = useConnectionStore()
@@ -62,7 +64,11 @@ export class WebSocketClient {
     this.flushMessageQueue()
     if (wasReconnect) {
       // RESUB!
-      const uuids = this.convStore.conversations.data?.map(c => c.uuid) || []
+      // The board replaces the list subscription while it is active, so cover its cards too.
+      const boardUUIDs = this.boardStore.cardUUIDs()
+      const uuids = boardUUIDs.length
+        ? boardUUIDs
+        : this.convStore.conversations.data?.map(c => c.uuid) || []
       this.subscribeListReplace(uuids)
       const openUUID = this.convStore.conversation.data?.uuid
       if (openUUID) this.subscribeToConversation(openUUID)
@@ -86,16 +92,27 @@ export class WebSocketClient {
           const isOpen = this.convStore.conversation.data?.uuid === uuid
           const isFromContact = data.data.sender_type === 'contact'
           const convPayload = data.data.conversation
+          // Activity rows ("X marked the conversation as ...") are not unread messages.
+          const isActivity = data.data.type === 'activity'
 
           if (convPayload) {
             this.convStore.handleConvPush(convPayload)
+            this.boardStore.handleConvPush(convPayload)
           } else {
-            this.convStore.mergeConversationUpdate({
+            const update = {
               uuid,
               last_message: data.data.preview,
               last_message_at: data.data.created_at,
               last_message_sender: data.data.sender_type,
-            })
+            }
+            // The list preview shows last_interaction, which skips activity rows.
+            if (!isActivity) {
+              update.last_interaction = data.data.preview
+              update.last_interaction_at = data.data.created_at
+              update.last_interaction_sender = data.data.sender_type
+            }
+            this.convStore.mergeConversationUpdate(update)
+            this.boardStore.mergeConversationUpdate(update)
           }
 
           if (isFromContact && document.hidden) {
@@ -106,17 +123,20 @@ export class WebSocketClient {
             }
           }
 
-          if (this.convStore.isConversationInList(uuid)) {
+          if (!isActivity && this.convStore.isConversationInList(uuid)) {
             this.convStore.incrementUnread(uuid, data.data.created_at)
           }
+          if (isFromContact && !isActivity) this.boardStore.incrementUnread(uuid)
 
           this.convStore.updateConversationMessage(data.data)
         },
         [WS_EVENT.NEW_CONVERSATION]: () => {
           if (data.data && data.data.uuid) {
             this.convStore.handleConvPush(data.data)
+            this.boardStore.handleConvPush(data.data)
           } else {
             this.convStore.refreshConversationList()
+            this.boardStore.refreshAll()
           }
           this.convStore.refreshSidebarCounts()
         },
@@ -124,12 +144,13 @@ export class WebSocketClient {
         [WS_EVENT.MESSAGE_UPDATE]: () => this.convStore.mergeMessageUpdate(data.data),
         [WS_EVENT.CONVERSATION_UPDATE]: () => {
           this.convStore.mergeConversationUpdate(data.data)
+          this.boardStore.mergeConversationUpdate(data.data)
           if (data.data?.status) {
             this.convStore.refreshSidebarCounts()
           }
         },
-        [WS_EVENT.CONVERSATION_READ]: () => this.convStore.applyConversationRead(data.data),
-        [WS_EVENT.CONTACT_UPDATE]: () => this.convStore.mergeContactUpdate(data.data),
+        [WS_EVENT.CONVERSATION_READ]: () => { this.convStore.applyConversationRead(data.data); this.boardStore.applyConversationRead(data.data) },
+        [WS_EVENT.CONTACT_UPDATE]: () => { this.convStore.mergeContactUpdate(data.data); this.boardStore.mergeContactUpdate(data.data) },
         [WS_EVENT.TYPING]: () => {
           this.convStore.updateTypingStatus(data.data)
         },

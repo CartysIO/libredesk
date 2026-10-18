@@ -3,7 +3,8 @@
     <!-- Header -->
     <div class="flex items-center space-x-4 px-2 h-12 border-b shrink-0">
       <SidebarTrigger class="cursor-pointer" />
-      <span class="text-xl font-semibold">{{ title }}</span>
+      <span class="text-xl font-semibold truncate">{{ title }}</span>
+      <ConversationViewToggle class="ml-auto" />
     </div>
 
     <!-- Bulk Action Toolbar (when items selected) -->
@@ -12,23 +13,30 @@
     <!-- Filters (hidden when bulk selecting) -->
     <div v-else class="p-2 flex flex-wrap justify-between items-center">
       <!-- Status dropdown-menu, hidden when a view is selected as views are pre-filtered -->
-      <DropdownMenu v-if="!route.params.viewID">
+      <!-- Board mode: the list shows one column, so the status is fixed. -->
+      <div v-if="isBoard && !route.params.viewID">
+        <Button variant="ghost" class="w-30">
+          <span class="mr-1">{{ conversationStore.conversations.total }}</span>
+          <span>{{ listStatusLabel }}</span>
+        </Button>
+      </div>
+      <DropdownMenu v-else-if="!route.params.viewID">
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" class="w-30">
             <div>
               <span class="mr-1">{{ conversationStore.conversations.total }}</span>
-              <span>{{ conversationStore.getListStatus }}</span>
+              <span>{{ listStatusLabel }}</span>
             </div>
             <ChevronDown class="w-4 h-4 ml-2 opacity-50" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           <DropdownMenuItem
-            v-for="status in conversationStore.statusOptions"
+            v-for="status in conversationStore.listStatusOptions"
             :key="status.value"
             @click="handleStatusChange(status)"
           >
-            {{ status.label }}
+            {{ status.value === CONVERSATION_ACTIVE_STATUS ? t('globals.terms.active') : status.label }}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -154,6 +162,9 @@ import { useConversationStore } from '@/stores/conversation'
 import { useBulkActionPermissions } from '@/composables/useBulkActionPermissions'
 import EmptyList from '@/features/conversation/list/ConversationEmptyList.vue'
 import ConversationBulkActionToolbar from '@/features/conversation/list/ConversationBulkActionToolbar.vue'
+import ConversationViewToggle from '@/features/conversation/board/ConversationViewToggle.vue'
+import { CONVERSATION_ACTIVE_STATUS } from '@/constants/conversation'
+import { useBoardMode } from '@/composables/useBoardMode'
 import ConversationListItem from '@/features/conversation/list/ConversationListItem.vue'
 import ConversationListItemSkeleton from '@/features/conversation/list/ConversationListItemSkeleton.vue'
 
@@ -161,6 +172,13 @@ const conversationStore = useConversationStore()
 const { canBulkAct } = useBulkActionPermissions()
 const route = useRoute()
 const { t } = useI18n()
+const { isBoard } = useBoardMode()
+
+const listStatusLabel = computed(() =>
+  conversationStore.getListStatus === CONVERSATION_ACTIVE_STATUS
+    ? t('globals.terms.active')
+    : conversationStore.getListStatus
+)
 
 const hasSelection = computed(() => conversationStore.selectedCount > 0)
 
