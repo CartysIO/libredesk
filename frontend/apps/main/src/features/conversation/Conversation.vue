@@ -83,10 +83,52 @@
             >
               {{ t('conversation.summarize') }}
             </DropdownMenuItem>
+            <template v-if="canDelete">
+              <DropdownMenuSeparator />
+              <DropdownMenuItem v-if="canMarkSpam" @click="openConfirm('spam')">
+                <ShieldBan class="w-4 h-4 mr-2" />
+                {{ t('conversation.markAsSpam') }}
+              </DropdownMenuItem>
+              <DropdownMenuItem class="text-destructive" @click="openConfirm('delete')">
+                <Trash2 class="w-4 h-4 mr-2" />
+                {{ t('conversation.deleteConversation') }}
+              </DropdownMenuItem>
+            </template>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
     </div>
+
+    <AlertDialog :open="confirmOpen" @update:open="(v) => (confirmOpen = v)">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {{
+              t(
+                confirmAction === 'spam'
+                  ? 'conversation.markAsSpam'
+                  : 'conversation.deleteConversation'
+              )
+            }}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {{
+              confirmAction === 'spam'
+                ? t('conversation.markAsSpamConfirm', { contact: spamContactLabel })
+                : t('conversation.deleteConfirm')
+            }}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{{ t('globals.messages.cancel') }}</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" @click="runConfirmedAction">
+            {{
+              t(confirmAction === 'spam' ? 'conversation.markAsSpam' : 'globals.messages.delete')
+            }}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
 
     <!-- Messages & reply box -->
     <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -103,15 +145,34 @@ const MOBILE_ICON_BUTTON_CLASS = 'w-11 h-11 lg:w-8 lg:h-8 p-0'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useConversationStore } from '@main/stores/conversation'
 import { useUserStore } from '@main/stores/user'
-import { Clock, MoreHorizontal, ChevronLeft, PanelRight, PanelRightClose } from 'lucide-vue-next'
+import {
+  Clock,
+  MoreHorizontal,
+  ChevronLeft,
+  PanelRight,
+  PanelRightClose,
+  ShieldBan,
+  Trash2
+} from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import { useIsMobile } from '@shared-ui/composables'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@shared-ui/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@shared-ui/components/ui/alert-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@shared-ui/components/ui/tooltip'
 import { formatMessageTimestamp } from '@shared-ui/utils/datetime.js'
 import { Button } from '@shared-ui/components/ui/button'
@@ -149,6 +210,49 @@ const goBackToList = () => {
   const target = router.resolve({ name: listName, params })
   if (window.history.state?.back?.split('?')[0] === target.path) router.back()
   else router.push(target)
+}
+
+const canDelete = computed(() => userStore.can(perms.CONVERSATIONS_DELETE))
+const canMarkSpam = computed(() => canDelete.value && userStore.can(perms.CONTACTS_BLOCK))
+
+// The action the open confirmation runs: 'delete' or 'spam'. Closing the dialog keeps it,
+// because the dialog closes before its action button's click handler runs.
+const confirmAction = ref('delete')
+const confirmOpen = ref(false)
+
+const openConfirm = (action) => {
+  confirmAction.value = action
+  confirmOpen.value = true
+}
+
+const spamContactLabel = computed(
+  () => conversationStore.current?.contact?.email || conversationStore.currentContactName
+)
+
+const runConfirmedAction = async () => {
+  const action = confirmAction.value
+  const conversation = conversationStore.current
+  confirmOpen.value = false
+  if (!conversation) return
+  try {
+    let deletedUUIDs = [conversation.uuid]
+    if (action === 'spam') {
+      const response = await api.markConversationSpam(conversation.uuid)
+      deletedUUIDs = response.data.data.deleted_uuids
+    } else {
+      await api.deleteConversation(conversation.uuid)
+    }
+    conversationStore.removeConversations(deletedUUIDs)
+    emitter.emit(EMITTER_EVENTS.SHOW_TOAST, {
+      description: t(action === 'spam' ? 'conversation.markedAsSpam' : 'conversation.deleted')
+    })
+    goBackToList()
+  } catch (error) {
+    emitter.emit(EMITTER_EVENTS.SHOW_TOAST, {
+      variant: 'destructive',
+      description: handleHTTPError(error).message
+    })
+  }
 }
 
 const isSnoozed = computed(
