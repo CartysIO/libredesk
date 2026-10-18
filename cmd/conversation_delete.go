@@ -67,8 +67,12 @@ func handleMarkConversationSpam(r *fastglue.Request) error {
 			continue
 		}
 		if _, err := enforceConversationAccess(app, candidate, user); err != nil {
-			app.lo.Info("keeping spam contact conversation the agent cannot access", "uuid", candidate, "actor_id", auser.ID, "error", err)
-			continue
+			// Skip conversations the agent cannot access or that were deleted meanwhile; abort on any other error before blocking.
+			if envErr, ok := err.(envelope.Error); ok && (envErr.ErrorType == envelope.PermissionError || envErr.ErrorType == envelope.NotFoundError) {
+				app.lo.Info("keeping spam contact conversation the agent cannot access", "uuid", candidate, "actor_id", auser.ID, "error", err)
+				continue
+			}
+			return sendErrorEnvelope(r, err)
 		}
 		uuids = append(uuids, candidate)
 	}
