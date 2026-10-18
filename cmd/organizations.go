@@ -104,41 +104,39 @@ func handleSyncOrganizations(r *fastglue.Request) error {
 }
 
 // syncOrganizationContact creates or updates the contact like a widget JWT sign-in does, and links it to orgID when it has no organization.
-// It returns true when it set the link.
+// It returns true when it set the link. Its errors are envelope errors, safe to return to the caller.
 func syncOrganizationContact(app *App, orgID int, c orgSyncContact) (bool, error) {
 	extID := strings.TrimSpace(c.ExternalUserID)
 	email := strings.ToLower(strings.TrimSpace(c.Email))
-	if extID == "" || len(extID) > maxExternalUserIDLength {
-		return false, fmt.Errorf("external_user_id is required and has at most %d characters", maxExternalUserIDLength)
-	}
-	if !stringutil.ValidEmail(email) {
-		return false, fmt.Errorf("invalid email")
-	}
 	firstName := strings.TrimSpace(c.FirstName)
+	lastName := strings.TrimSpace(c.LastName)
+	if extID == "" || len(extID) > maxExternalUserIDLength {
+		return false, envelope.NewError(envelope.InputError, app.i18n.Ts("globals.messages.required", "name", "external_user_id"), nil)
+	}
+	if len(email) > maxEmailLength || !stringutil.ValidEmail(email) {
+		return false, envelope.NewError(envelope.InputError, app.i18n.T("validation.invalidEmail"), nil)
+	}
 	if firstName == "" {
 		firstName = strings.SplitN(email, "@", 2)[0]
 	}
+	if len(firstName) > maxNameLength || len(lastName) > maxNameLength {
+		return false, envelope.NewError(envelope.InputError, app.i18n.Ts("globals.messages.maxLength", "max", strconv.Itoa(maxNameLength)), nil)
+	}
 	user := umodels.User{
 		FirstName:      firstName,
-		LastName:       strings.TrimSpace(c.LastName),
+		LastName:       lastName,
 		Email:          null.StringFrom(email),
 		ExternalUserID: null.StringFrom(extID),
 	}
 	if err := app.user.ResolveContact(&user, umodels.ContactSync); err != nil {
+		app.lo.Error("error resolving contact in organization sync", "external_user_id", extID, "error", err)
+		return false, envelope.NewError(envelope.GeneralError, app.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+	linked, err := app.organization.SetContactOrganizationIfNone(user.ID, orgID)
+	if err != nil || !linked {
 		return false, err
 	}
-	contact, err := app.user.GetContactOrVisitor(user.ID, "")
-	if err != nil {
-		return false, err
-	}
-	if contact.OrganizationID.Valid {
-		return false, nil
-	}
-	id := null.IntFrom(orgID)
-	if err := app.organization.SetContactOrganization(user.ID, id); err != nil {
-		return false, err
-	}
-	broadcastContactOrganization(app, user.ID, id)
+	broadcastContactOrganization(app, user.ID, null.IntFrom(orgID))
 	return true, nil
 }
 
