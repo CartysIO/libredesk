@@ -652,6 +652,12 @@ export const useConversationStore = defineStore('conversation', () => {
     fetchConversationsList(false, conversations.listType, conversations.teamID, conversations.listFilters, conversations.viewID, conversations.page + 1)
   }
 
+  // Sort params the board reuses so both views order conversations the same way.
+  function getListSortParams () {
+    const sort = sortFieldMap[conversations.sortField]
+    return { order_by: sort.model + '.' + sort.field, order: sort.order }
+  }
+
   function reFetchConversationsList (showLoader = true) {
     fetchConversationsList(showLoader, conversations.listType, conversations.teamID, conversations.listFilters, conversations.viewID, conversations.page)
   }
@@ -1351,6 +1357,7 @@ export const useConversationStore = defineStore('conversation', () => {
     updatePriority,
     updateStatus,
     refreshConversationList,
+    getListSortParams,
     resetConversations,
     updateConversationLastMessage,
     fetchFirstPageConversations,

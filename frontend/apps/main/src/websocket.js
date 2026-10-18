@@ -1,4 +1,5 @@
 import { useConversationStore } from './stores/conversation'
+import { useConversationBoardStore } from './stores/conversationBoard'
 import { useNotificationStore } from './stores/notification'
 import { useUsersStore } from './stores/users'
 import { useConnectionStore } from './stores/connection'
@@ -18,6 +19,7 @@ export class WebSocketClient {
     this.pingInterval = null
     this.lastPong = Date.now()
     this.convStore = useConversationStore()
+    this.boardStore = useConversationBoardStore()
     this.notificationStore = useNotificationStore()
     this.usersStore = useUsersStore()
     this.connectionStore = useConnectionStore()
@@ -89,13 +91,16 @@ export class WebSocketClient {
 
           if (convPayload) {
             this.convStore.handleConvPush(convPayload)
+            this.boardStore.handleConvPush(convPayload)
           } else {
-            this.convStore.mergeConversationUpdate({
+            const update = {
               uuid,
               last_message: data.data.preview,
               last_message_at: data.data.created_at,
               last_message_sender: data.data.sender_type,
-            })
+            }
+            this.convStore.mergeConversationUpdate(update)
+            this.boardStore.mergeConversationUpdate(update)
           }
 
           if (isFromContact && document.hidden) {
@@ -109,14 +114,17 @@ export class WebSocketClient {
           if (this.convStore.isConversationInList(uuid)) {
             this.convStore.incrementUnread(uuid, data.data.created_at)
           }
+          if (isFromContact) this.boardStore.incrementUnread(uuid)
 
           this.convStore.updateConversationMessage(data.data)
         },
         [WS_EVENT.NEW_CONVERSATION]: () => {
           if (data.data && data.data.uuid) {
             this.convStore.handleConvPush(data.data)
+            this.boardStore.handleConvPush(data.data)
           } else {
             this.convStore.refreshConversationList()
+            this.boardStore.refreshAll()
           }
           this.convStore.refreshSidebarCounts()
         },
@@ -124,12 +132,13 @@ export class WebSocketClient {
         [WS_EVENT.MESSAGE_UPDATE]: () => this.convStore.mergeMessageUpdate(data.data),
         [WS_EVENT.CONVERSATION_UPDATE]: () => {
           this.convStore.mergeConversationUpdate(data.data)
+          this.boardStore.mergeConversationUpdate(data.data)
           if (data.data?.status) {
             this.convStore.refreshSidebarCounts()
           }
         },
-        [WS_EVENT.CONVERSATION_READ]: () => this.convStore.applyConversationRead(data.data),
-        [WS_EVENT.CONTACT_UPDATE]: () => this.convStore.mergeContactUpdate(data.data),
+        [WS_EVENT.CONVERSATION_READ]: () => { this.convStore.applyConversationRead(data.data); this.boardStore.applyConversationRead(data.data) },
+        [WS_EVENT.CONTACT_UPDATE]: () => { this.convStore.mergeContactUpdate(data.data); this.boardStore.mergeContactUpdate(data.data) },
         [WS_EVENT.TYPING]: () => {
           this.convStore.updateTypingStatus(data.data)
         },

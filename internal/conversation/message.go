@@ -247,9 +247,38 @@ func (m *Manager) sendOutgoingMessage(message models.Message) {
 
 		m.BroadcastConversationUpdate(message.ConversationUUID, wsData)
 
+		// A sent human or AI reply puts the ball in the customer's court.
+		m.moveToOnCustomerAfterReply(message, conversation.Status.String)
+
 		if message.ShouldEvaluateAutomation(systemUser.ID) {
 			m.automation.EvaluateConversationUpdateRulesByID(message.ConversationID, "", amodels.EventConversationMessageOutgoing, umodels.User{ID: message.SenderID})
 		}
+	}
+}
+
+// shouldMoveToOnCustomer reports whether a sent outgoing message moves a conversation in the given status to
+// "On customer". Only a customer-facing reply from an agent (human or AI) counts, from "Open" or "On you".
+// Private notes, automated messages (auto-replies, CSAT) and continuity emails never move the conversation.
+func shouldMoveToOnCustomer(message models.Message, status string) bool {
+	if message.Type != models.MessageOutgoing || message.Private || message.IsAutomated() || message.HasCSAT() || message.IsContinuityMessage() {
+		return false
+	}
+	return status == models.StatusOpen || status == models.StatusOnYou
+}
+
+// moveToOnCustomerAfterReply sets the conversation status to "On customer" after a sent agent reply,
+// through UpdateConversationStatus so the activity log, websocket broadcast, webhooks and automation fire.
+func (m *Manager) moveToOnCustomerAfterReply(message models.Message, status string) {
+	if !shouldMoveToOnCustomer(message, status) {
+		return
+	}
+	actor, err := m.userStore.GetAgentCachedOrLoad(message.SenderID)
+	if err != nil {
+		m.lo.Error("error fetching reply sender for status change", "sender_id", message.SenderID, "error", err)
+		return
+	}
+	if err := m.UpdateConversationStatus(message.ConversationUUID, 0, models.StatusOnCustomer, "", actor); err != nil {
+		m.lo.Error("error moving conversation to On customer after reply", "conversation_uuid", message.ConversationUUID, "error", err)
 	}
 }
 

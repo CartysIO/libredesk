@@ -7,6 +7,8 @@ var DefaultStatuses = []string{
 	"Snoozed",
 	"Resolved",
 	"Closed",
+	"On you",
+	"On customer",
 }
 
 const (

@@ -791,10 +791,15 @@ func (c *Manager) GetConversations(viewingUserID, userID int, teamIDs []int, lis
 	return conversations, nil
 }
 
-// ReOpenConversation reopens a conversation if it's snoozed, resolved or closed.
+// ReOpenConversation moves a conversation that is not Open or On you back to a customer-facing status
+// after a customer message. The new status is "On you" if the conversation was "On customer" or already
+// has an agent reply, else "Open". Returns true if the status changed.
 func (c *Manager) ReOpenConversation(conversationUUID string, actor umodels.User) (bool, error) {
-	var conversationID int
-	if err := c.q.ReOpenConversation.QueryRow(conversationUUID).Scan(&conversationID); err != nil {
+	var (
+		conversationID int
+		newStatus      string
+	)
+	if err := c.q.ReOpenConversation.QueryRow(conversationUUID).Scan(&conversationID, &newStatus); err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil
 		}
@@ -807,13 +812,13 @@ func (c *Manager) ReOpenConversation(conversationUUID string, actor umodels.User
 		c.lo.Error("error evaluating SLA after reopen", "uuid", conversationUUID, "error", err)
 	}
 
-	c.BroadcastConversationUpdate(conversationUUID, map[string]any{"status": models.StatusOpen})
+	c.BroadcastConversationUpdate(conversationUUID, map[string]any{"status": newStatus})
 	// Reopening unassigns an agent who is away and reassigning.
 	if conv, err := c.GetConversationListItem(conversationUUID); err == nil {
 		c.retainAuthorizedSubscribers(&conv)
 	}
 
-	if err := c.RecordStatusChange(models.StatusOpen, conversationUUID, actor); err != nil {
+	if err := c.RecordStatusChange(newStatus, conversationUUID, actor); err != nil {
 		return true, err
 	}
 	return true, nil

@@ -1,8 +1,14 @@
 -- name: unsnooze-all
+-- Expired snoozes return to "On you" if an agent already replied, else "Open" ("On you" falls back to "Open" if removed).
 UPDATE conversations
-SET snoozed_until = NULL, status_id = (SELECT id FROM conversation_statuses WHERE name = 'Open')
+SET snoozed_until = NULL,
+    status_id = COALESCE(
+      (SELECT s.id FROM conversation_statuses s WHERE s.name = 'On you' AND conversations.first_reply_at IS NOT NULL),
+      (SELECT s.id FROM conversation_statuses s WHERE s.name = 'Open')
+    )
 WHERE snoozed_until <= NOW()
-  AND status_id = (SELECT id FROM conversation_statuses WHERE name = 'Snoozed');
+  AND status_id = (SELECT id FROM conversation_statuses WHERE name = 'Snoozed')
+RETURNING uuid, (SELECT name FROM conversation_statuses WHERE id = conversations.status_id) AS status;
 
 -- name: insert-conversation
 -- $11 = rate limit window start (timestamptz), $12 = max conversations (0 = unlimited)
@@ -755,26 +761,36 @@ SET
 WHERE uuid = $1;
 
 -- name: re-open-conversation
--- Open conversation if it is not already open and unset the assigned user if they are away and reassigning.
+-- Move a conversation that is not Open or On you back to a customer-facing status and unset the assigned user
+-- if they are away and reassigning. The target is "On you" when the conversation was waiting on the customer
+-- or already has an agent reply, else "Open". "On you" falls back to "Open" if an admin removed that status.
+WITH target AS (
+  SELECT
+    c.id AS conversation_id,
+    COALESCE(
+      (SELECT s.id FROM conversation_statuses s WHERE s.name = 'On you' AND (cur.name = 'On customer' OR c.first_reply_at IS NOT NULL)),
+      (SELECT s.id FROM conversation_statuses s WHERE s.name = 'Open')
+    ) AS status_id
+  FROM conversations c
+  JOIN conversation_statuses cur ON cur.id = c.status_id
+  WHERE c.uuid = $1 AND cur.name NOT IN ('Open', 'On you')
+)
 UPDATE conversations
-SET 
-  status_id = (SELECT id FROM conversation_statuses WHERE name = 'Open'),
+SET
+  status_id = target.status_id,
   snoozed_until = NULL,
   updated_at = NOW(),
   assigned_user_id = CASE
     WHEN EXISTS (
-      SELECT 1 FROM users 
-      WHERE users.id = conversations.assigned_user_id 
+      SELECT 1 FROM users
+      WHERE users.id = conversations.assigned_user_id
         AND users.availability_status = 'away_and_reassigning'
     ) THEN NULL
     ELSE assigned_user_id
   END
-WHERE 
-  uuid = $1
-  AND status_id IN (
-    SELECT id FROM conversation_statuses WHERE name NOT IN ('Open')
-  )
-RETURNING id;
+FROM target
+WHERE conversations.id = target.conversation_id
+RETURNING conversations.id, (SELECT name FROM conversation_statuses WHERE id = conversations.status_id) AS status;
 
 -- name: get-conversation-by-message-id
 SELECT
