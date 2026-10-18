@@ -789,12 +789,23 @@ WHERE m.id = $1;
 -- name: delete-conversation
 DELETE FROM conversations WHERE uuid = $1;
 
+-- name: get-spam-candidate-conversations
+-- $1 = contact id. The contact's unresolved conversations, which marking one of them as spam also deletes.
+SELECT c.uuid::text
+FROM conversations c
+JOIN conversation_statuses s ON s.id = c.status_id
+WHERE c.contact_id = $1 AND s.category != 'resolved';
+
 -- name: delete-spam-conversations
--- $1 = contact id, $2 = the conversation marked as spam. Deletes it and the contact's other unresolved conversations.
+-- $1 = contact id, $2 = conversation uuids. One statement blocks the contact and deletes the conversations, so both happen or neither does.
+WITH blocked AS (
+    UPDATE users SET enabled = false, updated_at = NOW()
+    WHERE id = $1 AND type IN ('contact', 'visitor')
+    RETURNING id
+)
 DELETE FROM conversations c
-USING conversation_statuses s
-WHERE c.status_id = s.id AND c.contact_id = $1
-  AND (c.uuid = $2::uuid OR s.category != 'resolved')
+USING blocked b
+WHERE c.contact_id = b.id AND c.uuid = ANY($2::uuid[])
 RETURNING c.id, c.uuid, c.reference_number;
 
 -- MESSAGE queries.

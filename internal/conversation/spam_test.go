@@ -11,8 +11,8 @@ import (
 	"github.com/zerodha/logf"
 )
 
-// TestDeleteSpamConversations checks that marking a conversation as spam deletes it and the contact's
-// other unresolved conversations, and keeps the contact's resolved ones and other contacts' conversations.
+// TestDeleteSpamConversations checks the spam queries: the candidates are the contact's unresolved
+// conversations, and the delete blocks the contact and removes only the given conversations of that contact.
 func TestDeleteSpamConversations(t *testing.T) {
 	db := testutil.NewDB(t, "conversation_spam")
 	lo := logf.New(logf.Opts{})
@@ -40,14 +40,25 @@ func TestDeleteSpamConversations(t *testing.T) {
 		}
 		return uuid
 	}
-	// The marked conversation is deleted even when it is resolved.
 	marked := insert(spammer, models.StatusResolved)
 	open := insert(spammer, models.StatusOpen)
 	snoozed := insert(spammer, models.StatusSnoozed)
 	resolved := insert(spammer, models.StatusResolved)
 	otherOpen := insert(other, models.StatusOpen)
 
-	deleted, err := m.DeleteSpamConversations(marked, spammer)
+	candidates, err := m.GetSpamCandidateConversations(spammer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	slices.Sort(candidates)
+	wantCandidates := []string{open, snoozed}
+	slices.Sort(wantCandidates)
+	if !slices.Equal(candidates, wantCandidates) {
+		t.Fatalf("candidates %v, want %v", candidates, wantCandidates)
+	}
+
+	// The marked conversation is deleted even when it is resolved; another contact's conversation is never deleted.
+	deleted, err := m.DeleteSpamConversations(spammer, []string{marked, open, snoozed, otherOpen})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,5 +84,13 @@ func TestDeleteSpamConversations(t *testing.T) {
 	slices.Sort(wantLeft)
 	if !slices.Equal(left, wantLeft) {
 		t.Fatalf("remaining conversations %v, want %v", left, wantLeft)
+	}
+
+	var enabled []bool
+	if err := db.Select(&enabled, `SELECT enabled FROM users WHERE id IN ($1, $2) ORDER BY id`, spammer, other); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(enabled, []bool{false, true}) {
+		t.Fatalf("enabled (spammer, other) = %v, want [false true]", enabled)
 	}
 }

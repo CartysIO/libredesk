@@ -921,9 +921,14 @@ export const useConversationStore = defineStore('conversation', () => {
     applyConversationRead(response.data.data)
   }
 
-  // removeConversations drops deleted conversations from the list and the selection.
+  // removeConversations drops deleted conversations from the list, the selection and the detail caches.
   function removeConversations (uuids) {
     const removed = new Set(uuids)
+    for (const uuid of removed) {
+      conversationDataCache.delete(uuid)
+      messages.data.purgeConversation(uuid)
+    }
+    if (removed.has(conversation.data?.uuid)) conversation.data = null
     const before = conversations.data?.length || 0
     conversations.data = (conversations.data || []).filter(c => !removed.has(c.uuid))
     conversations.total = Math.max(0, conversations.total - (before - conversations.data.length))

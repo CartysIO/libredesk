@@ -34,7 +34,7 @@ func handleDeleteConversation(r *fastglue.Request) error {
 }
 
 // handleMarkConversationSpam blocks the conversation's contact, so new messages from them are dropped,
-// and deletes the conversation with the contact's other unresolved conversations.
+// and deletes the conversation with the contact's other unresolved conversations that the agent can access.
 func handleMarkConversationSpam(r *fastglue.Request) error {
 	var (
 		app   = r.Context.(*App)
@@ -57,21 +57,34 @@ func handleMarkConversationSpam(r *fastglue.Request) error {
 		return sendErrorEnvelope(r, err)
 	}
 
-	app.lo.Info("marking conversation as spam", "uuid", uuid, "contact_id", conversation.ContactID, "actor_id", auser.ID)
-	if err := app.user.ToggleEnabled(conversation.ContactID, conversation.Contact.Type, false); err != nil {
+	candidates, err := app.conversation.GetSpamCandidateConversations(conversation.ContactID)
+	if err != nil {
 		return sendErrorEnvelope(r, err)
 	}
-	deleted, err := app.conversation.DeleteSpamConversations(uuid, conversation.ContactID)
+	uuids := []string{uuid}
+	for _, candidate := range candidates {
+		if candidate == uuid {
+			continue
+		}
+		if _, err := enforceConversationAccess(app, candidate, user); err != nil {
+			app.lo.Info("keeping spam contact conversation the agent cannot access", "uuid", candidate, "actor_id", auser.ID, "error", err)
+			continue
+		}
+		uuids = append(uuids, candidate)
+	}
+
+	app.lo.Info("marking conversation as spam", "uuid", uuid, "contact_id", conversation.ContactID, "count", len(uuids), "actor_id", auser.ID)
+	deleted, err := app.conversation.DeleteSpamConversations(conversation.ContactID, uuids)
 	if err != nil {
 		return sendErrorEnvelope(r, err)
 	}
 	logConversationsDeleted(r, deleted, conversation.Contact.Email.String, true)
 
-	uuids := make([]string, 0, len(deleted))
+	deletedUUIDs := make([]string, 0, len(deleted))
 	for _, d := range deleted {
-		uuids = append(uuids, d.UUID)
+		deletedUUIDs = append(deletedUUIDs, d.UUID)
 	}
-	return r.SendEnvelope(map[string]any{"deleted_uuids": uuids})
+	return r.SendEnvelope(map[string]any{"deleted_uuids": deletedUUIDs})
 }
 
 // logConversationsDeleted writes one activity log entry per deleted conversation.

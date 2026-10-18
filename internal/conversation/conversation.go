@@ -377,6 +377,7 @@ type queries struct {
 	ReOpenConversation                  *sqlx.Stmt `query:"re-open-conversation"`
 	UnsnoozeAll                         *sqlx.Stmt `query:"unsnooze-all"`
 	DeleteConversation                  *sqlx.Stmt `query:"delete-conversation"`
+	GetSpamCandidateConversations       *sqlx.Stmt `query:"get-spam-candidate-conversations"`
 	DeleteSpamConversations             *sqlx.Stmt `query:"delete-spam-conversations"`
 	RemoveConversationAssignee          *sqlx.Stmt `query:"remove-conversation-assignee"`
 
@@ -1990,14 +1991,24 @@ func (m *Manager) DeleteConversation(uuid string) error {
 	return nil
 }
 
-// DeleteSpamConversations deletes the conversation marked as spam and the contact's other unresolved conversations.
-func (m *Manager) DeleteSpamConversations(uuid string, contactID int) ([]models.DeletedConversation, error) {
-	var deleted = make([]models.DeletedConversation, 0)
-	if err := m.q.DeleteSpamConversations.Select(&deleted, contactID, uuid); err != nil {
-		m.lo.Error("error deleting spam conversations", "uuid", uuid, "contact_id", contactID, "error", err)
+// GetSpamCandidateConversations returns the UUIDs of the contact's unresolved conversations.
+func (m *Manager) GetSpamCandidateConversations(contactID int) ([]string, error) {
+	var uuids = make([]string, 0)
+	if err := m.q.GetSpamCandidateConversations.Select(&uuids, contactID); err != nil {
+		m.lo.Error("error fetching spam candidate conversations", "contact_id", contactID, "error", err)
 		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
-	m.lo.Info("deleted spam conversations", "uuid", uuid, "contact_id", contactID, "count", len(deleted))
+	return uuids, nil
+}
+
+// DeleteSpamConversations blocks the contact and deletes the given conversations of that contact in one statement.
+func (m *Manager) DeleteSpamConversations(contactID int, uuids []string) ([]models.DeletedConversation, error) {
+	var deleted = make([]models.DeletedConversation, 0)
+	if err := m.q.DeleteSpamConversations.Select(&deleted, contactID, pq.Array(uuids)); err != nil {
+		m.lo.Error("error deleting spam conversations", "contact_id", contactID, "error", err)
+		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+	m.lo.Info("blocked contact and deleted spam conversations", "contact_id", contactID, "count", len(deleted))
 	return deleted, nil
 }
 
