@@ -180,6 +180,13 @@ type ConversationRef struct {
 	UUID string `db:"uuid" json:"uuid"`
 }
 
+// DeletedConversation identifies a conversation removed by a delete.
+type DeletedConversation struct {
+	ID              int    `db:"id" json:"id"`
+	UUID            string `db:"uuid" json:"uuid"`
+	ReferenceNumber string `db:"reference_number" json:"reference_number"`
+}
+
 type Conversation struct {
 	ID                        int                    `db:"id" json:"id"`
 	CreatedAt                 time.Time              `db:"created_at" json:"created_at"`
