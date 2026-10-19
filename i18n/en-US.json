@@ -1583,6 +1583,7 @@
   "kanban.collapseDrawer": "Shrink",
   "kanban.previousCard": "Previous conversation",
   "kanban.nextCard": "Next conversation",
+  "kanban.openFullPage": "Open in full page",
   "macro.actionNotAllowed": "{name} action not allowed",
   "macro.actionType": "Action type",
   "macro.applied": "Macro applied",

@@ -39,7 +39,7 @@ import { SECTIONS } from '../sections'
 export const SNOOZE_COMMAND = 'conv.snooze'
 export const SNOOZE_CUSTOM_COMMAND = 'conv.snooze.custom'
 
-const SNOOZE_PRESETS = [
+export const SNOOZE_PRESETS = [
   { minutes: 60, unitKey: 'globals.terms.hour', count: 1 },
   { minutes: 180, unitKey: 'globals.terms.hour', count: 3 },
   { minutes: 360, unitKey: 'globals.terms.hour', count: 6 },

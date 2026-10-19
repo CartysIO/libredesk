@@ -26,6 +26,7 @@
           @dragend="boardStore.dragging = null"
           @drop="onDrop"
           @load-more="boardStore.fetchColumn(column.status)"
+          @card-action="onCardAction"
         />
       </div>
     </div>
@@ -53,11 +54,18 @@
       @update:open="onSnoozeOpenChange"
       @snoozed="onSnoozed"
     />
+
+    <RemoveConversationDialog
+      v-model:open="removal.open"
+      :action="removal.action"
+      :contact="removal.contact"
+      @confirm="runRemoval"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useIntervalFn, useDocumentVisibility } from '@vueuse/core'
@@ -71,7 +79,11 @@ import {
 } from '@main/constants/conversation'
 import { useBoardDrawer } from '@main/composables/useBoardDrawer'
 import { findBoardCard, isConversationRoute } from '@main/utils/conversationBoard'
+import { useConversationActions } from '@main/composables/useConversationActions'
+import { useEmitter } from '@main/composables/useEmitter'
+import { EMITTER_EVENTS } from '@main/constants/emitterEvents'
 import SnoozeDatePicker from '@main/features/command/SnoozeDatePicker.vue'
+import RemoveConversationDialog from '@main/features/conversation/RemoveConversationDialog.vue'
 import BoardColumn from './BoardColumn.vue'
 import BoardDrawer from './BoardDrawer.vue'
 import ConversationViewToggle from './ConversationViewToggle.vue'
@@ -86,6 +98,8 @@ const scroller = ref(null)
 const { expanded, occupied } = useBoardDrawer()
 const boardStore = useConversationBoardStore()
 const usersStore = useUsersStore()
+const emitter = useEmitter()
+const { removeConversation } = useConversationActions()
 
 const title = computed(() => {
   const typeKey = route.meta?.typeKey?.(route)
@@ -173,11 +187,13 @@ const conversationRouteName = () =>
       : 'inbox-conversation'
 
 // Opening a card from the board pushes. Swapping the drawer replaces, so Back closes it.
+const conversationTarget = (conversation) => ({
+  name: conversationRouteName(),
+  params: { ...routeParams(), uuid: conversation.uuid }
+})
+
 const goToConversation = (conversation) => {
-  const target = {
-    name: conversationRouteName(),
-    params: { ...routeParams(), uuid: conversation.uuid }
-  }
+  const target = conversationTarget(conversation)
   if (openUUID.value) router.replace(target)
   else router.push(target)
 }
@@ -193,14 +209,18 @@ const closeDrawer = () => {
 const snoozeOpen = ref(false)
 const pendingSnoozeUUID = ref('')
 
+// Asks for the duration first. The card moves once one is picked.
+const askSnooze = (conversation) => {
+  pendingSnoozeUUID.value = conversation.uuid
+  snoozeOpen.value = true
+}
+
 const onDrop = (column) => {
   const card = boardStore.dragging
   boardStore.dragging = null
   if (!card || card.status === column.status) return
   if (column.status === CONVERSATION_DEFAULT_STATUSES.SNOOZED) {
-    // Ask for the duration first. The card moves once one is picked.
-    pendingSnoozeUUID.value = card.uuid
-    snoozeOpen.value = true
+    askSnooze(card)
     return
   }
   boardStore.moveCard(card.uuid, column.status)
@@ -215,4 +235,45 @@ const onSnoozed = (duration) => {
   pendingSnoozeUUID.value = ''
   if (uuid) boardStore.moveCard(uuid, CONVERSATION_DEFAULT_STATUSES.SNOOZED, duration)
 }
+
+const copyLink = async (conversation) => {
+  const url = new URL(router.resolve(conversationTarget(conversation)).href, window.location.origin)
+  try {
+    await navigator.clipboard.writeText(url.href)
+    emitter.emit(EMITTER_EVENTS.SHOW_TOAST, { description: t('globals.messages.copied') })
+  } catch (error) {
+    emitter.emit(EMITTER_EVENTS.SHOW_TOAST, { variant: 'destructive', description: error.message })
+  }
+}
+
+// Delete or spam. The conversation stays set while the dialog closes, because it closes
+// before its action button's click handler runs.
+const removal = reactive({ open: false, action: 'delete', contact: '', uuid: '' })
+
+const askRemoval = (action, conversation) => {
+  const c = conversation.contact || {}
+  removal.action = action
+  removal.uuid = conversation.uuid
+  removal.contact = c.email || `${c.first_name || ''} ${c.last_name || ''}`.trim()
+  removal.open = true
+}
+
+const runRemoval = async () => {
+  removal.open = false
+  const deleted = await removeConversation(removal.uuid, removal.action)
+  if (deleted?.includes(openUUID.value)) closeDrawer()
+}
+
+const cardActions = {
+  open: goToConversation,
+  openFull: (conversation) => {
+    goToConversation(conversation)
+    expanded.value = true
+  },
+  copyLink,
+  snooze: askSnooze,
+  spam: (conversation) => askRemoval('spam', conversation),
+  delete: (conversation) => askRemoval('delete', conversation)
+}
+const onCardAction = ({ action, conversation }) => cardActions[action]?.(conversation)
 </script>
