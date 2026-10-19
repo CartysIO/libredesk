@@ -165,3 +165,53 @@ describe('remembered board mode', () => {
     setSpy.mockRestore()
   })
 })
+
+describe('board drawer', () => {
+  const makeColumns = () => {
+    const columns = createBoardColumns()
+    columns[CONVERSATION_BOARD_STATUS_LIST[0]].items = [{ uuid: 'a' }, { uuid: 'b' }, { uuid: 'c' }]
+    columns[CONVERSATION_BOARD_STATUS_LIST[1]].items = [{ uuid: 'd' }]
+    return columns
+  }
+
+  it('finds the previous and next card in the same column', async () => {
+    const { adjacentBoardCard } = await import('./conversationBoard')
+    const columns = makeColumns()
+    expect(adjacentBoardCard(columns, 'b', -1).uuid).toBe('a')
+    expect(adjacentBoardCard(columns, 'b', 1).uuid).toBe('c')
+  })
+
+  it('returns null at the column ends and for unknown cards', async () => {
+    const { adjacentBoardCard } = await import('./conversationBoard')
+    const columns = makeColumns()
+    expect(adjacentBoardCard(columns, 'a', -1)).toBeNull()
+    expect(adjacentBoardCard(columns, 'c', 1)).toBeNull()
+    expect(adjacentBoardCard(columns, 'd', 1)).toBeNull()
+    expect(adjacentBoardCard(columns, 'zzz', 1)).toBeNull()
+  })
+
+  it('shows the board on conversation routes in board mode', async () => {
+    const { shouldShowBoard, isConversationRoute } = await import('./conversationBoard')
+    expect(shouldShowBoard({ isBoard: true, routeName: 'inbox-conversation' })).toBe(true)
+    expect(shouldShowBoard({ isBoard: true, routeName: 'inbox' })).toBe(true)
+    expect(shouldShowBoard({ isBoard: true, routeName: 'search' })).toBe(false)
+    expect(shouldShowBoard({ isBoard: false, routeName: 'inbox-conversation' })).toBe(false)
+    expect(isConversationRoute('view-inbox-conversation')).toBe(true)
+    expect(isConversationRoute('view-inbox')).toBe(false)
+  })
+
+  it('clamps the drawer width', async () => {
+    const { clampDrawerWidth } = await import('./conversationBoard')
+    expect(clampDrawerWidth(2000, 1200)).toBe(1200)
+    expect(clampDrawerWidth(100, 1200)).toBe(480)
+    expect(clampDrawerWidth(900, 1200)).toBe(900)
+    expect(clampDrawerWidth(900, 400)).toBe(400)
+  })
+
+  it('detects typing targets', async () => {
+    const { isTypingTarget } = await import('./conversationBoard')
+    expect(isTypingTarget({ tagName: 'INPUT' })).toBe(true)
+    expect(isTypingTarget({ tagName: 'DIV', isContentEditable: true })).toBe(true)
+    expect(isTypingTarget({ tagName: 'BUTTON' })).toBe(false)
+  })
+})

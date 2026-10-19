@@ -1,5 +1,5 @@
 <template>
-  <!-- Board mode: full-width board on the list route. An open conversation uses the split view. -->
+  <!-- Board mode: the board stays on every inbox route. An open conversation shows in a drawer over it. -->
   <BoardView v-if="showBoard" />
 
   <ResizablePanelGroup
@@ -43,6 +43,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStorage } from '@vueuse/core'
 import BoardView from '@/features/conversation/board/BoardView.vue'
+import { shouldShowBoard } from '@main/utils/conversationBoard'
 import { useBoardMode } from '@/composables/useBoardMode'
 import ConversationList from '@/features/conversation/list/ConversationList.vue'
 import { useIsMobile } from '@shared-ui/composables'
@@ -62,7 +63,7 @@ const { isBoard } = useBoardMode()
 // Every detail route is its list route's name plus `-conversation`.
 const isListRoute = computed(() => !String(route.name).endsWith('-conversation'))
 
-const showBoard = computed(() => isBoard.value && !isSearchRoute.value && isListRoute.value)
+const showBoard = computed(() => shouldShowBoard({ isBoard: isBoard.value, routeName: route.name }))
 
 // [conversationList, conversationDetail]
 const panelSizes = useStorage('inboxPanelSizes', [25, 75])
