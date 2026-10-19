@@ -25,6 +25,7 @@
           :key="conversation.uuid"
           :conversation="conversation"
           :is-dragging="dragging?.uuid === conversation.uuid"
+          :active="activeUuid === conversation.uuid"
           @open="$emit('open', $event)"
           @dragstart="$emit('dragstart', $event)"
           @dragend="$emit('dragend')"
@@ -57,7 +58,8 @@ const NEAR_BOTTOM_PX = 240
 const props = defineProps({
   column: { type: Object, required: true },
   state: { type: Object, required: true },
-  dragging: { type: Object, default: null }
+  dragging: { type: Object, default: null },
+  activeUuid: { type: String, default: '' }
 })
 const emit = defineEmits(['open', 'dragstart', 'dragend', 'drop', 'load-more'])
 

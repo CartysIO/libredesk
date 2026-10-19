@@ -36,6 +36,8 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
   const context = reactive({ listType: null, teamID: 0, viewID: 0, active: false, ready: false })
   const view = reactive({ page: 0, hasMore: false, fetching: false })
   const dragging = ref(null)
+  // The conversation open in the drawer. Its live updates must keep flowing.
+  const openUUID = ref('')
   // Bumped when the list context changes so late responses are dropped.
   let seq = 0
 
@@ -245,8 +247,12 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
     for (const uuid of uuids) removeCard(uuid)
   }
 
-  const cardUUIDs = () =>
-    context.active ? CONVERSATION_BOARD_STATUS_LIST.flatMap((s) => columns[s].items.map((c) => c.uuid)) : []
+  const cardUUIDs = () => {
+    if (!context.active) return []
+    const uuids = CONVERSATION_BOARD_STATUS_LIST.flatMap((s) => columns[s].items.map((c) => c.uuid))
+    if (openUUID.value && !uuids.includes(openUUID.value)) uuids.push(openUUID.value)
+    return uuids
+  }
 
   const scopeOf = (conv) =>
     conversationMatchesScope(context.listType, conv, {
@@ -336,12 +342,7 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
 
   // The socket subscription must cover the cards on the board.
   watch(
-    () =>
-      context.active
-        ? CONVERSATION_BOARD_STATUS_LIST.flatMap((s) => columns[s].items.map((c) => c.uuid))
-            .sort()
-            .join(',')
-        : null,
+    () => (context.active ? [...cardUUIDs()].sort().join(',') : null),
     (key) => {
       if (key === null) return
       subscribeListReplace(key ? key.split(',') : [])
@@ -352,6 +353,7 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
     columns,
     context,
     dragging,
+    openUUID,
     activate,
     deactivate,
     fetchColumn,
