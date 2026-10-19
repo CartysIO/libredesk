@@ -240,6 +240,17 @@ CREATE UNIQUE INDEX index_unique_users_on_email_when_no_ext_id_contact
 	WHERE type = 'contact' AND deleted_at IS NULL AND external_user_id IS NULL;
 CREATE INDEX index_users_on_organization_id ON users(organization_id) WHERE organization_id IS NOT NULL;
 
+-- Clyr fork: the organizations a contact belongs to. users.organization_id is the contact's default
+-- organization, which new email conversations get; it is always one of these rows.
+DROP TABLE IF EXISTS contact_organizations CASCADE;
+CREATE TABLE contact_organizations (
+	contact_id BIGINT REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL,
+	organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL,
+	created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+	PRIMARY KEY (contact_id, organization_id)
+);
+CREATE INDEX index_contact_organizations_on_organization_id ON contact_organizations(organization_id);
+
 DROP TABLE IF EXISTS user_roles CASCADE;
 CREATE TABLE user_roles (
 	id SERIAL PRIMARY KEY,
@@ -1205,7 +1216,7 @@ VALUES
 	(
 		'Agent',
 		'Role for all agents with limited access to conversations.',
-		'{conversations:read_all,conversations:read_unassigned,conversations:read_assigned,conversations:read_team_inbox,conversations:read_team_all,conversations:read,conversations:update_user_assignee,conversations:update_team_assignee,conversations:update_priority,conversations:update_status,conversations:update_tags,messages:read,messages:write,messages:write_private,view:manage}'
+		'{conversations:read_all,conversations:read_unassigned,conversations:read_assigned,conversations:read_team_inbox,conversations:read_team_all,conversations:read,conversations:update_user_assignee,conversations:update_team_assignee,conversations:update_priority,conversations:update_status,conversations:update_tags,conversations:update_organization,messages:read,messages:write,messages:write_private,view:manage}'
 	);
 
 INSERT INTO
@@ -1214,7 +1225,7 @@ VALUES
 	(
 		'Admin',
 		'Role for users who have complete access to everything.',
-		'{webhooks:manage,context_links:manage,activity_logs:manage,custom_attributes:manage,contacts:read_all,contacts:read,contacts:write,contacts:block,contacts:delete,contacts:export,contact_notes:read,contact_notes:write,contact_notes:delete,conversations:write,ai:manage,help_center:manage,general_settings:manage,notification_settings:manage,oidc:manage,conversations:read_all,conversations:read_unassigned,conversations:read_assigned,conversations:read_team_inbox,conversations:read_team_all,conversations:read,conversations:update_user_assignee,conversations:update_team_assignee,conversations:update_priority,conversations:update_status,conversations:update_tags,conversations:delete,messages:read,messages:write,messages:write_private,view:manage,shared_views:manage,status:manage,tags:manage,macros:manage,users:manage,teams:manage,automations:manage,inboxes:manage,roles:manage,reports:manage,templates:manage,business_hours:manage,sla:manage}'
+		'{webhooks:manage,context_links:manage,activity_logs:manage,custom_attributes:manage,contacts:read_all,contacts:read,contacts:write,contacts:block,contacts:delete,contacts:export,contact_notes:read,contact_notes:write,contact_notes:delete,conversations:write,ai:manage,help_center:manage,general_settings:manage,notification_settings:manage,oidc:manage,conversations:read_all,conversations:read_unassigned,conversations:read_assigned,conversations:read_team_inbox,conversations:read_team_all,conversations:read,conversations:update_user_assignee,conversations:update_team_assignee,conversations:update_priority,conversations:update_status,conversations:update_tags,conversations:update_organization,conversations:delete,messages:read,messages:write,messages:write_private,view:manage,shared_views:manage,status:manage,tags:manage,macros:manage,users:manage,teams:manage,automations:manage,inboxes:manage,roles:manage,reports:manage,templates:manage,business_hours:manage,sla:manage}'
 	);
 
 

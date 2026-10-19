@@ -269,12 +269,13 @@ async function fetchContact() {
   }
 }
 
-function onOrganizationUpdated(updated) {
+function onOrganizationUpdated(organizations) {
+  const def = organizations.find((o) => o.is_default)
   contact.value = {
     ...contact.value,
-    organization_id: updated.organization_id,
-    organization_name: updated.organization_name,
-    organization_external_id: updated.organization_external_id
+    organization_id: def?.id ?? null,
+    organization_name: def?.name ?? null,
+    organization_external_id: def?.external_id ?? null
   }
 }
 

@@ -11,6 +11,7 @@ export const permissions = {
   CONVERSATIONS_UPDATE_PRIORITY: 'conversations:update_priority',
   CONVERSATIONS_UPDATE_STATUS: 'conversations:update_status',
   CONVERSATIONS_UPDATE_TAGS: 'conversations:update_tags',
+  CONVERSATIONS_UPDATE_ORGANIZATION: 'conversations:update_organization',
   CONVERSATIONS_DELETE: 'conversations:delete',
   MESSAGES_READ: 'messages:read',
   MESSAGES_WRITE: 'messages:write',

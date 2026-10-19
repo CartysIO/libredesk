@@ -1,5 +1,7 @@
 // Package organization manages organizations: the customer companies that contacts belong to.
-// It is a Clyr fork addition. A conversation keeps the organization its contact had when it was created.
+// It is a Clyr fork addition. A contact can belong to several organizations; one of them is its
+// default (users.organization_id), which new email conversations get. A conversation keeps its
+// organization until an agent changes it.
 package organization
 
 import (
@@ -30,6 +32,7 @@ var (
 
 // Manager handles organization operations.
 type Manager struct {
+	db   *sqlx.DB
 	lo   *logf.Logger
 	i18n *i18n.I18n
 	q    queries
@@ -52,8 +55,11 @@ type queries struct {
 	UpsertOrganizationByExternal *sqlx.Stmt `query:"upsert-organization-by-external-id"`
 	DeleteOrganization           *sqlx.Stmt `query:"delete-organization"`
 	GetOrganizationContacts      *sqlx.Stmt `query:"get-organization-contacts"`
-	SetContactOrganization       *sqlx.Stmt `query:"set-contact-organization"`
-	SetContactOrganizationIfNone *sqlx.Stmt `query:"set-contact-organization-if-unset"`
+	GetContactOrganizations      *sqlx.Stmt `query:"get-contact-organizations"`
+	AddContactOrganization       *sqlx.Stmt `query:"add-contact-organization"`
+	RemoveContactOrganization    *sqlx.Stmt `query:"remove-contact-organization"`
+	ReassignDefaultOrganization  *sqlx.Stmt `query:"reassign-default-organization"`
+	SetConversationOrganization  *sqlx.Stmt `query:"set-conversation-organization"`
 }
 
 // New creates and returns a new Manager.
@@ -62,7 +68,7 @@ func New(opts Opts) (*Manager, error) {
 	if err := dbutil.ScanSQLFile("queries.sql", &q, opts.DB, efs); err != nil {
 		return nil, err
 	}
-	return &Manager{q: q, lo: opts.Lo, i18n: opts.I18n}, nil
+	return &Manager{q: q, db: opts.DB, lo: opts.Lo, i18n: opts.I18n}, nil
 }
 
 // GetAll returns organizations whose name contains query or whose external ID equals it, ordered by name.
@@ -169,17 +175,34 @@ func (m *Manager) UpsertByExternalID(externalID, name string) (models.Organizati
 	return org, nil
 }
 
-// Delete deletes an organization. Its contacts and conversations keep existing without an organization.
-func (m *Manager) Delete(id int) error {
-	res, err := m.q.DeleteOrganization.Exec(id)
+// Delete deletes an organization. Its contacts lose the membership; a contact that had it as default
+// gets its earliest other organization. Conversations filed under it keep existing without an organization.
+// It returns the contacts whose default organization changed.
+func (m *Manager) Delete(id int) ([]models.DefaultChange, error) {
+	var changed []models.DefaultChange
+	tx, err := m.db.Beginx()
+	if err != nil {
+		m.lo.Error("error starting transaction", "error", err)
+		return nil, m.generalError()
+	}
+	defer tx.Rollback()
+	if err := tx.Stmtx(m.q.ReassignDefaultOrganization).Select(&changed, id); err != nil {
+		m.lo.Error("error reassigning default organization", "id", id, "error", err)
+		return nil, m.generalError()
+	}
+	res, err := tx.Stmtx(m.q.DeleteOrganization).Exec(id)
 	if err != nil {
 		m.lo.Error("error deleting organization", "id", id, "error", err)
-		return m.generalError()
+		return nil, m.generalError()
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		return envelope.NewError(envelope.NotFoundError, m.i18n.T("validation.notFoundOrganization"), nil)
+		return nil, envelope.NewError(envelope.NotFoundError, m.i18n.T("validation.notFoundOrganization"), nil)
 	}
-	return nil
+	if err := tx.Commit(); err != nil {
+		m.lo.Error("error committing organization delete", "id", id, "error", err)
+		return nil, m.generalError()
+	}
+	return changed, nil
 }
 
 // GetContacts returns the contacts of an organization, ordered by first name.
@@ -195,35 +218,66 @@ func (m *Manager) GetContacts(id, page, pageSize int) ([]models.Contact, error) 
 	return contacts, nil
 }
 
-// SetContactOrganization sets the contact's organization, or removes it when orgID is not valid.
-// Conversations of the contact that have no organization get the new one.
-func (m *Manager) SetContactOrganization(contactID int, orgID null.Int) error {
-	var updated int
-	if err := m.q.SetContactOrganization.Get(&updated, contactID, orgID); err != nil {
-		if dbutil.IsForeignKeyError(err) {
-			return envelope.NewError(envelope.NotFoundError, m.i18n.T("validation.notFoundOrganization"), nil)
-		}
-		m.lo.Error("error setting contact organization", "contact_id", contactID, "organization_id", orgID, "error", err)
-		return m.generalError()
+// GetContactOrganizations returns the organizations of a contact, the default one first.
+func (m *Manager) GetContactOrganizations(contactID int) ([]models.ContactOrganization, error) {
+	var orgs = make([]models.ContactOrganization, 0)
+	if err := m.q.GetContactOrganizations.Select(&orgs, contactID); err != nil {
+		m.lo.Error("error fetching contact organizations", "contact_id", contactID, "error", err)
+		return orgs, m.generalError()
 	}
-	if updated == 0 {
-		return envelope.NewError(envelope.NotFoundError, m.i18n.T("validation.notFoundUser"), nil)
-	}
-	return nil
+	return orgs, nil
 }
 
-// SetContactOrganizationIfNone sets the contact's organization only when it has none, in one statement.
-// It returns false when the contact already has an organization or does not exist.
-func (m *Manager) SetContactOrganizationIfNone(contactID, orgID int) (bool, error) {
-	var updated int
-	if err := m.q.SetContactOrganizationIfNone.Get(&updated, contactID, orgID); err != nil {
-		if dbutil.IsForeignKeyError(err) {
-			return false, envelope.NewError(envelope.NotFoundError, m.i18n.T("validation.notFoundOrganization"), nil)
-		}
-		m.lo.Error("error setting contact organization", "contact_id", contactID, "organization_id", orgID, "error", err)
-		return false, m.generalError()
+// AddContactOrganization adds the contact to the organization in one statement. With makeDefault, or when the
+// contact has no default, the organization becomes its default. Conversations of the contact that have no
+// organization get the default.
+func (m *Manager) AddContactOrganization(contactID, orgID int, makeDefault bool) (models.MembershipChange, error) {
+	var res struct {
+		Found int `db:"found"`
+		models.MembershipChange
 	}
-	return updated > 0, nil
+	if err := m.q.AddContactOrganization.Get(&res, contactID, orgID, makeDefault); err != nil {
+		if dbutil.IsForeignKeyError(err) {
+			return res.MembershipChange, envelope.NewError(envelope.NotFoundError, m.i18n.T("validation.notFoundOrganization"), nil)
+		}
+		m.lo.Error("error adding contact organization", "contact_id", contactID, "organization_id", orgID, "error", err)
+		return res.MembershipChange, m.generalError()
+	}
+	if res.Found == 0 {
+		return res.MembershipChange, envelope.NewError(envelope.NotFoundError, m.i18n.T("validation.notFoundUser"), nil)
+	}
+	return res.MembershipChange, nil
+}
+
+// RemoveContactOrganization removes the contact from the organization. When it was the default, the earliest
+// other membership becomes the default. Conversations keep their organization.
+func (m *Manager) RemoveContactOrganization(contactID, orgID int) (models.MembershipChange, error) {
+	var res struct {
+		Removed int `db:"removed"`
+		models.MembershipChange
+	}
+	if err := m.q.RemoveContactOrganization.Get(&res, contactID, orgID); err != nil {
+		m.lo.Error("error removing contact organization", "contact_id", contactID, "organization_id", orgID, "error", err)
+		return res.MembershipChange, m.generalError()
+	}
+	if res.Removed == 0 {
+		return res.MembershipChange, envelope.NewError(envelope.NotFoundError, m.i18n.T("validation.notFoundOrganization"), nil)
+	}
+	return res.MembershipChange, nil
+}
+
+// SetConversationOrganization files the conversation under one of its contact's organizations, or under none
+// when orgID is not valid. An organization the contact does not belong to is rejected.
+func (m *Manager) SetConversationOrganization(conversationUUID string, orgID null.Int) error {
+	var id int
+	if err := m.q.SetConversationOrganization.Get(&id, conversationUUID, orgID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return envelope.NewError(envelope.InputError, m.i18n.T("organization.notContactOrganization"), nil)
+		}
+		m.lo.Error("error setting conversation organization", "uuid", conversationUUID, "organization_id", orgID, "error", err)
+		return m.generalError()
+	}
+	return nil
 }
 
 func (m *Manager) validate(name, externalID string) (string, null.String, error) {

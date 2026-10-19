@@ -35,7 +35,7 @@ func TestDeleteSpamConversations(t *testing.T) {
 	insert := func(contactID int, status string) string {
 		var id int
 		var uuid string
-		if err := m.q.InsertConversation.QueryRow(contactID, status, inbox, "", time.Now(), status, "", false, []byte("{}"), []byte("{}"), time.Time{}, 0, "").Scan(&id, &uuid); err != nil {
+		if err := m.q.InsertConversation.QueryRow(contactID, status, inbox, "", time.Now(), status, "", false, []byte("{}"), []byte("{}"), time.Time{}, 0, "", 0).Scan(&id, &uuid); err != nil {
 			t.Fatalf("inserting conversation: %v", err)
 		}
 		return uuid

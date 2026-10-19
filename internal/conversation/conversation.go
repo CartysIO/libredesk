@@ -438,6 +438,12 @@ type queries struct {
 // CreateConversation creates a new conversation. If maxConversations > 0, the insert is
 // atomically rejected when the contact already has >= maxConversations in the given window.
 func (c *Manager) CreateConversation(contactID, inboxID int, lastMessage string, lastMessageAt time.Time, subject string, appendRefNumToSubject bool, meta, customAttributes map[string]any, maxConversations int, rateLimitWindow time.Duration) (int, string, error) {
+	return c.CreateConversationInOrganization(0, contactID, inboxID, lastMessage, lastMessageAt, subject, appendRefNumToSubject, meta, customAttributes, maxConversations, rateLimitWindow)
+}
+
+// CreateConversationInOrganization creates a conversation filed under orgID when the contact belongs to it,
+// else under the contact's default organization (Clyr fork).
+func (c *Manager) CreateConversationInOrganization(orgID, contactID, inboxID int, lastMessage string, lastMessageAt time.Time, subject string, appendRefNumToSubject bool, meta, customAttributes map[string]any, maxConversations int, rateLimitWindow time.Duration) (int, string, error) {
 	var (
 		id     int
 		uuid   string
@@ -467,7 +473,7 @@ func (c *Manager) CreateConversation(contactID, inboxID int, lastMessage string,
 		since = time.Now().Add(-rateLimitWindow)
 	}
 
-	if err := c.q.InsertConversation.QueryRow(contactID, models.StatusOpen, inboxID, lastMessage, lastMessageAt, subject, prefix, appendRefNumToSubject, metaJSON, customAttrsJSON, since, maxConversations, c.subjectRefFormat).Scan(&id, &uuid); err != nil {
+	if err := c.insertConversationRow(c.q.InsertConversation, orgID, contactID, inboxID, lastMessage, lastMessageAt, subject, prefix, appendRefNumToSubject, metaJSON, customAttrsJSON, since, maxConversations).Scan(&id, &uuid); err != nil {
 		if err == sql.ErrNoRows {
 			return 0, "", envelope.NewError(envelope.RateLimitError, c.i18n.T("globals.messages.tooManyRequests"), nil)
 		}
@@ -480,6 +486,12 @@ func (c *Manager) CreateConversation(contactID, inboxID int, lastMessage string,
 		c.lo.Error("error fetching conversation list item for broadcast", "uuid", uuid, "error", err)
 	}
 	return id, uuid, nil
+}
+
+// insertConversationRow runs insert-conversation through stmt, which is c.q.InsertConversation or its
+// transaction copy. Every insert goes through here, so the query's arguments are listed once (Clyr fork).
+func (c *Manager) insertConversationRow(stmt *sqlx.Stmt, orgID, contactID, inboxID int, lastMessage string, lastMessageAt time.Time, subject, prefix string, appendRefNumToSubject bool, metaJSON, customAttrsJSON []byte, since time.Time, maxConversations int) *sqlx.Row {
+	return stmt.QueryRowx(contactID, models.StatusOpen, inboxID, lastMessage, lastMessageAt, subject, prefix, appendRefNumToSubject, metaJSON, customAttrsJSON, since, maxConversations, c.subjectRefFormat, orgID)
 }
 
 // GetConversation retrieves a conversation by its ID or UUID.

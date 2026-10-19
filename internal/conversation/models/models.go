@@ -234,6 +234,7 @@ type Conversation struct {
 	SLAPolicyID               null.Int               `db:"sla_policy_id" json:"sla_policy_id"`
 	OrganizationID            null.Int               `db:"organization_id" json:"organization_id"`
 	OrganizationName          null.String            `db:"organization_name" json:"organization_name"`
+	OrganizationExternalID    null.String            `db:"organization_external_id" json:"organization_external_id"`
 	SlaPolicyName             null.String            `db:"sla_policy_name" json:"sla_policy_name"`
 	AppliedSLAID              null.Int               `db:"applied_sla_id" json:"applied_sla_id"`
 	NextSLADeadlineAt         null.Time              `db:"next_sla_deadline_at" json:"next_sla_deadline_at"`
@@ -272,6 +273,8 @@ type ConversationContact struct {
 	OrganizationID         null.Int        `db:"organization_id" json:"organization_id"`
 	OrganizationName       null.String     `db:"organization_name" json:"organization_name"`
 	OrganizationExternalID null.String     `db:"organization_external_id" json:"organization_external_id"`
+	// Organizations are all the contact's organizations, the default one first (Clyr fork).
+	Organizations json.RawMessage `db:"organizations" json:"organizations"`
 
 	ChannelIdentities umodels.ChannelIdentities `db:"channel_identities" json:"channel_identities,omitempty"`
 }

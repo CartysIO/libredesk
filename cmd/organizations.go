@@ -5,7 +5,9 @@ import (
 	"strconv"
 	"strings"
 
+	amodels "github.com/abhinavxd/libredesk/internal/auth/models"
 	"github.com/abhinavxd/libredesk/internal/envelope"
+	omodels "github.com/abhinavxd/libredesk/internal/organization/models"
 	"github.com/abhinavxd/libredesk/internal/stringutil"
 	umodels "github.com/abhinavxd/libredesk/internal/user/models"
 	"github.com/valyala/fasthttp"
@@ -19,8 +21,13 @@ type organizationReq struct {
 	ExternalID string `json:"external_id"`
 }
 
-// contactOrganizationReq is the body for setting a contact's organization. A null ID removes it.
+// contactOrganizationReq is the body for adding a contact to an organization or making it the default.
 type contactOrganizationReq struct {
+	OrganizationID int `json:"organization_id"`
+}
+
+// conversationOrganizationReq is the body for filing a conversation under an organization. A null ID removes it.
+type conversationOrganizationReq struct {
 	OrganizationID null.Int `json:"organization_id"`
 }
 
@@ -45,9 +52,11 @@ type orgSyncContact struct {
 	Email          string `json:"email"`
 	FirstName      string `json:"first_name"`
 	LastName       string `json:"last_name"`
+	// Default makes this organization the contact's default, which new email conversations get.
+	Default bool `json:"default"`
 }
 
-// orgSyncResp counts what a sync did. Errors lists the items that failed; the other items are still synced.
+// orgSyncResp counts what a sync did. Linked counts new memberships and Kept existing ones. Errors lists the items that failed; the other items are still synced.
 type orgSyncResp struct {
 	Organizations int            `json:"organizations"`
 	Linked        int            `json:"linked"`
@@ -62,7 +71,7 @@ type orgSyncError struct {
 }
 
 // handleSyncOrganizations creates or renames organizations by external ID and creates or updates their contacts by external user ID.
-// A contact gets the organization only when it has none, so links set by chat or by an agent stay.
+// Each contact is added to the organization. It never removes a membership, so links set by chat or by an agent stay.
 func handleSyncOrganizations(r *fastglue.Request) error {
 	var (
 		app = r.Context.(*App)
@@ -103,8 +112,8 @@ func handleSyncOrganizations(r *fastglue.Request) error {
 	return r.SendEnvelope(resp)
 }
 
-// syncOrganizationContact creates or updates the contact like a widget JWT sign-in does, and links it to orgID when it has no organization.
-// It returns true when it set the link. Its errors are envelope errors, safe to return to the caller.
+// syncOrganizationContact creates or updates the contact like a widget JWT sign-in does, and adds it to orgID.
+// It returns true when the membership is new. Its errors are envelope errors, safe to return to the caller.
 func syncOrganizationContact(app *App, orgID int, c orgSyncContact) (bool, error) {
 	extID := strings.TrimSpace(c.ExternalUserID)
 	email := strings.ToLower(strings.TrimSpace(c.Email))
@@ -132,12 +141,14 @@ func syncOrganizationContact(app *App, orgID int, c orgSyncContact) (bool, error
 		app.lo.Error("error resolving contact in organization sync", "external_user_id", extID, "error", err)
 		return false, envelope.NewError(envelope.GeneralError, app.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
-	linked, err := app.organization.SetContactOrganizationIfNone(user.ID, orgID)
-	if err != nil || !linked {
+	change, err := app.organization.AddContactOrganization(user.ID, orgID, c.Default)
+	if err != nil {
 		return false, err
 	}
-	broadcastContactOrganization(app, user.ID, null.IntFrom(orgID))
-	return true, nil
+	if change.Added > 0 || change.DefaultChanged > 0 || len(change.Filed) > 0 {
+		broadcastContactOrganizations(app, user.ID, change.Filed)
+	}
+	return change.Added > 0, nil
 }
 
 // handleGetOrganizations returns organizations, filtered by the `q` search text.
@@ -217,8 +228,12 @@ func handleDeleteOrganization(r *fastglue.Request) error {
 	if !ok {
 		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, app.i18n.T("validation.notFoundOrganization"), nil, envelope.InputError)
 	}
-	if err := app.organization.Delete(id); err != nil {
+	changed, err := app.organization.Delete(id)
+	if err != nil {
 		return sendErrorEnvelope(r, err)
+	}
+	for _, c := range changed {
+		broadcastContactOrganizations(app, c.ContactID, nil)
 	}
 	return r.SendEnvelope(true)
 }
@@ -238,65 +253,156 @@ func handleGetOrganizationContacts(r *fastglue.Request) error {
 	return r.SendEnvelope(contacts)
 }
 
-// handleSetContactOrganization sets or removes a contact's organization.
+// handleGetContactOrganizations returns the organizations of a contact, the default one first.
+func handleGetContactOrganizations(r *fastglue.Request) error {
+	app := r.Context.(*App)
+	id, ok := intParam(r, "id")
+	if !ok {
+		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, app.i18n.T("validation.notFoundUser"), nil, envelope.InputError)
+	}
+	orgs, err := app.organization.GetContactOrganizations(id)
+	if err != nil {
+		return sendErrorEnvelope(r, err)
+	}
+	return r.SendEnvelope(orgs)
+}
+
+// handleAddContactOrganization adds a contact to an organization. It becomes the default when the contact has none.
+func handleAddContactOrganization(r *fastglue.Request) error {
+	return updateContactOrganization(r, false)
+}
+
+// handleSetContactOrganization makes an organization the contact's default, and adds the contact to it if needed.
 func handleSetContactOrganization(r *fastglue.Request) error {
+	return updateContactOrganization(r, true)
+}
+
+func updateContactOrganization(r *fastglue.Request, makeDefault bool) error {
 	var (
-		app   = r.Context.(*App)
-		id, _ = strconv.Atoi(r.RequestCtx.UserValue("id").(string))
-		req   contactOrganizationReq
+		app = r.Context.(*App)
+		req contactOrganizationReq
 	)
-	if id <= 0 {
+	id, ok := intParam(r, "id")
+	if !ok {
 		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, app.i18n.T("validation.notFoundUser"), nil, envelope.InputError)
 	}
 	if err := r.Decode(&req, "json"); err != nil {
 		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, app.i18n.T("errors.parsingRequest"), nil, envelope.InputError)
 	}
-	if err := app.organization.SetContactOrganization(id, req.OrganizationID); err != nil {
-		return sendErrorEnvelope(r, err)
+	if req.OrganizationID <= 0 {
+		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, app.i18n.Ts("globals.messages.required", "name", "organization_id"), nil, envelope.InputError)
 	}
-	broadcastContactOrganization(app, id, req.OrganizationID)
-	c, err := app.user.GetContactOrVisitor(id, "")
+	change, err := app.organization.AddContactOrganization(id, req.OrganizationID, makeDefault)
 	if err != nil {
 		return sendErrorEnvelope(r, err)
 	}
-	return r.SendEnvelope(c)
+	return sendContactOrganizations(r, app, id, change.Filed)
 }
 
-// broadcastContactOrganization tells open conversations of the contact about its new organization.
-func broadcastContactOrganization(app *App, contactID int, orgID null.Int) {
-	update := map[string]any{"organization_id": nil, "organization_name": nil, "organization_external_id": nil}
-	if orgID.Valid {
-		org, err := app.organization.Get(orgID.Int)
-		if err != nil {
-			return
-		}
-		update = map[string]any{"organization_id": org.ID, "organization_name": org.Name, "organization_external_id": org.ExternalID}
+// handleRemoveContactOrganization removes a contact from an organization.
+func handleRemoveContactOrganization(r *fastglue.Request) error {
+	app := r.Context.(*App)
+	id, ok := intParam(r, "id")
+	orgID, orgOK := intParam(r, "org_id")
+	if !ok || !orgOK {
+		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, app.i18n.T("validation.notFoundOrganization"), nil, envelope.InputError)
 	}
-	app.conversation.BroadcastContactUpdate(contactID, update)
+	if _, err := app.organization.RemoveContactOrganization(id, orgID); err != nil {
+		return sendErrorEnvelope(r, err)
+	}
+	return sendContactOrganizations(r, app, id, nil)
 }
 
-// linkContactOrganization creates or renames the organization with this external ID and makes it the contact's organization.
-func linkContactOrganization(app *App, contactID int, externalID, name string) error {
-	org, err := app.organization.UpsertByExternalID(externalID, name)
-	if err != nil {
-		return err
+// sendContactOrganizations tells open conversations about the change and returns the contact's organizations.
+func sendContactOrganizations(r *fastglue.Request, app *App, contactID int, filed []string) error {
+	orgs := broadcastContactOrganizations(app, contactID, filed)
+	if orgs == nil {
+		return sendErrorEnvelope(r, envelope.NewError(envelope.GeneralError, app.i18n.T("globals.messages.somethingWentWrong"), nil))
 	}
-	contact, err := app.user.GetContactOrVisitor(contactID, "")
+	return r.SendEnvelope(orgs)
+}
+
+// broadcastContactOrganizations tells open conversations of the contact about its organizations and its default
+// organization. The filed conversations just got the default organization and are told so too.
+// It returns the organizations, or nil when they could not be read.
+func broadcastContactOrganizations(app *App, contactID int, filed []string) []omodels.ContactOrganization {
+	orgs, err := app.organization.GetContactOrganizations(contactID)
 	if err != nil {
-		return err
-	}
-	if contact.OrganizationID.Valid && contact.OrganizationID.Int == org.ID {
 		return nil
 	}
-	orgID := null.IntFrom(org.ID)
-	if err := app.organization.SetContactOrganization(contactID, orgID); err != nil {
-		return err
+	update := map[string]any{"organizations": orgs, "organization_id": nil, "organization_name": nil, "organization_external_id": nil}
+	for _, o := range orgs {
+		if o.IsDefault {
+			update["organization_id"] = o.ID
+			update["organization_name"] = o.Name
+			update["organization_external_id"] = o.ExternalID
+		}
 	}
-	broadcastContactOrganization(app, contactID, orgID)
-	return nil
+	app.conversation.BroadcastContactUpdate(contactID, update)
+	for _, uuid := range filed {
+		app.conversation.BroadcastConversationUpdate(uuid, map[string]any{
+			"organization_id":          update["organization_id"],
+			"organization_name":        update["organization_name"],
+			"organization_external_id": update["organization_external_id"],
+		})
+	}
+	return orgs
+}
+
+// handleSetConversationOrganization files a conversation under one of its contact's organizations, or under none.
+func handleSetConversationOrganization(r *fastglue.Request) error {
+	var (
+		app   = r.Context.(*App)
+		uuid  = r.RequestCtx.UserValue("uuid").(string)
+		auser = r.RequestCtx.UserValue("user").(amodels.User)
+		req   conversationOrganizationReq
+	)
+	if err := r.Decode(&req, "json"); err != nil {
+		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, app.i18n.T("errors.parsingRequest"), nil, envelope.InputError)
+	}
+	user, err := app.user.GetAgentCachedOrLoad(auser.ID)
+	if err != nil {
+		return sendErrorEnvelope(r, err)
+	}
+	if _, err := enforceConversationAccess(app, uuid, user); err != nil {
+		return sendErrorEnvelope(r, err)
+	}
+	if err := app.organization.SetConversationOrganization(uuid, req.OrganizationID); err != nil {
+		return sendErrorEnvelope(r, err)
+	}
+	update := map[string]any{"organization_id": nil, "organization_name": nil, "organization_external_id": nil}
+	if req.OrganizationID.Valid {
+		if org, err := app.organization.Get(req.OrganizationID.Int); err == nil {
+			update = map[string]any{"organization_id": org.ID, "organization_name": org.Name, "organization_external_id": org.ExternalID}
+		}
+	}
+	app.conversation.BroadcastConversationUpdate(uuid, update)
+	return r.SendEnvelope(update)
+}
+
+// linkContactOrganization creates or renames the organization with this external ID and adds the contact to it.
+// It returns the organization ID. The contact's default organization changes only when it has none.
+func linkContactOrganization(app *App, contactID int, externalID, name string) (int, error) {
+	org, err := app.organization.UpsertByExternalID(externalID, name)
+	if err != nil {
+		return 0, err
+	}
+	change, err := app.organization.AddContactOrganization(contactID, org.ID, false)
+	if err != nil {
+		return 0, err
+	}
+	if change.Added > 0 || change.DefaultChanged > 0 || len(change.Filed) > 0 {
+		broadcastContactOrganizations(app, contactID, change.Filed)
+	}
+	return org.ID, nil
+}
+
+func intParam(r *fastglue.Request, name string) (int, bool) {
+	v, _ := r.RequestCtx.UserValue(name).(string)
+	id, err := strconv.Atoi(v)
+	return id, err == nil && id > 0
 }
 
 func organizationIDParam(r *fastglue.Request) (int, bool) {
-	id, err := strconv.Atoi(r.RequestCtx.UserValue("id").(string))
-	return id, err == nil && id > 0
+	return intParam(r, "id")
 }

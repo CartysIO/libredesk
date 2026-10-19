@@ -77,6 +77,13 @@
               </p>
               <p class="text-xs text-muted-foreground truncate">{{ contact.email }}</p>
             </div>
+            <span
+              v-if="contact.is_default"
+              class="ml-auto shrink-0 rounded border px-1.5 py-0.5 text-xs text-muted-foreground"
+              :title="t('organization.defaultHelp')"
+            >
+              {{ t('organization.default') }}
+            </span>
           </router-link>
           <p v-if="contacts.length === 0" class="text-sm text-muted-foreground">
             {{ t('organization.noContacts') }}

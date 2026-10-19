@@ -8,20 +8,20 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// organizationSchema returns the columns, indexes and foreign keys that the organizations migration owns.
+// organizationSchema returns the columns, indexes and foreign keys that the organization migrations (clyr.1 and clyr.5) own.
 func organizationSchema(t *testing.T, db *sqlx.DB) []string {
 	t.Helper()
 	var out []string
 	if err := db.Select(&out, `
 		SELECT table_name || '.' || column_name || ':' || data_type || ':' || is_nullable || ':' || COALESCE(column_default, '')
 		FROM information_schema.columns
-		WHERE table_name = 'organizations' OR (table_name IN ('users', 'conversations') AND column_name = 'organization_id')
+		WHERE table_name IN ('organizations', 'contact_organizations') OR (table_name IN ('users', 'conversations') AND column_name = 'organization_id')
 		UNION ALL
 		SELECT indexname || ':' || indexdef FROM pg_indexes WHERE indexdef ILIKE '%organization%'
 		UNION ALL
 		SELECT conrelid::regclass || ':' || pg_get_constraintdef(oid) FROM pg_constraint
 		WHERE conrelid::regclass::text IN ('organizations', 'users', 'conversations') AND pg_get_constraintdef(oid) ILIKE '%organization%'
-		   OR conrelid::regclass::text = 'organizations'`); err != nil {
+		   OR conrelid::regclass::text IN ('organizations', 'contact_organizations')`); err != nil {
 		t.Fatal(err)
 	}
 	slices.Sort(out)
@@ -35,11 +35,14 @@ func TestV2_9_0_RC9_CLYR1Organizations(t *testing.T) {
 		t.Fatal("schema.sql has no organization objects")
 	}
 
-	db.MustExec(`ALTER TABLE conversations DROP COLUMN organization_id; ALTER TABLE users DROP COLUMN organization_id; DROP TABLE organizations`)
+	db.MustExec(`DROP TABLE contact_organizations; ALTER TABLE conversations DROP COLUMN organization_id; ALTER TABLE users DROP COLUMN organization_id; DROP TABLE organizations`)
 	// Running it twice proves it is idempotent, which matters because a fresh install runs every migration.
 	for range 2 {
 		if err := V2_9_0_RC9_CLYR1(db, nil, nil); err != nil {
 			t.Fatalf("running migration: %v", err)
+		}
+		if err := V2_9_0_RC9_CLYR5(db, nil, nil); err != nil {
+			t.Fatalf("running contact organizations migration: %v", err)
 		}
 	}
 	got := organizationSchema(t, db)
