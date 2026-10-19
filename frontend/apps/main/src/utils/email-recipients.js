@@ -49,9 +49,18 @@ export function computeRecipientsFromMessage (message, contactEmail, ownedAddres
             email && !inboxAddresses.includes(stripConvUUID(email).toLowerCase())
         )))
 
+    const to = clean(toList)
+    let cc = clean(ccList)
+    // The message came from one of our own addresses (a web form's confirmation copy, say), so nothing is left
+    // for TO. Move the first CC recipient up so the reply has a recipient and can be sent.
+    if (to.length === 0 && cc.length > 0) {
+        to.push(cc[0])
+        cc = cc.slice(1)
+    }
+
     return {
-        to: clean(toList),
-        cc: clean(ccList),
+        to,
+        cc,
         // BCC stays empty user is supposed to add it manually.
         bcc: [],
     }
