@@ -107,3 +107,45 @@ export const writeBoardMode = (isBoard) => {
     // Storage may be blocked. The choice then lasts for this page only.
   }
 }
+
+// Board mode shows the board on every inbox route except search. A conversation route adds the drawer.
+export const shouldShowBoard = ({ isBoard, routeName }) => !!isBoard && routeName !== 'search'
+
+export const isConversationRoute = (routeName) => String(routeName).endsWith('-conversation')
+
+// The card above (dir -1) or below (dir 1) the given card in its column. Null at the ends or when the card is not on the board.
+export const adjacentBoardCard = (columns, uuid, dir) => {
+  const found = findBoardCard(columns, uuid)
+  if (!found) return null
+  return columns[found.status].items[found.index + dir] || null
+}
+
+export const DRAWER_MIN_WIDTH = 480
+const DRAWER_WIDTH_KEY = 'conversationBoardDrawerWidth'
+
+export const clampDrawerWidth = (width, containerWidth) =>
+  Math.max(Math.min(DRAWER_MIN_WIDTH, containerWidth), Math.min(width, containerWidth))
+
+export const readDrawerWidth = () => {
+  try {
+    const value = Number(localStorage.getItem(DRAWER_WIDTH_KEY))
+    return value > 0 ? value : 0
+  } catch {
+    return 0
+  }
+}
+
+export const writeDrawerWidth = (width) => {
+  try {
+    localStorage.setItem(DRAWER_WIDTH_KEY, String(Math.round(width)))
+  } catch {
+    // Storage may be blocked. The width then lasts for this page only.
+  }
+}
+
+// Keys that must not close or expand the drawer while the user types.
+export const isTypingTarget = (el) => {
+  if (!el || !el.tagName) return false
+  const tag = el.tagName.toLowerCase()
+  return tag === 'input' || tag === 'textarea' || tag === 'select' || !!el.isContentEditable
+}

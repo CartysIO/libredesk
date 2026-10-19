@@ -92,15 +92,6 @@
             </template>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button
-          v-if="isBoard && !isMobile"
-          variant="ghost"
-          :class="MOBILE_ICON_BUTTON_CLASS"
-          :aria-label="t('kanban.backToBoard')"
-          @click="goBackToList"
-        >
-          <X class="w-4 h-4" />
-        </Button>
       </div>
     </div>
 
@@ -151,8 +142,7 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useConversationStore } from '@main/stores/conversation'
 import { useConversationBoardStore } from '@main/stores/conversationBoard'
 import { useUserStore } from '@main/stores/user'
-import { useBoardMode } from '@main/composables/useBoardMode'
-import { Clock, MoreHorizontal, ChevronLeft, PanelRight, ShieldBan, Trash2, X } from 'lucide-vue-next'
+import { Clock, MoreHorizontal, ChevronLeft, PanelRight, ShieldBan, Trash2 } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import { useIsMobile } from '@shared-ui/composables'
 import {
@@ -198,7 +188,6 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const isMobile = useIsMobile()
-const { isBoard } = useBoardMode()
 const canCompose = computed(
   () => userStore.can(perms.MESSAGES_WRITE) || userStore.can(perms.MESSAGES_WRITE_PRIVATE)
 )

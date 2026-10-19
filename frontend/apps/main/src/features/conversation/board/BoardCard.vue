@@ -3,8 +3,10 @@
     role="button"
     tabindex="0"
     draggable="true"
+    :data-uuid="conversation.uuid"
     class="rounded-md border bg-card text-card-foreground p-3 space-y-1 cursor-pointer select-none shadow-sm hover:bg-accent/40 transition-colors"
-    :class="{ 'opacity-50': isDragging }"
+    :class="{ 'opacity-50': isDragging, 'ring-2 ring-primary bg-accent/60': active }"
+    :aria-current="active ? 'true' : undefined"
     @click="$emit('open', conversation)"
     @keydown.enter.self="$emit('open', conversation)"
     @dragstart="onDragStart"
@@ -61,7 +63,8 @@ import { useUsersStore } from '@main/stores/users'
 
 const props = defineProps({
   conversation: { type: Object, required: true },
-  isDragging: { type: Boolean, default: false }
+  isDragging: { type: Boolean, default: false },
+  active: { type: Boolean, default: false }
 })
 const emit = defineEmits(['open', 'dragstart', 'dragend'])
 
