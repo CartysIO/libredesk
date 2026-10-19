@@ -26,4 +26,26 @@ type Contact struct {
 	Email          null.String `db:"email" json:"email"`
 	AvatarURL      null.String `db:"avatar_url" json:"avatar_url"`
 	ExternalUserID null.String `db:"external_user_id" json:"external_user_id"`
+	// IsDefault is true when this organization is the contact's default organization.
+	IsDefault bool `db:"is_default" json:"is_default"`
+}
+
+// ContactOrganization is an organization that a contact belongs to.
+type ContactOrganization struct {
+	ID         int         `db:"id" json:"id"`
+	Name       string      `db:"name" json:"name"`
+	ExternalID null.String `db:"external_id" json:"external_id"`
+	IsDefault  bool        `db:"is_default" json:"is_default"`
+}
+
+// MembershipChange tells what adding or removing a membership changed.
+type MembershipChange struct {
+	Added          int `db:"added"`
+	DefaultChanged int `db:"default_changed"`
+}
+
+// DefaultChange is a contact whose default organization changed.
+type DefaultChange struct {
+	ContactID      int      `db:"id"`
+	OrganizationID null.Int `db:"organization_id"`
 }

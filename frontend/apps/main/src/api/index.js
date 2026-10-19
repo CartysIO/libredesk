@@ -249,8 +249,16 @@ const updateOrganization = (id, data) => http.put(`/api/v1/organizations/${id}`,
 const deleteOrganization = (id) => http.delete(`/api/v1/organizations/${id}`)
 const getOrganizationContacts = (id, params) =>
   http.get(`/api/v1/organizations/${id}/contacts`, { params })
-const setContactOrganization = (id, organizationID) =>
+const getContactOrganizations = (id) => http.get(`/api/v1/contacts/${id}/organizations`)
+const addContactOrganization = (id, organizationID) =>
+  http.post(`/api/v1/contacts/${id}/organizations`, { organization_id: organizationID })
+const removeContactOrganization = (id, organizationID) =>
+  http.delete(`/api/v1/contacts/${id}/organizations/${organizationID}`)
+// Makes the organization the contact's default; adds the contact to it if needed.
+const setContactDefaultOrganization = (id, organizationID) =>
   http.put(`/api/v1/contacts/${id}/organization`, { organization_id: organizationID })
+const setConversationOrganization = (uuid, organizationID) =>
+  http.put(`/api/v1/conversations/${uuid}/organization`, { organization_id: organizationID })
 const deleteTeam = (id) => http.delete(`/api/v1/teams/${id}`)
 const updateUser = (id, data) =>
   http.put(`/api/v1/agents/${id}`, data, {
@@ -810,7 +818,11 @@ export default {
   updateOrganization,
   deleteOrganization,
   getOrganizationContacts,
-  setContactOrganization,
+  getContactOrganizations,
+  addContactOrganization,
+  removeContactOrganization,
+  setContactDefaultOrganization,
+  setConversationOrganization,
   getUsersCompact,
   getEmailNotificationSettings,
   updateEmailNotificationSettings,

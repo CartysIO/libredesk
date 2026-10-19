@@ -70,7 +70,7 @@ func TestReOpenConversationQuery(t *testing.T) {
 	create := func(status string, replied bool) string {
 		var id int
 		var uuid string
-		if err := m.q.InsertConversation.QueryRow(contact, status, inbox, "", time.Now(), status, "", false, []byte("{}"), []byte("{}"), time.Time{}, 0, "").Scan(&id, &uuid); err != nil {
+		if err := m.q.InsertConversation.QueryRow(contact, status, inbox, "", time.Now(), status, "", false, []byte("{}"), []byte("{}"), time.Time{}, 0, "", 0).Scan(&id, &uuid); err != nil {
 			t.Fatalf("inserting conversation: %v", err)
 		}
 		if replied {
@@ -156,7 +156,7 @@ func TestUnsnoozeAllQuery(t *testing.T) {
 	create := func(replied bool, until string) string {
 		var id int
 		var uuid string
-		if err := m.q.InsertConversation.QueryRow(contact, models.StatusSnoozed, inbox, "", time.Now(), "s", "", false, []byte("{}"), []byte("{}"), time.Time{}, 0, "").Scan(&id, &uuid); err != nil {
+		if err := m.q.InsertConversation.QueryRow(contact, models.StatusSnoozed, inbox, "", time.Now(), "s", "", false, []byte("{}"), []byte("{}"), time.Time{}, 0, "", 0).Scan(&id, &uuid); err != nil {
 			t.Fatal(err)
 		}
 		db.MustExec(`UPDATE conversations SET snoozed_until = NOW() + $2::interval WHERE id = $1`, id, until)
@@ -216,7 +216,7 @@ func TestUpdateConversationStatusIfCurrentQuery(t *testing.T) {
 	create := func(status string) string {
 		var id int
 		var uuid string
-		if err := m.q.InsertConversation.QueryRow(contact, status, inbox, "", time.Now(), status, "", false, []byte("{}"), []byte("{}"), time.Time{}, 0, "").Scan(&id, &uuid); err != nil {
+		if err := m.q.InsertConversation.QueryRow(contact, status, inbox, "", time.Now(), status, "", false, []byte("{}"), []byte("{}"), time.Time{}, 0, "", 0).Scan(&id, &uuid); err != nil {
 			t.Fatal(err)
 		}
 		return uuid
@@ -281,7 +281,7 @@ func TestUnreadCountSkipsActivity(t *testing.T) {
 	}
 	var convID int
 	var uuid string
-	if err := m.q.InsertConversation.QueryRow(contact, models.StatusOnYou, inbox, "", time.Now(), "s", "", false, []byte("{}"), []byte("{}"), time.Time{}, 0, "").Scan(&convID, &uuid); err != nil {
+	if err := m.q.InsertConversation.QueryRow(contact, models.StatusOnYou, inbox, "", time.Now(), "s", "", false, []byte("{}"), []byte("{}"), time.Time{}, 0, "", 0).Scan(&convID, &uuid); err != nil {
 		t.Fatal(err)
 	}
 	insert := func(typ string, ago string) {

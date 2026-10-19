@@ -435,6 +435,12 @@ type queries struct {
 // CreateConversation creates a new conversation. If maxConversations > 0, the insert is
 // atomically rejected when the contact already has >= maxConversations in the given window.
 func (c *Manager) CreateConversation(contactID, inboxID int, lastMessage string, lastMessageAt time.Time, subject string, appendRefNumToSubject bool, meta, customAttributes map[string]any, maxConversations int, rateLimitWindow time.Duration) (int, string, error) {
+	return c.CreateConversationInOrganization(0, contactID, inboxID, lastMessage, lastMessageAt, subject, appendRefNumToSubject, meta, customAttributes, maxConversations, rateLimitWindow)
+}
+
+// CreateConversationInOrganization creates a conversation filed under orgID when the contact belongs to it,
+// else under the contact's default organization (Clyr fork).
+func (c *Manager) CreateConversationInOrganization(orgID, contactID, inboxID int, lastMessage string, lastMessageAt time.Time, subject string, appendRefNumToSubject bool, meta, customAttributes map[string]any, maxConversations int, rateLimitWindow time.Duration) (int, string, error) {
 	var (
 		id     int
 		uuid   string
@@ -464,7 +470,7 @@ func (c *Manager) CreateConversation(contactID, inboxID int, lastMessage string,
 		since = time.Now().Add(-rateLimitWindow)
 	}
 
-	if err := c.q.InsertConversation.QueryRow(contactID, models.StatusOpen, inboxID, lastMessage, lastMessageAt, subject, prefix, appendRefNumToSubject, metaJSON, customAttrsJSON, since, maxConversations, c.subjectRefFormat).Scan(&id, &uuid); err != nil {
+	if err := c.q.InsertConversation.QueryRow(contactID, models.StatusOpen, inboxID, lastMessage, lastMessageAt, subject, prefix, appendRefNumToSubject, metaJSON, customAttrsJSON, since, maxConversations, c.subjectRefFormat, orgID).Scan(&id, &uuid); err != nil {
 		if err == sql.ErrNoRows {
 			return 0, "", envelope.NewError(envelope.RateLimitError, c.i18n.T("globals.messages.tooManyRequests"), nil)
 		}

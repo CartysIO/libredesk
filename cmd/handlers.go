@@ -72,6 +72,7 @@ func initHandlers(g *fastglue.Fastglue, hub *ws.Hub) {
 	g.PUT("/api/v1/conversations/{uuid}/last-seen", perm(handleUpdateConversationAssigneeLastSeen, "conversations:read"))
 	g.PUT("/api/v1/conversations/{uuid}/mark-unread", perm(handleMarkConversationAsUnread, "conversations:read"))
 	g.POST("/api/v1/conversations/{uuid}/tags", perm(handleUpdateConversationtags, "conversations:update_tags"))
+	g.PUT("/api/v1/conversations/{uuid}/organization", perm(handleSetConversationOrganization, "conversations:update_organization"))
 	g.GET("/api/v1/conversations/{uuid}/page-visits", perm(handleGetContactPageVisits, "conversations:read"))
 	g.GET("/api/v1/conversations/{cuuid}/messages/{uuid}", perm(handleGetMessage, "messages:read"))
 	g.GET("/api/v1/conversations/{uuid}/messages", perm(handleGetMessages, "messages:read"))
@@ -167,6 +168,9 @@ func initHandlers(g *fastglue.Fastglue, hub *ws.Hub) {
 	g.GET("/api/v1/contacts/{id}/export", perm(handleExportContact, "contacts:export"))
 
 	g.PUT("/api/v1/contacts/{id}/organization", perm(handleSetContactOrganization, "contacts:write"))
+	g.GET("/api/v1/contacts/{id}/organizations", perm(handleGetContactOrganizations, "contacts:read"))
+	g.POST("/api/v1/contacts/{id}/organizations", perm(handleAddContactOrganization, "contacts:write"))
+	g.DELETE("/api/v1/contacts/{id}/organizations/{org_id}", perm(handleRemoveContactOrganization, "contacts:write"))
 
 	// Organizations (Clyr fork). They reuse the contact permissions.
 	g.GET("/api/v1/organizations", perm(handleGetOrganizations, "contacts:read"))

@@ -21,6 +21,8 @@ const (
 	ctxWidgetIsVisitor = "widget_is_visitor"
 	ctxWidgetInbox     = "widget_inbox"
 	ctxWidgetConfig    = "widget_config"
+	// Clyr fork: the organization the contact signed in to.
+	ctxWidgetOrganizationID = "widget_organization_id"
 
 	hdrWidgetInboxID      = "X-Libredesk-Inbox-ID"
 	hdrWidgetVisitorToken = "X-Libredesk-Visitor-Token"
@@ -119,6 +121,7 @@ func widgetAuth(next func(*fastglue.Request) error) func(*fastglue.Request) erro
 
 		r.RequestCtx.SetUserValue(ctxWidgetContactID, session.UserID)
 		r.RequestCtx.SetUserValue(ctxWidgetIsVisitor, session.IsVisitor)
+		r.RequestCtx.SetUserValue(ctxWidgetOrganizationID, session.OrganizationID)
 
 		// Merge visitor to contact if visitor token is provided.
 		visitorToken := string(r.RequestCtx.Request.Header.Peek(hdrWidgetVisitorToken))
@@ -150,6 +153,12 @@ func getWidgetContactID(r *fastglue.Request) (int, error) {
 		return 0, fmt.Errorf("invalid contact ID type in context")
 	}
 	return contactID, nil
+}
+
+// getWidgetOrganizationID returns the organization the contact signed in to, or 0.
+func getWidgetOrganizationID(r *fastglue.Request) int {
+	id, _ := r.RequestCtx.UserValue(ctxWidgetOrganizationID).(int)
+	return id
 }
 
 // getWidgetIsVisitor extracts the visitor flag from request context.

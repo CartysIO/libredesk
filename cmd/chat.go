@@ -56,6 +56,8 @@ type WidgetSession struct {
 	InboxID        int
 	IsVisitor      bool
 	ExternalUserID string
+	// OrganizationID is the organization the contact signed in to (Clyr fork), 0 when none.
+	OrganizationID int
 }
 
 // Claims holds JWT claims for a JWT user.
@@ -257,7 +259,8 @@ func handleChatInit(r *fastglue.Request) error {
 		"ip":         clientIP,
 		"user_agent": userAgent,
 	}
-	_, conversationUUID, err := app.conversation.CreateConversation(
+	_, conversationUUID, err := app.conversation.CreateConversationInOrganization(
+		getWidgetOrganizationID(r),
 		contactID,
 		inbox.ID,
 		"",
@@ -428,9 +431,11 @@ func handleAuthExchange(r *fastglue.Request) error {
 		}
 	}
 
-	// Link the contact to its organization. A failure does not block the chat.
+	// Add the contact to the organization it is signed in to. A failure does not block the chat.
+	// The session remembers it, so the contact's new chats are filed under it (Clyr fork).
+	var activeOrgID int
 	if claims.OrganizationExternalID != "" {
-		if err := linkContactOrganization(app, contactID, claims.OrganizationExternalID, claims.OrganizationName); err != nil {
+		if activeOrgID, err = linkContactOrganization(app, contactID, claims.OrganizationExternalID, claims.OrganizationName); err != nil {
 			app.lo.Error("error linking contact organization during auth exchange", "contact_id", contactID, "error", err)
 		}
 	}
@@ -441,6 +446,7 @@ func handleAuthExchange(r *fastglue.Request) error {
 
 	sendSession := func(token string) error {
 		app.redis.Set(ctx, reverseKey, token, sessionTTL)
+		setSessionOrganization(app, token, activeOrgID)
 		return r.SendEnvelope(map[string]any{
 			"session_token": token,
 			"user": map[string]any{
@@ -1098,6 +1104,7 @@ func loadSession(app *App, token string, config livechat.Config) (*WidgetSession
 	userID, _ := strconv.Atoi(data["user_id"])
 	inboxID, _ := strconv.Atoi(data["inbox_id"])
 	isVisitor, _ := strconv.ParseBool(data["is_visitor"])
+	organizationID, _ := strconv.Atoi(data["organization_id"])
 
 	ttl := getSessionDuration(config)
 	if isVisitor {
@@ -1110,7 +1117,24 @@ func loadSession(app *App, token string, config livechat.Config) (*WidgetSession
 		InboxID:        inboxID,
 		IsVisitor:      isVisitor,
 		ExternalUserID: data["external_user_id"],
+		OrganizationID: organizationID,
 	}, nil
+}
+
+// setSessionOrganization stores the organization the contact signed in to on the session, or removes it when orgID is 0.
+// A reused session gets the organization of the latest sign-in.
+func setSessionOrganization(app *App, token string, orgID int) {
+	ctx := context.Background()
+	key := widgetSessionPrefix + token
+	var err error
+	if orgID > 0 {
+		err = app.redis.HSet(ctx, key, "organization_id", strconv.Itoa(orgID)).Err()
+	} else {
+		err = app.redis.HDel(ctx, key, "organization_id").Err()
+	}
+	if err != nil {
+		app.lo.Error("error storing session organization", "error", err)
+	}
 }
 
 // deleteSessionToken removes a session from Redis.
