@@ -145,7 +145,7 @@ func syncOrganizationContact(app *App, orgID int, c orgSyncContact) (bool, error
 	if err != nil {
 		return false, err
 	}
-	if change.Added > 0 || change.DefaultChanged > 0 {
+	if change.Added > 0 || change.DefaultChanged > 0 || len(change.Filed) > 0 {
 		broadcastContactOrganizations(app, user.ID, change.Filed)
 	}
 	return change.Added > 0, nil
@@ -391,7 +391,7 @@ func linkContactOrganization(app *App, contactID int, externalID, name string) (
 	if err != nil {
 		return 0, err
 	}
-	if change.Added > 0 || change.DefaultChanged > 0 {
+	if change.Added > 0 || change.DefaultChanged > 0 || len(change.Filed) > 0 {
 		broadcastContactOrganizations(app, contactID, change.Filed)
 	}
 	return org.ID, nil
