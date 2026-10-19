@@ -4,6 +4,8 @@ package models
 import (
 	"time"
 
+	"github.com/lib/pq"
+
 	"github.com/volatiletech/null/v9"
 )
 
@@ -42,6 +44,8 @@ type ContactOrganization struct {
 type MembershipChange struct {
 	Added          int `db:"added"`
 	DefaultChanged int `db:"default_changed"`
+	// Filed lists the conversations that had no organization and got the contact's default.
+	Filed pq.StringArray `db:"filed"`
 }
 
 // DefaultChange is a contact whose default organization changed.

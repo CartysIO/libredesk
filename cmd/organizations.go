@@ -146,7 +146,7 @@ func syncOrganizationContact(app *App, orgID int, c orgSyncContact) (bool, error
 		return false, err
 	}
 	if change.Added > 0 || change.DefaultChanged > 0 {
-		broadcastContactOrganizations(app, user.ID)
+		broadcastContactOrganizations(app, user.ID, change.Filed)
 	}
 	return change.Added > 0, nil
 }
@@ -233,7 +233,7 @@ func handleDeleteOrganization(r *fastglue.Request) error {
 		return sendErrorEnvelope(r, err)
 	}
 	for _, c := range changed {
-		broadcastContactOrganizations(app, c.ContactID)
+		broadcastContactOrganizations(app, c.ContactID, nil)
 	}
 	return r.SendEnvelope(true)
 }
@@ -292,10 +292,11 @@ func updateContactOrganization(r *fastglue.Request, makeDefault bool) error {
 	if req.OrganizationID <= 0 {
 		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, app.i18n.Ts("globals.messages.required", "name", "organization_id"), nil, envelope.InputError)
 	}
-	if _, err := app.organization.AddContactOrganization(id, req.OrganizationID, makeDefault); err != nil {
+	change, err := app.organization.AddContactOrganization(id, req.OrganizationID, makeDefault)
+	if err != nil {
 		return sendErrorEnvelope(r, err)
 	}
-	return sendContactOrganizations(r, app, id)
+	return sendContactOrganizations(r, app, id, change.Filed)
 }
 
 // handleRemoveContactOrganization removes a contact from an organization.
@@ -309,12 +310,12 @@ func handleRemoveContactOrganization(r *fastglue.Request) error {
 	if _, err := app.organization.RemoveContactOrganization(id, orgID); err != nil {
 		return sendErrorEnvelope(r, err)
 	}
-	return sendContactOrganizations(r, app, id)
+	return sendContactOrganizations(r, app, id, nil)
 }
 
 // sendContactOrganizations tells open conversations about the change and returns the contact's organizations.
-func sendContactOrganizations(r *fastglue.Request, app *App, contactID int) error {
-	orgs := broadcastContactOrganizations(app, contactID)
+func sendContactOrganizations(r *fastglue.Request, app *App, contactID int, filed []string) error {
+	orgs := broadcastContactOrganizations(app, contactID, filed)
 	if orgs == nil {
 		return sendErrorEnvelope(r, envelope.NewError(envelope.GeneralError, app.i18n.T("globals.messages.somethingWentWrong"), nil))
 	}
@@ -322,8 +323,9 @@ func sendContactOrganizations(r *fastglue.Request, app *App, contactID int) erro
 }
 
 // broadcastContactOrganizations tells open conversations of the contact about its organizations and its default
-// organization. It returns the organizations, or nil when they could not be read.
-func broadcastContactOrganizations(app *App, contactID int) []omodels.ContactOrganization {
+// organization. The filed conversations just got the default organization and are told so too.
+// It returns the organizations, or nil when they could not be read.
+func broadcastContactOrganizations(app *App, contactID int, filed []string) []omodels.ContactOrganization {
 	orgs, err := app.organization.GetContactOrganizations(contactID)
 	if err != nil {
 		return nil
@@ -337,6 +339,13 @@ func broadcastContactOrganizations(app *App, contactID int) []omodels.ContactOrg
 		}
 	}
 	app.conversation.BroadcastContactUpdate(contactID, update)
+	for _, uuid := range filed {
+		app.conversation.BroadcastConversationUpdate(uuid, map[string]any{
+			"organization_id":          update["organization_id"],
+			"organization_name":        update["organization_name"],
+			"organization_external_id": update["organization_external_id"],
+		})
+	}
 	return orgs
 }
 
@@ -383,7 +392,7 @@ func linkContactOrganization(app *App, contactID int, externalID, name string) (
 		return 0, err
 	}
 	if change.Added > 0 || change.DefaultChanged > 0 {
-		broadcastContactOrganizations(app, contactID)
+		broadcastContactOrganizations(app, contactID, change.Filed)
 	}
 	return org.ID, nil
 }

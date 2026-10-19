@@ -64,7 +64,7 @@ ORDER BY is_default DESC, o.name, o.id;
 -- Adds the contact to the organization. $3 = make it the default organization.
 -- The organization becomes the default also when the contact has none. Conversations of the contact
 -- that have no organization get the contact's default organization.
--- Returns whether the membership is new and whether the default changed.
+-- Returns whether the membership is new, whether the default changed, and the UUIDs of the conversations it filed.
 WITH contact AS (
     SELECT id, organization_id FROM users
     WHERE id = $1 AND type IN ('contact', 'visitor') AND deleted_at IS NULL
@@ -80,10 +80,12 @@ WITH contact AS (
 ), convs AS (
     UPDATE conversations SET organization_id = COALESCE((SELECT $2::BIGINT FROM def), (SELECT organization_id FROM contact))
     WHERE organization_id IS NULL AND contact_id IN (SELECT id FROM contact)
+    RETURNING uuid
 )
 SELECT (SELECT COUNT(*) FROM contact) AS found,
        (SELECT COUNT(*) FROM member) AS added,
-       (SELECT COUNT(*) FROM def) AS default_changed;
+       (SELECT COUNT(*) FROM def) AS default_changed,
+       COALESCE((SELECT array_agg(uuid::TEXT) FROM convs), '{}') AS filed;
 
 -- name: remove-contact-organization
 -- Removes the contact from the organization. When it was the default, the earliest other membership becomes

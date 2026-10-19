@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/abhinavxd/libredesk/internal/conversation/models"
 	"github.com/abhinavxd/libredesk/internal/dbutil"
 	"github.com/abhinavxd/libredesk/internal/testutil"
 	"github.com/jmoiron/sqlx/types"
@@ -47,7 +46,7 @@ func TestConversationOrganization(t *testing.T) {
 	insert := func(contactID int, subject string, preferredOrg int) string {
 		var id int
 		var uuid string
-		if err := m.q.InsertConversation.QueryRow(contactID, models.StatusOpen, inbox, "", time.Now(), subject, "", false, []byte("{}"), []byte("{}"), time.Time{}, 0, "", preferredOrg).Scan(&id, &uuid); err != nil {
+		if err := m.insertConversationRow(m.q.InsertConversation, preferredOrg, contactID, inbox, "", time.Now(), subject, "", false, []byte("{}"), []byte("{}"), time.Time{}, 0).Scan(&id, &uuid); err != nil {
 			t.Fatalf("inserting conversation: %v", err)
 		}
 		return uuid

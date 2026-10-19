@@ -21,6 +21,9 @@
           <span v-if="org.is_default" class="text-xs text-muted-foreground">
             · {{ t('organization.default') }}
           </span>
+          <span v-else-if="org.former" class="text-xs text-muted-foreground">
+            · {{ t('organization.notMember') }}
+          </span>
         </SelectItem>
         <SelectItem value="none">{{ t('globals.terms.none') }}</SelectItem>
       </SelectContent>
@@ -74,7 +77,16 @@ const conversationStore = useConversationStore()
 const conversation = computed(() => conversationStore.current)
 const saving = ref(false)
 
-const options = computed(() => conversation.value?.contact?.organizations || [])
+// The contact's organizations. The conversation's own organization is kept in the list after the contact
+// leaves it, so the picker still shows where the conversation is filed.
+const options = computed(() => {
+  const c = conversation.value
+  const list = c?.contact?.organizations || []
+  if (c?.organization_id && !list.some((o) => o.id === c.organization_id)) {
+    return [...list, { id: c.organization_id, name: c.organization_name, former: true }]
+  }
+  return list
+})
 const selected = computed(() =>
   conversation.value?.organization_id ? String(conversation.value.organization_id) : 'none'
 )

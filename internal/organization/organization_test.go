@@ -148,6 +148,11 @@ func TestAddContactOrganization(t *testing.T) {
 	if err != nil || change.Added != 1 || change.DefaultChanged != 1 {
 		t.Fatalf("first add = %+v, %v; want added and default changed", change, err)
 	}
+	var openUUID string
+	db.Get(&openUUID, `SELECT uuid FROM conversations WHERE id = $1`, open)
+	if len(change.Filed) != 1 || change.Filed[0] != openUUID {
+		t.Fatalf("filed = %v, want only the conversation without organization (%s)", change.Filed, openUUID)
+	}
 	if got := contactDefault(t, db, contact); got.Int != acme.ID {
 		t.Fatalf("default = %v, want %d", got, acme.ID)
 	}
@@ -162,6 +167,9 @@ func TestAddContactOrganization(t *testing.T) {
 	change, err = mgr.AddContactOrganization(contact, globex.ID, false)
 	if err != nil || change.Added != 1 || change.DefaultChanged != 0 {
 		t.Fatalf("second add = %+v, %v; want added, default kept", change, err)
+	}
+	if len(change.Filed) != 0 {
+		t.Fatalf("second add filed %v, want none", change.Filed)
 	}
 	if got := contactDefault(t, db, contact); got.Int != acme.ID {
 		t.Fatalf("default = %v, want it kept at %d", got, acme.ID)

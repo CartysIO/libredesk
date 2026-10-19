@@ -1638,6 +1638,7 @@
   "organization.noConversations": "No conversations for this organization",
   "organization.noneFound": "No organizations found",
   "organization.notContactOrganization": "The contact is not in this organization",
+  "organization.notMember": "contact left it",
   "organization.remove": "Remove from organization",
   "organization.searchPlaceholder": "Search by name or external ID",
   "organization.select": "Select organization",
