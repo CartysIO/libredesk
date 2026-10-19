@@ -147,6 +147,10 @@ const permissions = ref([
         label: t('admin.role.conversations.updateStatus')
       },
       { name: perms.CONVERSATIONS_UPDATE_TAGS, label: t('admin.role.conversations.updateTags') },
+      {
+        name: perms.CONVERSATIONS_UPDATE_ORGANIZATION,
+        label: t('admin.role.conversations.updateOrganization')
+      },
       { name: perms.CONVERSATIONS_DELETE, label: t('admin.role.conversations.delete') },
       { name: perms.MESSAGES_READ, label: t('admin.role.messages.read') },
       { name: perms.MESSAGES_WRITE, label: t('admin.role.messages.write') },

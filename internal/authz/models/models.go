@@ -13,6 +13,8 @@ const (
 	PermConversationsUpdatePriority     = "conversations:update_priority"
 	PermConversationsUpdateStatus       = "conversations:update_status"
 	PermConversationsUpdateTags         = "conversations:update_tags"
+	// Clyr fork: change which of the contact's organizations a conversation is filed under.
+	PermConversationsUpdateOrganization = "conversations:update_organization"
 	PermConversationsDelete             = "conversations:delete"
 	PermConversationWrite               = "conversations:write"
 	PermMessagesRead                    = "messages:read"
@@ -113,6 +115,7 @@ var validPermissions = map[string]struct{}{
 	PermConversationsUpdatePriority:     {},
 	PermConversationsUpdateStatus:       {},
 	PermConversationsUpdateTags:         {},
+	PermConversationsUpdateOrganization: {},
 	PermConversationsDelete:             {},
 	PermConversationWrite:               {},
 	PermMessagesRead:                    {},

@@ -73,8 +73,8 @@ func TestCreateUpdateAndValidate(t *testing.T) {
 		t.Fatalf("empty name: err = %v, want input error", err)
 	}
 
-	var contact int
-	if err := db.Get(&contact, `INSERT INTO users (type, first_name, organization_id) VALUES ('contact', 'Ada', $1) RETURNING id`, org.ID); err != nil {
+	contact := seedContact(t, db, "ada")
+	if _, err := mgr.AddContactOrganization(contact, org.ID, false); err != nil {
 		t.Fatal(err)
 	}
 	updated, err := mgr.Update(org.ID, "Acme Inc", "team_1")
@@ -116,127 +116,227 @@ func TestUpsertByExternalID(t *testing.T) {
 	}
 }
 
-func TestSetContactOrganization(t *testing.T) {
+func contactDefault(t *testing.T, db *sqlx.DB, contactID int) null.Int {
+	t.Helper()
+	var org null.Int
+	if err := db.Get(&org, `SELECT organization_id FROM users WHERE id = $1`, contactID); err != nil {
+		t.Fatal(err)
+	}
+	return org
+}
+
+func conversationOrg(t *testing.T, db *sqlx.DB, id int) null.Int {
+	t.Helper()
+	var org null.Int
+	if err := db.Get(&org, `SELECT organization_id FROM conversations WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	return org
+}
+
+func TestAddContactOrganization(t *testing.T) {
 	mgr, db := newTestManager(t)
 	acme, _ := mgr.Create("Acme", "team_1")
 	globex, _ := mgr.Create("Globex", "team_2")
+	initech, _ := mgr.Create("Initech", "team_3")
 	contact := seedContact(t, db, "ada")
 	open := seedConversation(t, db, contact, null.Int{})
-	old := seedConversation(t, db, contact, null.IntFrom(globex.ID))
+	old := seedConversation(t, db, contact, null.IntFrom(initech.ID))
 
-	if err := mgr.SetContactOrganization(contact, null.IntFrom(acme.ID)); err != nil {
-		t.Fatalf("SetContactOrganization: %v", err)
+	// The first organization becomes the default, and conversations without an organization get it.
+	change, err := mgr.AddContactOrganization(contact, acme.ID, false)
+	if err != nil || change.Added != 1 || change.DefaultChanged != 1 {
+		t.Fatalf("first add = %+v, %v; want added and default changed", change, err)
 	}
-	var contactOrg null.Int
-	db.Get(&contactOrg, `SELECT organization_id FROM users WHERE id = $1`, contact)
-	if contactOrg.Int != acme.ID {
-		t.Fatalf("contact organization = %v, want %d", contactOrg, acme.ID)
+	var openUUID string
+	db.Get(&openUUID, `SELECT uuid FROM conversations WHERE id = $1`, open)
+	if len(change.Filed) != 1 || change.Filed[0] != openUUID {
+		t.Fatalf("filed = %v, want only the conversation without organization (%s)", change.Filed, openUUID)
 	}
-	var openOrg, oldOrg null.Int
-	db.Get(&openOrg, `SELECT organization_id FROM conversations WHERE id = $1`, open)
-	db.Get(&oldOrg, `SELECT organization_id FROM conversations WHERE id = $1`, old)
-	if openOrg.Int != acme.ID {
-		t.Fatalf("conversation without organization = %v, want %d", openOrg, acme.ID)
+	if got := contactDefault(t, db, contact); got.Int != acme.ID {
+		t.Fatalf("default = %v, want %d", got, acme.ID)
 	}
-	if oldOrg.Int != globex.ID {
-		t.Fatalf("conversation with an organization changed to %v, want it kept at %d", oldOrg, globex.ID)
+	if got := conversationOrg(t, db, open); got.Int != acme.ID {
+		t.Fatalf("conversation without organization = %v, want %d", got, acme.ID)
+	}
+	if got := conversationOrg(t, db, old); got.Int != initech.ID {
+		t.Fatalf("conversation with an organization changed to %v, want it kept at %d", got, initech.ID)
 	}
 
-	contacts, err := mgr.GetContacts(acme.ID, 1, 10)
-	if err != nil || len(contacts) != 1 || contacts[0].ID != contact {
-		t.Fatalf("GetContacts = %+v, %v", contacts, err)
+	// A second organization is added without changing the default.
+	change, err = mgr.AddContactOrganization(contact, globex.ID, false)
+	if err != nil || change.Added != 1 || change.DefaultChanged != 0 {
+		t.Fatalf("second add = %+v, %v; want added, default kept", change, err)
 	}
-	all, total, err := mgr.GetAll("acm", 1, 10)
-	if err != nil || total != 1 || all[0].ContactCount != 1 {
-		t.Fatalf("GetAll search = %+v, total %d, %v", all, total, err)
+	if len(change.Filed) != 0 {
+		t.Fatalf("second add filed %v, want none", change.Filed)
+	}
+	if got := contactDefault(t, db, contact); got.Int != acme.ID {
+		t.Fatalf("default = %v, want it kept at %d", got, acme.ID)
+	}
+
+	// Adding again is a no-op; with makeDefault it only changes the default.
+	change, err = mgr.AddContactOrganization(contact, globex.ID, true)
+	if err != nil || change.Added != 0 || change.DefaultChanged != 1 {
+		t.Fatalf("make default = %+v, %v; want only the default changed", change, err)
+	}
+	change, err = mgr.AddContactOrganization(contact, globex.ID, true)
+	if err != nil || change.Added != 0 || change.DefaultChanged != 0 {
+		t.Fatalf("repeat = %+v, %v; want no change", change, err)
+	}
+
+	orgs, err := mgr.GetContactOrganizations(contact)
+	if err != nil || len(orgs) != 2 || orgs[0].ID != globex.ID || !orgs[0].IsDefault || orgs[1].ID != acme.ID || orgs[1].IsDefault {
+		t.Fatalf("GetContactOrganizations = %+v, %v; want Globex (default) then Acme", orgs, err)
+	}
+	for _, o := range []struct {
+		id        int
+		isDefault bool
+	}{{acme.ID, false}, {globex.ID, true}} {
+		contacts, err := mgr.GetContacts(o.id, 1, 10)
+		if err != nil || len(contacts) != 1 || contacts[0].ID != contact || contacts[0].IsDefault != o.isDefault {
+			t.Fatalf("GetContacts(%d) = %+v, %v", o.id, contacts, err)
+		}
+	}
+	all, total, err := mgr.GetAll("", 1, 10)
+	if err != nil || total != 3 {
+		t.Fatalf("GetAll = %+v, total %d, %v", all, total, err)
+	}
+	for _, o := range all {
+		want := 1
+		if o.ID == initech.ID {
+			want = 0
+		}
+		if o.ContactCount != want {
+			t.Fatalf("%s has contact_count %d, want %d", o.Name, o.ContactCount, want)
+		}
 	}
 	pastEnd, total, err := mgr.GetAll("", 5, 10)
-	if err != nil || len(pastEnd) != 0 || total != 2 {
-		t.Fatalf("page past the end = %d rows, total %d, %v; want 0 rows, total 2", len(pastEnd), total, err)
-	}
-	if _, err := mgr.GetContacts(999999, 1, 10); errType(err) != envelope.NotFoundError {
-		t.Fatalf("contacts of a missing organization: err = %v, want not found", err)
+	if err != nil || len(pastEnd) != 0 || total != 3 {
+		t.Fatalf("page past the end = %d rows, total %d, %v; want 0 rows, total 3", len(pastEnd), total, err)
 	}
 	byExt, _, _ := mgr.GetAll("team_2", 1, 10)
 	if len(byExt) != 1 || byExt[0].ID != globex.ID {
 		t.Fatalf("GetAll by external ID = %+v", byExt)
 	}
+	if _, err := mgr.GetContacts(999999, 1, 10); errType(err) != envelope.NotFoundError {
+		t.Fatalf("contacts of a missing organization: err = %v, want not found", err)
+	}
 
-	if err := mgr.SetContactOrganization(contact, null.IntFrom(999999)); errType(err) != envelope.NotFoundError {
+	if _, err := mgr.AddContactOrganization(contact, 999999, false); errType(err) != envelope.NotFoundError {
 		t.Fatalf("unknown organization: err = %v, want not found", err)
 	}
-	if err := mgr.SetContactOrganization(999999, null.IntFrom(acme.ID)); errType(err) != envelope.NotFoundError {
+	if _, err := mgr.AddContactOrganization(999999, acme.ID, false); errType(err) != envelope.NotFoundError {
 		t.Fatalf("unknown contact: err = %v, want not found", err)
 	}
 	var agent int
 	db.Get(&agent, `INSERT INTO users (type, first_name, email) VALUES ('agent', 'Agent', 'agent@example.com') RETURNING id`)
-	if err := mgr.SetContactOrganization(agent, null.IntFrom(acme.ID)); errType(err) != envelope.NotFoundError {
+	if _, err := mgr.AddContactOrganization(agent, acme.ID, false); errType(err) != envelope.NotFoundError {
 		t.Fatalf("agent: err = %v, want not found", err)
-	}
-
-	if err := mgr.SetContactOrganization(contact, null.Int{}); err != nil {
-		t.Fatalf("removing organization: %v", err)
-	}
-	db.Get(&contactOrg, `SELECT organization_id FROM users WHERE id = $1`, contact)
-	db.Get(&openOrg, `SELECT organization_id FROM conversations WHERE id = $1`, open)
-	if contactOrg.Valid || openOrg.Int != acme.ID {
-		t.Fatalf("after removal: contact org %v (want NULL), conversation org %v (want kept %d)", contactOrg, openOrg, acme.ID)
 	}
 }
 
-func TestSetContactOrganizationIfNone(t *testing.T) {
+func TestRemoveContactOrganization(t *testing.T) {
 	mgr, db := newTestManager(t)
 	acme, _ := mgr.Create("Acme", "team_1")
 	globex, _ := mgr.Create("Globex", "team_2")
 	contact := seedContact(t, db, "ada")
-	open := seedConversation(t, db, contact, null.Int{})
+	conv := seedConversation(t, db, contact, null.Int{})
+	mgr.AddContactOrganization(contact, acme.ID, false)
+	mgr.AddContactOrganization(contact, globex.ID, false)
 
-	linked, err := mgr.SetContactOrganizationIfNone(contact, acme.ID)
-	if err != nil || !linked {
-		t.Fatalf("first link = %v, %v; want true", linked, err)
+	// Removing a membership that is not the default keeps the default.
+	change, err := mgr.RemoveContactOrganization(contact, globex.ID)
+	if err != nil || change.DefaultChanged != 0 {
+		t.Fatalf("remove other = %+v, %v", change, err)
 	}
-	linked, err = mgr.SetContactOrganizationIfNone(contact, globex.ID)
-	if err != nil || linked {
-		t.Fatalf("second link = %v, %v; want false (contact already has one)", linked, err)
+	mgr.AddContactOrganization(contact, globex.ID, false)
+
+	// Removing the default makes the other membership the default. The conversation keeps its organization.
+	change, err = mgr.RemoveContactOrganization(contact, acme.ID)
+	if err != nil || change.DefaultChanged != 1 {
+		t.Fatalf("remove default = %+v, %v", change, err)
 	}
-	var contactOrg, openOrg null.Int
-	db.Get(&contactOrg, `SELECT organization_id FROM users WHERE id = $1`, contact)
-	db.Get(&openOrg, `SELECT organization_id FROM conversations WHERE id = $1`, open)
-	if contactOrg.Int != acme.ID || openOrg.Int != acme.ID {
-		t.Fatalf("contact org %v, conversation org %v; want both %d", contactOrg, openOrg, acme.ID)
+	if got := contactDefault(t, db, contact); got.Int != globex.ID {
+		t.Fatalf("default = %v, want %d", got, globex.ID)
+	}
+	if got := conversationOrg(t, db, conv); got.Int != acme.ID {
+		t.Fatalf("conversation organization = %v, want it kept at %d", got, acme.ID)
 	}
 
-	if linked, err := mgr.SetContactOrganizationIfNone(999999, acme.ID); err != nil || linked {
-		t.Fatalf("unknown contact = %v, %v; want false, nil", linked, err)
+	// Removing the last membership leaves no default.
+	if _, err := mgr.RemoveContactOrganization(contact, globex.ID); err != nil {
+		t.Fatal(err)
 	}
-	other := seedContact(t, db, "bob")
-	if _, err := mgr.SetContactOrganizationIfNone(other, 999999); errType(err) != envelope.NotFoundError {
-		t.Fatalf("unknown organization: err = %v, want not found", err)
+	if got := contactDefault(t, db, contact); got.Valid {
+		t.Fatalf("default = %v, want NULL", got)
+	}
+	if _, err := mgr.RemoveContactOrganization(contact, globex.ID); errType(err) != envelope.NotFoundError {
+		t.Fatalf("removing a missing membership: err = %v, want not found", err)
 	}
 }
 
-func TestDeleteKeepsContactsAndConversations(t *testing.T) {
+func TestSetConversationOrganization(t *testing.T) {
 	mgr, db := newTestManager(t)
 	acme, _ := mgr.Create("Acme", "team_1")
-	contact := seedContact(t, db, "bob")
-	conv := seedConversation(t, db, contact, null.Int{})
-	if err := mgr.SetContactOrganization(contact, null.IntFrom(acme.ID)); err != nil {
-		t.Fatal(err)
+	globex, _ := mgr.Create("Globex", "team_2")
+	other, _ := mgr.Create("Other", "team_3")
+	contact := seedContact(t, db, "ada")
+	mgr.AddContactOrganization(contact, acme.ID, false)
+	mgr.AddContactOrganization(contact, globex.ID, false)
+	conv := seedConversation(t, db, contact, null.IntFrom(acme.ID))
+	var uuid string
+	db.Get(&uuid, `SELECT uuid FROM conversations WHERE id = $1`, conv)
+
+	if err := mgr.SetConversationOrganization(uuid, null.IntFrom(globex.ID)); err != nil {
+		t.Fatalf("set to a contact organization: %v", err)
 	}
-	if err := mgr.Delete(acme.ID); err != nil {
-		t.Fatalf("Delete: %v", err)
+	if got := conversationOrg(t, db, conv); got.Int != globex.ID {
+		t.Fatalf("conversation organization = %v, want %d", got, globex.ID)
 	}
-	var contactOrg, convOrg null.Int
-	if err := db.Get(&contactOrg, `SELECT organization_id FROM users WHERE id = $1`, contact); err != nil {
-		t.Fatalf("contact is gone: %v", err)
+	if err := mgr.SetConversationOrganization(uuid, null.IntFrom(other.ID)); errType(err) != envelope.InputError {
+		t.Fatalf("organization the contact is not in: err = %v, want input error", err)
 	}
-	if err := db.Get(&convOrg, `SELECT organization_id FROM conversations WHERE id = $1`, conv); err != nil {
-		t.Fatalf("conversation is gone: %v", err)
+	if got := conversationOrg(t, db, conv); got.Int != globex.ID {
+		t.Fatalf("rejected change still changed the organization to %v", got)
 	}
-	if contactOrg.Valid || convOrg.Valid {
-		t.Fatalf("organization IDs not cleared: contact %v, conversation %v", contactOrg, convOrg)
+	if err := mgr.SetConversationOrganization(uuid, null.Int{}); err != nil {
+		t.Fatalf("clear: %v", err)
 	}
-	if err := mgr.Delete(acme.ID); errType(err) != envelope.NotFoundError {
+	if got := conversationOrg(t, db, conv); got.Valid {
+		t.Fatalf("conversation organization = %v, want NULL", got)
+	}
+}
+
+func TestDeleteReassignsDefault(t *testing.T) {
+	mgr, db := newTestManager(t)
+	acme, _ := mgr.Create("Acme", "team_1")
+	globex, _ := mgr.Create("Globex", "team_2")
+	both := seedContact(t, db, "ada")
+	only := seedContact(t, db, "bob")
+	conv := seedConversation(t, db, only, null.Int{})
+	mgr.AddContactOrganization(both, acme.ID, false)
+	mgr.AddContactOrganization(both, globex.ID, false)
+	mgr.AddContactOrganization(only, acme.ID, false)
+
+	changed, err := mgr.Delete(acme.ID)
+	if err != nil || len(changed) != 2 {
+		t.Fatalf("Delete = %+v, %v; want 2 contacts with a new default", changed, err)
+	}
+	if got := contactDefault(t, db, both); got.Int != globex.ID {
+		t.Fatalf("contact in two organizations: default = %v, want %d", got, globex.ID)
+	}
+	if got := contactDefault(t, db, only); got.Valid {
+		t.Fatalf("contact in one organization: default = %v, want NULL", got)
+	}
+	if got := conversationOrg(t, db, conv); got.Valid {
+		t.Fatalf("conversation organization = %v, want NULL", got)
+	}
+	orgs, _ := mgr.GetContactOrganizations(both)
+	if len(orgs) != 1 || orgs[0].ID != globex.ID {
+		t.Fatalf("memberships after delete = %+v", orgs)
+	}
+	if _, err := mgr.Delete(acme.ID); errType(err) != envelope.NotFoundError {
 		t.Fatalf("second delete: err = %v, want not found", err)
 	}
 }

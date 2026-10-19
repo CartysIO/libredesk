@@ -13,6 +13,7 @@ RETURNING uuid, (SELECT name FROM conversation_statuses WHERE id = conversations
 -- name: insert-conversation
 -- $11 = rate limit window start (timestamptz), $12 = max conversations (0 = unlimited)
 -- $13 = subject reference marker template (placeholder: {ref})
+-- $14 = preferred organization (Clyr fork): used when the contact belongs to it, else the contact's default organization
 WITH
 status_id AS (
     SELECT id FROM conversation_statuses WHERE name = $2
@@ -35,7 +36,10 @@ SELECT
    (SELECT reference_number FROM reference_number),
    $9,
    $10,
-   (SELECT organization_id FROM users WHERE id = $1)
+   COALESCE(
+      (SELECT co.organization_id FROM contact_organizations co WHERE co.contact_id = $1 AND co.organization_id = $14::BIGINT),
+      (SELECT organization_id FROM users WHERE id = $1)
+   )
 WHERE $12::int = 0 OR (SELECT COUNT(*) FROM conversations WHERE contact_id = $1 AND created_at >= $11) < $12::int
 RETURNING id, uuid;
 
@@ -264,6 +268,9 @@ SELECT
    ct_org.external_id as "contact.organization_external_id",
    c.organization_id,
    c_org.name as organization_name,
+   c_org.external_id as organization_external_id,
+   COALESCE((SELECT json_agg(json_build_object('id', o.id, 'name', o.name, 'external_id', o.external_id, 'is_default', o.id = ct.organization_id) ORDER BY o.id = ct.organization_id DESC, o.name, o.id)
+      FROM contact_organizations co JOIN organizations o ON o.id = co.organization_id WHERE co.contact_id = ct.id), '[]'::json) as "contact.organizations",
    (SELECT json_agg(json_build_object('channel', cci.channel, 'identifier', cci.identifier))
       FROM contact_channel_identities cci WHERE cci.contact_id = ct.id) as "contact.channel_identities",
    as_latest.first_response_deadline_at,

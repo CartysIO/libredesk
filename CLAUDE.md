@@ -38,7 +38,10 @@ docker build -f Dockerfile.clyr -t libredesk-clyr:local .
   - The agent with that email is signed in. Libredesk does not create accounts at sign-in.
   - Enabled when `[clerk] publishable_key` and `secret_key` are set.
   - When the domain changes, set `app.root_url` to the new origin: `GET /api/v1/settings/general`, change `app.root_url`, and `PUT` the full object back. The PUT replaces every general setting, so a partial body resets the others. Until then every Clerk sign-in fails with "authorized party … want …". Change the Slack app's Request URL too.
-- Organizations (`internal/organization`, `cmd/organizations.go`): customer companies keyed by Clyr teamId (`external_id`). Contacts and conversations have `organization_id`.
+- Organizations (`internal/organization`, `cmd/organizations.go`): customer companies keyed by Clyr teamId (`external_id`).
+  - A contact belongs to several organizations (`contact_organizations`). `users.organization_id` is its default organization, and it is always one of those rows.
+  - A conversation has one `organization_id`. A new email conversation gets the contact's default. A chat gets the organization from the widget JWT, which the widget session stores. An agent can change it to another of the contact's organizations (permission `conversations:update_organization`).
+  - `POST /api/v1/organizations/sync` adds memberships and never removes one. A contact with `default: true` gets that organization as its default.
 - Slack bridge (`internal/slackbridge`, `cmd/slack_bridge.go`): one Slack thread per conversation in one channel.
   - It gets conversation events through `eventFanout` (`cmd/slack_bridge.go`), which wraps the webhook manager. All its work runs on one worker goroutine, in order; that order is what stops a note from Slack being posted back.
   - Slack sends events to `POST /webhooks/slack/events`, signed with the signing secret. A thread reply becomes a private note by the agent with the Slack user's email; a reply that mentions the bot is sent to the customer.
