@@ -1,7 +1,16 @@
 <template>
-  <div class="flex w-full h-dvh text-foreground bg-canvas p-1 md:p-1.5">
+  <div class="flex w-full h-dvh text-foreground bg-canvas gap-px">
     <SidebarProvider v-if="!isMobile" style="--sidebar-width: 3rem" class="w-auto z-50">
-      <ShadcnSidebar collapsible="none" class="border border-sidebar-border rounded-lg overflow-hidden">
+      <ShadcnSidebar collapsible="none" class="desk-rail overflow-hidden">
+        <SidebarHeader class="items-center pt-3 pb-1">
+          <router-link
+            :to="{ name: 'inboxes' }"
+            class="flex h-8 w-8 items-center justify-center rounded-md text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+            :aria-label="t('globals.terms.inbox')"
+          >
+            <ClyrMark class="h-6 w-auto" />
+          </router-link>
+        </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
             <SidebarGroupContent>
@@ -42,7 +51,7 @@
         @delete-view="deleteView"
         @create-conversation="openCreateConversation()"
       >
-        <div class="flex flex-col h-full rounded-lg overflow-hidden bg-background">
+        <div class="flex flex-col h-full overflow-hidden bg-background">
           <ConnectionBanner />
 
           <!-- Show admin banner only in admin routes -->
@@ -117,9 +126,11 @@ import {
   SidebarGroup,
   SidebarMenu,
   SidebarGroupContent,
+  SidebarHeader,
   SidebarMenuItem,
   SidebarProvider
 } from '@shared-ui/components/ui/sidebar'
+import ClyrMark from '@main/components/brand/ClyrMark.vue'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@shared-ui/components/ui/tooltip'
 import SidebarNavUser from '@main/components/sidebar/SidebarNavUser.vue'
 import NotificationBell from '@main/components/sidebar/NotificationBell.vue'

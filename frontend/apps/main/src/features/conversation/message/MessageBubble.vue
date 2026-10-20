@@ -1,8 +1,8 @@
 <template>
-  <div class="flex flex-col text-left" :class="isOutgoing ? 'items-end' : 'items-start'">
+  <div class="flex flex-col text-left" :class="thread ? 'items-stretch' : isOutgoing ? 'items-end' : 'items-start'">
     <!-- Sender Name -->
     <div
-      v-if="!groupWithPrev"
+      v-if="!groupWithPrev && !thread"
       class="mb-1 flex items-center gap-1.5"
       :class="isOutgoing ? 'md:pr-[47px]' : 'md:pl-[47px]'"
     >
@@ -41,7 +41,7 @@
     <!-- Message Bubble -->
     <div class="flex flex-row gap-2 w-full group" :class="{ 'justify-end': isOutgoing }">
       <!-- Avatar (left for incoming) -->
-      <template v-if="!isOutgoing">
+      <template v-if="!isOutgoing && !thread">
         <router-link
           v-if="!groupWithPrev"
           :to="{ name: 'contact-detail', params: { id: message.author?.id } }"
@@ -58,13 +58,12 @@
       </template>
 
       <div
-        class="w-4/5"
-        :class="{ 'flex justify-end items-center gap-2': isOutgoing }"
+        :class="[thread ? 'w-full' : 'w-4/5', { 'flex justify-end items-center gap-2': isOutgoing && !thread }]"
         style="contain: inline-size"
       >
         <!-- Delete note menu (private notes, appears on hover, left of bubble) -->
         <div
-          v-if="canDeleteNote"
+          v-if="canDeleteNote && !thread"
           class="flex-shrink-0 transition-opacity duration-200 can-hover:opacity-0 can-hover:group-hover:opacity-100 focus-within:!opacity-100"
         >
           <DropdownMenu>
@@ -94,9 +93,68 @@
           </div>
           <template v-else>
             <!-- Message Envelope -->
-            <MessageEnvelope :message="message" v-if="showEnvelope" />
+            <!-- Email thread header (Clyr desk): sender, recipients summary, time and collapse on one line. -->
+            <div v-if="thread" class="mb-2 flex min-w-0 items-center gap-2.5">
+              <Avatar class="h-6 w-6 shrink-0 text-[10px]">
+                <AvatarImage :src="getAvatar" />
+                <AvatarFallback class="font-semibold">{{ avatarFallback }}</AvatarFallback>
+              </Avatar>
+              <span class="shrink-0 truncate text-sm font-semibold">{{ getFullName }}</span>
+              <Lock v-if="isPrivateMessage" :size="12" class="shrink-0 text-muted-foreground" :aria-label="t('globals.terms.privateNote')" />
+              <button
+                v-if="showEnvelope"
+                type="button"
+                class="flex min-w-0 items-center gap-1 rounded-sm text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                :aria-expanded="showDetails"
+                :title="showDetails ? t('conversation.hideMessageDetails') : t('conversation.messageDetails')"
+                @click="showDetails = !showDetails"
+              >
+                <span class="truncate">{{ recipientsSummary }}</span>
+                <ChevronDown :size="12" class="shrink-0 transition-transform" :class="{ 'rotate-180': showDetails }" />
+              </button>
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <span class="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
+                    {{ formatMessageTimestamp(message.created_at) }}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{{ formatFullTimestamp(message.created_at) }}</p>
+                </TooltipContent>
+              </Tooltip>
+              <DropdownMenu v-if="canDeleteNote">
+                <DropdownMenuTrigger as-child>
+                  <Button variant="ghost" size="icon" class="h-7 w-7 shrink-0 text-muted-foreground" :aria-label="t('conversation.deletePrivateNote')">
+                    <MoreHorizontal class="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem class="text-destructive focus:text-destructive" @click="alertOpen = true">
+                    <Trash2 class="mr-2 h-4 w-4" />
+                    {{ t('conversation.deletePrivateNote') }}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                variant="ghost"
+                size="icon"
+                class="h-7 w-7 shrink-0 text-muted-foreground"
+                :aria-label="t('globals.terms.collapse')"
+                @click="$emit('collapse')"
+              >
+                <ChevronsDownUp class="h-4 w-4" />
+              </Button>
+            </div>
+            <MessageEnvelope
+              v-if="thread && showDetails && showEnvelope"
+              :message="message"
+              class="mb-3 rounded-md bg-muted/70 px-3 py-2"
+            />
 
-            <hr class="mb-2 border-muted-foreground/20" v-if="showEnvelope" />
+            <!-- Message Envelope -->
+            <MessageEnvelope :message="message" v-if="showEnvelope && !thread" />
+
+            <hr class="mb-2 border-muted-foreground/20" v-if="showEnvelope && !thread" />
 
             <!-- Message Content -->
             <div
@@ -236,7 +294,7 @@
       </div>
 
       <!-- Avatar (right for outgoing) -->
-      <template v-if="isOutgoing">
+      <template v-if="isOutgoing && !thread">
         <div v-if="groupWithPrev" class="w-8 flex-shrink-0 max-md:hidden" />
         <router-link
           v-else-if="canManageAI"
@@ -272,7 +330,7 @@
     </div>
 
     <!-- Timestamp tooltip -->
-    <div v-if="!groupWithNext" :class="isOutgoing ? 'md:pr-[47px]' : 'md:pl-[47px]'">
+    <div v-if="!groupWithNext && !thread" :class="isOutgoing ? 'md:pr-[47px]' : 'md:pl-[47px]'">
       <Tooltip>
         <TooltipTrigger>
           <span class="text-muted-foreground text-xs mt-1">
@@ -316,7 +374,9 @@ import {
   CircleAlert,
   Maximize2,
   Trash2,
-  MoreHorizontal
+  MoreHorizontal,
+  ChevronDown,
+  ChevronsDownUp
 } from 'lucide-vue-next'
 import {
   DropdownMenu,
@@ -390,8 +450,14 @@ const props = defineProps({
   groupWithNext: {
     type: Boolean,
     default: false
+  },
+  // Clyr desk: render as a full-width block of a Gmail-style email thread.
+  thread: {
+    type: Boolean,
+    default: false
   }
 })
+defineEmits(['collapse'])
 
 const convStore = useConversationStore()
 const { t } = useI18n()
@@ -459,6 +525,8 @@ const nonInlineAttachments = computed(() =>
 )
 
 const bubbleClasses = computed(() => ({
+  'message-bubble--thread': props.thread,
+  'bg-background': props.thread && !isOutgoing.value,
   'bg-private': isOutgoing.value && props.message.private,
   'bg-secondary border border-border': isOutgoing.value && !props.message.private,
   'opacity-50 animate-pulse': isOutgoing.value && props.message.status === 'pending',
@@ -539,6 +607,15 @@ const onMessageContentClick = (event) => {
   inlineLightboxIndex.value = idx >= 0 ? idx : 0
   inlineLightboxOpen.value = true
 }
+
+const showDetails = ref(false)
+// One line for the thread header: the sender's address on a customer email, the recipients on a reply.
+const recipientsSummary = computed(() => {
+  const meta = props.message.meta || {}
+  if (!isOutgoing.value) return (meta.from || []).join(', ')
+  const recipients = [...(meta.to || []), ...(meta.cc || [])]
+  return recipients.length ? t('conversation.recipientsSummary', { recipients: recipients.join(', ') }) : ''
+})
 
 const showEnvelope = computed(() => {
   return (

@@ -12,7 +12,19 @@
         >
           <ChevronLeft class="w-4 h-4" />
         </Button>
-        <span class="truncate">{{ conversationStore.currentContactName }}</span>
+        <!-- The ticket number is the headline; subject and contact follow on the same line. -->
+        <span
+          v-if="conversationStore.current?.reference_number"
+          class="shrink-0 text-base font-bold tabular-nums tracking-tight"
+        >#{{ conversationStore.current.reference_number }}</span>
+        <span
+          v-if="conversationStore.current?.subject"
+          class="ml-2 truncate text-sm font-semibold"
+        >{{ conversationStore.current.subject }}</span>
+        <span
+          class="truncate text-sm"
+          :class="conversationStore.current?.subject ? 'ml-2 text-muted-foreground' : 'ml-2 font-semibold'"
+        >{{ conversationStore.currentContactName }}</span>
       </div>
       <div class="flex items-center gap-2 shrink-0">
         <Button
@@ -42,8 +54,9 @@
               class="flex h-11 lg:h-8 items-center cursor-pointer"
             >
               <span
-                class="rounded-md bg-primary px-2.5 py-1 text-xs lg:text-sm font-medium text-primary-foreground"
+                class="inline-flex items-center gap-2 rounded-md border border-input bg-background px-2.5 py-1 text-xs lg:text-sm font-semibold hover:bg-accent transition-colors"
               >
+                <StatusSwatch :status="conversationStore.current?.status" />
                 {{ conversationStore.current?.status }}
               </span>
             </div>
@@ -54,6 +67,7 @@
               :key="status.value"
               @click="handleUpdateStatus(status.label)"
             >
+              <StatusSwatch :status="status.label" class="mr-2" />
               {{ status.label }}
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -146,6 +160,7 @@ import { handleHTTPError } from '@shared-ui/utils/http.js'
 import { downloadBlobResponse, parseBlobError } from '@shared-ui/utils/file'
 import api from '@main/api'
 import { permissions as perms } from '@main/constants/permissions.js'
+import StatusSwatch from '@main/components/brand/StatusSwatch.vue'
 const conversationStore = useConversationStore()
 const { removeConversation } = useConversationActions()
 const userStore = useUserStore()
