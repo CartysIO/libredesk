@@ -78,6 +78,9 @@
                 <SelectItem value="date"> Date </SelectItem>
                 <SelectItem value="link"> Link </SelectItem>
                 <SelectItem value="list"> List </SelectItem>
+                <SelectItem v-if="form.values.applies_to === 'conversation'" value="multi_select">
+                  {{ $t('admin.customAttributes.multiSelect') }}
+                </SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -88,7 +91,7 @@
     </FormField>
 
     <FormField name="values" v-slot="{ componentField, handleChange }">
-      <FormItem v-show="form.values.data_type === 'list'">
+      <FormItem v-show="['list', 'multi_select'].includes(form.values.data_type)">
         <FormLabel>
           {{ $t('globals.terms.listValues') }}
         </FormLabel>

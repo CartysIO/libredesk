@@ -55,7 +55,7 @@ export const createFormSchema = (t) => z.object({
                 max: 300,
             })
         }),
-    data_type: z.enum(['text', 'number', 'checkbox', 'date', 'link', 'list'], {
+    data_type: z.enum(['text', 'number', 'checkbox', 'date', 'link', 'list', 'multi_select'], {
         required_error: t('globals.messages.required'),
     }),
     regex: z.string().optional(),
@@ -64,8 +64,15 @@ export const createFormSchema = (t) => z.object({
         .default([])
 })
     .superRefine((data, ctx) => {
-        if (data.data_type === 'list') {
-            // If data_type is 'list', values should be defined and have at least one item.
+        if (data.data_type === 'multi_select' && data.applies_to !== 'conversation') {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: t('admin.customAttributes.multiSelectConversationOnly'),
+                path: ['data_type'],
+            });
+        }
+        if (data.data_type === 'list' || data.data_type === 'multi_select') {
+            // List and multi-select types need at least one value.
             if (!data.values || data.values.length === 0) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.too_small,

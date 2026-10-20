@@ -131,9 +131,9 @@ type Manager struct {
 	aiClassifier               AIClassifier
 }
 
-// AIClassifier fills a conversation custom attribute from AI in the background.
+// AIClassifier fills a conversation custom attribute from AI in the background; value is the action's value.
 type AIClassifier interface {
-	Classify(conv models.Conversation, key, instructions string)
+	Classify(conversationUUID string, value []string)
 }
 
 // SetAIClassifier wires the AI attribute classifier after construction to avoid an import cycle.
@@ -376,6 +376,7 @@ type queries struct {
 	UpdateConversationAssignedTeam      *sqlx.Stmt `query:"update-conversation-assigned-team"`
 	UpdateConversationCustomAttributes  *sqlx.Stmt `query:"update-conversation-custom-attributes"`
 	SetConversationAttrIfEmpty          *sqlx.Stmt `query:"set-conversation-custom-attribute-if-empty"`
+	GetFirstIncomingMessages            *sqlx.Stmt `query:"get-first-incoming-messages"`
 	UpdateConversationPriority          *sqlx.Stmt `query:"update-conversation-priority"`
 	UpdateConversationStatus            *sqlx.Stmt `query:"update-conversation-status"`
 	UpdateConversationStatusIfCurrent   *sqlx.Stmt `query:"update-conversation-status-if-current"`
@@ -1769,20 +1770,15 @@ func (m *Manager) ApplyAction(action amodels.RuleAction, conv models.Conversatio
 		})
 		return nil
 	case amodels.ActionAIClassifyAttribute:
-		key := strings.TrimSpace(action.Value[0])
-		if key == "" {
+		if strings.TrimSpace(action.Value[0]) == "" {
 			return fmt.Errorf("ai classify action requires an attribute key")
 		}
 		if m.aiClassifier == nil {
 			m.lo.Warn("ai classify action skipped: classifier not configured", "conversation_uuid", conv.UUID)
 			return nil
 		}
-		instructions := ""
-		if len(action.Value) > 1 {
-			instructions = action.Value[1]
-		}
 		// Runs in the background so a slow provider never holds up the automation worker.
-		m.aiClassifier.Classify(conv, key, instructions)
+		m.aiClassifier.Classify(conv.UUID, action.Value)
 		return nil
 	case amodels.ActionNotify:
 		subject := strings.TrimSpace(action.Subject)
@@ -2093,10 +2089,14 @@ func (c *Manager) UpdateConversationCustomAttributes(uuid string, customAttribut
 	return nil
 }
 
-// SetConversationCustomAttributeIfEmpty sets one custom attribute unless it already holds a value; false means it was left alone.
-func (c *Manager) SetConversationCustomAttributeIfEmpty(uuid, key, value string) (bool, error) {
+// SetConversationCustomAttributeIfEmpty sets one custom attribute (any JSON value) unless it already holds a value; false means it was left alone.
+func (c *Manager) SetConversationCustomAttributeIfEmpty(uuid, key string, value any) (bool, error) {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return false, fmt.Errorf("encoding custom attribute value: %w", err)
+	}
 	var attrs []byte
-	if err := c.q.SetConversationAttrIfEmpty.Get(&attrs, uuid, key, value); err != nil {
+	if err := c.q.SetConversationAttrIfEmpty.Get(&attrs, uuid, key, encoded); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, nil
 		}

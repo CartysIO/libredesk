@@ -145,6 +145,10 @@ func validateCustomAttribute(app *App, attribute cmodels.CustomAttribute) error 
 	if slices.Contains(disallowedKeys, attribute.Key) {
 		return envelope.NewError(envelope.InputError, app.i18n.T("admin.customAttributes.keyNotAllowed"), nil)
 	}
+	// Multi-select values are JSON arrays; contact attribute conditions and pre-chat forms expect one value.
+	if attribute.DataType == cmodels.DataTypeMultiSelect && attribute.AppliesTo != "conversation" {
+		return envelope.NewError(envelope.InputError, app.i18n.T("admin.customAttributes.multiSelectConversationOnly"), nil)
+	}
 	return nil
 }
 

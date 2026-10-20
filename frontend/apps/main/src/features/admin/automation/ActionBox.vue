@@ -129,6 +129,23 @@
                   @update:modelValue="(value) => handleClassifyInstructionsChange(value, index)"
                   class="h-24"
                 />
+                <div v-if="classifyAttribute(action)?.values?.length" class="space-y-2">
+                  <p class="text-xs text-muted-foreground">
+                    {{ $t('admin.automation.aiClassifyValueDescriptions') }}
+                  </p>
+                  <div
+                    v-for="option in classifyAttribute(action).values"
+                    :key="option"
+                    class="flex items-center gap-2"
+                  >
+                    <span class="text-sm w-36 shrink-0 truncate">{{ option }}</span>
+                    <Input
+                      type="text"
+                      :modelValue="classifyDescriptions(action)[option] || ''"
+                      @update:modelValue="(value) => handleClassifyDescriptionChange(option, value, index)"
+                    />
+                  </div>
+                </div>
                 <p class="text-xs text-muted-foreground">
                   {{ $t('admin.automation.aiClassifyHint') }}
                 </p>
@@ -182,6 +199,7 @@ import { useWebhookStore } from '@main/stores/webhook'
 import { useUsersStore } from '@main/stores/users'
 import { useTeamStore } from '@main/stores/team'
 import { useCustomAttributeStore } from '@main/stores/customAttributes'
+import { classifyActionValue } from '@main/features/admin/automation/classifyAction'
 import {
   Select,
   SelectContent,
@@ -224,7 +242,7 @@ customAttributeStore.fetchCustomAttributes()
 // The AI classify action fills list or text conversation attributes, addressed by key.
 const classifiableAttributeOptions = computed(() =>
   customAttributeStore.conversationAttributeOptions
-    .filter((att) => att.data_type === 'list' || att.data_type === 'text')
+    .filter((att) => ['list', 'multi_select', 'text'].includes(att.data_type))
     .map((att) => ({ label: att.name, value: att.key }))
 )
 
@@ -306,20 +324,36 @@ const handleTextChange = (value, index) => {
   emitUpdate(index)
 }
 
-// Classify actions store [attribute key, instructions]; empty instructions are dropped so the rule form's every-value-set check passes.
-const classifyValue = (key, instructions) =>
-  instructions?.trim() ? [key || '', instructions] : [key || '']
+const classifyAttribute = (action) =>
+  customAttributeStore.conversationAttributeOptions.find((att) => att.key === action.value?.[0])
+
+const classifyDescriptions = (action) => {
+  try {
+    return JSON.parse(action.value?.[2] || '{}') || {}
+  } catch {
+    return {}
+  }
+}
 
 const handleClassifyAttributeChange = (value, index) => {
   if (typeof value === 'object') {
     value = value.value
   }
-  actions.value[index].value = classifyValue(value, actions.value[index].value?.[1])
+  // Descriptions belong to the old attribute's values, so they are dropped.
+  actions.value[index].value = classifyActionValue(value, actions.value[index].value?.[1], {})
   emitUpdate(index)
 }
 
 const handleClassifyInstructionsChange = (value, index) => {
-  actions.value[index].value = classifyValue(actions.value[index].value?.[0], value)
+  const action = actions.value[index]
+  action.value = classifyActionValue(action.value?.[0], value, classifyDescriptions(action))
+  emitUpdate(index)
+}
+
+const handleClassifyDescriptionChange = (option, value, index) => {
+  const action = actions.value[index]
+  const descriptions = { ...classifyDescriptions(action), [option]: value }
+  action.value = classifyActionValue(action.value?.[0], action.value?.[1], descriptions)
   emitUpdate(index)
 }
 

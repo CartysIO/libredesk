@@ -51,7 +51,7 @@
           class="flex items-center justify-between gap-1"
         >
           <span class="sidebar-value break-all" v-if="attribute.data_type !== 'checkbox'">
-            {{ customAttributes?.[attribute.key] ?? '-' }}
+            {{ displayValue(customAttributes?.[attribute.key]) }}
           </span>
           <div class="flex items-center gap-0.5 transition-opacity duration-200 flex-shrink-0 can-hover:opacity-0 can-hover:group-hover/item:opacity-100">
             <button
@@ -61,7 +61,7 @@
               <Pencil size="12" class="text-muted-foreground" />
             </button>
             <button
-              v-if="customAttributes?.[attribute.key]"
+              v-if="hasValue(customAttributes?.[attribute.key])"
               class="p-1 rounded-md hover:bg-destructive/10 cursor-pointer transition-colors"
               @click="deleteAttribute(attribute)"
             >
@@ -113,6 +113,15 @@
                 </SelectContent>
               </Select>
             </template>
+            <template v-else-if="attribute.data_type === 'multi_select'">
+              <div class="flex-1 min-w-0">
+                <SelectTag
+                  v-model="editingValue"
+                  :items="attribute.values.map((v) => ({ label: v, value: v }))"
+                  :placeholder="t('placeholders.selectValue')"
+                />
+              </div>
+            </template>
             <Check
               size="14"
               class="text-muted-foreground cursor-pointer flex-shrink-0"
@@ -141,6 +150,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@shared-ui/components/ui/select'
+import { SelectTag } from '@shared-ui/components/ui/select'
 import { Pencil, Trash2, Check, X, Info } from 'lucide-vue-next'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@shared-ui/components/ui/tooltip'
 import { useI18n } from 'vue-i18n'
@@ -169,7 +179,16 @@ const startEditing = (attribute) => {
   errorMessage.value = ''
   editingAttributeKey.value = attribute.key
   const currentValue = props.customAttributes?.[attribute.key]
-  editingValue.value = attribute.data_type === 'checkbox' ? !!currentValue : (currentValue ?? null)
+  if (attribute.data_type === 'checkbox') editingValue.value = !!currentValue
+  else if (attribute.data_type === 'multi_select') editingValue.value = Array.isArray(currentValue) ? [...currentValue] : []
+  else editingValue.value = currentValue ?? null
+}
+
+// Multi-select values are arrays; an empty array shows as unset.
+const hasValue = (value) => (Array.isArray(value) ? value.length > 0 : !!value)
+const displayValue = (value) => {
+  if (Array.isArray(value)) return value.length ? value.join(', ') : '-'
+  return value ?? '-'
 }
 
 const cancelEditing = () => {
@@ -220,6 +239,12 @@ const getValidationSchema = (attribute) => {
           t('validation.invalidUrl')
         )
         .nullable()
+    case 'multi_select':
+      return z
+        .array(z.string())
+        .refine((vals) => vals.every((val) => attribute.values.includes(val)), {
+          message: t('validation.invalidValue')
+        })
     case 'list':
       return z
         .string()
