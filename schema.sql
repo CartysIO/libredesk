@@ -408,6 +408,34 @@ CREATE TABLE slack_messages (
 );
 CREATE INDEX index_slack_messages_on_message_id ON slack_messages (message_id) WHERE message_id IS NOT NULL;
 
+-- Clyr fork: Linear issues linked to a conversation. title and state are a copy that Issue webhooks keep current.
+DROP TABLE IF EXISTS conversation_linear_issues CASCADE;
+CREATE TABLE conversation_linear_issues (
+	id BIGSERIAL PRIMARY KEY,
+	created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+	updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+	conversation_id BIGINT REFERENCES conversations(id) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL,
+	issue_id TEXT NOT NULL,
+	identifier TEXT NOT NULL,
+	url TEXT NOT NULL,
+	title TEXT NOT NULL DEFAULT '',
+	state TEXT NOT NULL DEFAULT '',
+	created_by BIGINT REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE NULL,
+	CONSTRAINT constraint_conversation_linear_issues_on_conversation_issue_unique UNIQUE (conversation_id, issue_id)
+);
+CREATE INDEX index_conversation_linear_issues_on_issue_id ON conversation_linear_issues (issue_id);
+
+-- Clyr fork: Linear comments already added as a note to a conversation, so a webhook retry adds nothing.
+DROP TABLE IF EXISTS linear_comment_notes CASCADE;
+CREATE TABLE linear_comment_notes (
+	id BIGSERIAL PRIMARY KEY,
+	created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+	comment_id TEXT NOT NULL,
+	conversation_id BIGINT REFERENCES conversations(id) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL,
+	message_id BIGINT REFERENCES conversation_messages(id) ON DELETE SET NULL ON UPDATE CASCADE NULL,
+	CONSTRAINT constraint_linear_comment_notes_on_comment_conversation_unique UNIQUE (comment_id, conversation_id)
+);
+
 DROP TABLE IF EXISTS automation_rules CASCADE;
 CREATE TABLE automation_rules (
     id SERIAL PRIMARY KEY,
