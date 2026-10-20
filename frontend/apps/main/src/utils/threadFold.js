@@ -5,8 +5,19 @@ export const FOLD_RUN_MIN = 4
 
 const isThreadMessage = (message) => message && message.type !== 'activity'
 
-const isPublicAgentReply = (message) =>
-  message.type === 'outgoing' && !message.private && message.status !== 'failed'
+// Same rule as the backend's "reply moves the ticket to On customer": automated replies, CSAT and
+// continuity emails are not an agent answering the customer.
+const isPublicAgentReply = (message) => {
+  const meta = message.meta || {}
+  return (
+    message.type === 'outgoing' &&
+    !message.private &&
+    message.status !== 'failed' &&
+    !meta.is_automated &&
+    !meta.is_csat &&
+    !meta.continuity_email
+  )
+}
 
 // Messages open by default: the newest message, everything after the last public agent reply (the
 // customer is waiting on us), sends that are pending or failed, and a message a link points to.

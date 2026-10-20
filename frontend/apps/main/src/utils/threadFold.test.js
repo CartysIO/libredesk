@@ -24,6 +24,14 @@ describe('defaultOpenUUIDs', () => {
     expect(open.has('a')).toBe(false)
   })
 
+  it('does not count automated replies, CSAT or continuity emails as an agent reply', () => {
+    for (const meta of [{ is_automated: true }, { is_csat: true }, { continuity_email: true }]) {
+      const thread = [msg('a', 'outgoing'), msg('c'), msg('auto', 'outgoing', { meta })]
+      const open = defaultOpenUUIDs(thread)
+      expect(open.has('c')).toBe(true)
+    }
+  })
+
   it('ignores activity lines and opens a linked message', () => {
     const thread = [msg('a'), msg('b', 'outgoing'), msg('x', 'activity')]
     const open = defaultOpenUUIDs(thread, 'a')
