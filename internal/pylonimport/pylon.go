@@ -196,6 +196,9 @@ func (f *Fetcher) fetchIssues(ctx context.Context, out *[]Issue) error {
 	end := time.Now().UTC().Add(time.Hour).Truncate(time.Hour)
 	for end.After(f.Oldest) {
 		start := end.Add(-360 * 24 * time.Hour)
+		if start.Before(f.Oldest) {
+			start = f.Oldest
+		}
 		var page []Issue
 		q := url.Values{"start_time": {start.Format(time.RFC3339)}, "end_time": {end.Format(time.RFC3339)}}
 		if err := f.getAll(ctx, "/issues", q, &page); err != nil {
@@ -290,7 +293,9 @@ func (f *Fetcher) get(ctx context.Context, path string, q url.Values, out any) e
 		resp, err := f.HTTP.Do(req)
 		if err != nil {
 			if attempt < 5 {
-				time.Sleep(time.Duration(attempt+1) * 5 * time.Second)
+				if err := sleepCtx(ctx, time.Duration(attempt+1)*5*time.Second); err != nil {
+					return err
+				}
 				continue
 			}
 			return err
@@ -302,7 +307,10 @@ func (f *Fetcher) get(ctx context.Context, path string, q url.Values, out any) e
 		}
 		if (resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500) && attempt < 8 {
 			wait, _ := strconv.Atoi(resp.Header.Get("Retry-After"))
-			time.Sleep(time.Duration(max(wait, 5)+1) * time.Second)
+			// Retry-After is capped so a bad header cannot stall the import.
+			if err := sleepCtx(ctx, time.Duration(min(max(wait, 5), 300)+1)*time.Second); err != nil {
+				return err
+			}
 			continue
 		}
 		if resp.StatusCode != http.StatusOK {
@@ -393,7 +401,9 @@ func (f *Fetcher) download(ctx context.Context, fileURL, path string) error {
 	var lastErr error
 	for attempt := range 4 {
 		if attempt > 0 {
-			time.Sleep(time.Duration(attempt) * 3 * time.Second)
+			if err := sleepCtx(ctx, time.Duration(attempt)*3*time.Second); err != nil {
+				return err
+			}
 		}
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fileURL, nil)
 		if err != nil {
@@ -440,6 +450,18 @@ func (f *Fetcher) ReadFile(fileURL string) ([]byte, error) {
 		return nil, os.ErrNotExist
 	}
 	return b, err
+}
+
+// sleepCtx waits for d, or returns the context's error as soon as it is cancelled.
+func sleepCtx(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
 }
 
 func writeJSON(path string, v any) error {

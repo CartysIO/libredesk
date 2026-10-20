@@ -688,7 +688,7 @@ func (im *Importer) agentFor(tx getter, u User) (int, error) {
 		im.agentByEmail[p.email] = id
 	}
 	im.rep.AgentsNew++
-	im.rep.Agents = append(im.rep.Agents, fmt.Sprintf("%s <%s> -> new disabled agent %q", u.Name, u.Email, strings.TrimSpace(p.first+" "+p.last)))
+	im.rep.Agents = append(im.rep.Agents, fmt.Sprintf("%s <%s> -> new disabled agent %q", u.Name, MaskEmail(u.Email), strings.TrimSpace(p.first+" "+p.last)))
 	return id, nil
 }
 
@@ -742,14 +742,14 @@ func (im *Importer) planDirectory(d Data) {
 		seen[u.ID] = true
 		p := im.planAgent(u)
 		if p.existingID > 0 {
-			im.rep.Agents = append(im.rep.Agents, fmt.Sprintf("%s <%s> -> agent %d (%s)", u.Name, u.Email, p.existingID, p.email))
+			im.rep.Agents = append(im.rep.Agents, fmt.Sprintf("%s <%s> -> agent %d (%s)", u.Name, MaskEmail(u.Email), p.existingID, p.email))
 		} else {
 			name := strings.TrimSpace(p.first + " " + p.last)
 			if !newNames[strings.ToLower(name)] && im.agentByName[strings.ToLower(name)] == 0 {
 				newNames[strings.ToLower(name)] = true
 				im.rep.AgentsNew++
 			}
-			im.rep.Agents = append(im.rep.Agents, fmt.Sprintf("%s <%s> -> disabled agent %q", u.Name, u.Email, name))
+			im.rep.Agents = append(im.rep.Agents, fmt.Sprintf("%s <%s> -> disabled agent %q", u.Name, MaskEmail(u.Email), name))
 		}
 	}
 	sort.Strings(im.rep.Agents)
@@ -1267,7 +1267,9 @@ func (im *Importer) uploadFiles(m Message, content *string) ([]uploaded, []strin
 	for _, u := range m.FileURLs {
 		b, err := im.Files(u)
 		if errors.Is(err, os.ErrNotExist) || (err == nil && len(b) == 0) {
-			missing = append(missing, u)
+			// Without its signature the URL names the file but opens nothing.
+			base, _, _ := strings.Cut(u, "?")
+			missing = append(missing, base)
 			im.rep.MissingFiles++
 			continue
 		}
