@@ -184,6 +184,25 @@ describe('drag and drop moves', () => {
     expect(store.columns.Open.items).toEqual([])
     expect(store.columns.Resolved.items).toEqual([])
   })
+
+  it('brings back a card that a status with no column took off the board when the API fails', async () => {
+    const store = await loaded()
+    api.updateConversationStatus.mockRejectedValue(new Error('nope'))
+    expect(await store.moveCard('a', 'Closed')).toBe(false)
+    expect(store.columns.Open.items.map((c) => c.uuid)).toEqual(['a'])
+  })
+
+  it('does not bring back a card deleted while its move was in flight', async () => {
+    const store = await loaded()
+    let fail
+    api.updateConversationStatus.mockReturnValue(new Promise((_, reject) => (fail = reject)))
+    const pending = store.moveCard('a', 'Closed')
+    store.removeConversations(['a'])
+    fail(new Error('not found'))
+    expect(await pending).toBe(false)
+    expect(store.columns.Open.items).toEqual([])
+    expect(store.columns.Open.total).toBe(0)
+  })
 })
 
 describe('live updates', () => {

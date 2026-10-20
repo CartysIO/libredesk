@@ -19,12 +19,14 @@ export function useConversationActions() {
       description: handleHTTPError(error).message
     })
 
-  // Applies the change through the board's live-update path, the one the websocket uses,
-  // so the websocket echo changes nothing and a card that leaves the board's scope drops out.
+  // Applies the change through the live-update paths the websocket uses, so its echo changes nothing
+  // and a card that leaves the board's scope drops out. The conversation store merge also updates
+  // the open drawer: the assignment echo reaches it only when the list holds the conversation.
   const update = async (uuid, request, fields) => {
     try {
       await request()
       boardStore.mergeConversationUpdate({ uuid, ...fields })
+      conversationStore.mergeConversationUpdate({ uuid, ...fields })
       conversationStore.refreshSidebarCounts?.()
       return true
     } catch (error) {

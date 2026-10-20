@@ -17,6 +17,7 @@ const { api, emit, conversationStore } = vi.hoisted(() => ({
     getListSortParams: () => ({}),
     refreshSidebarCounts: vi.fn(),
     removeConversations: vi.fn(),
+    mergeConversationUpdate: vi.fn(),
     conversations: { data: [] }
   }
 }))
@@ -90,6 +91,22 @@ describe('assignment', () => {
     await useConversationActions().assignUser(store.columns.Open.items[0], null)
     expect(api.removeAssignee).toHaveBeenCalledWith('a', 'user')
     expect(uuids(store, 'Open')).toEqual([])
+  })
+
+  it('updates the open conversation too, so the drawer shows the new assignee', async () => {
+    const store = await assignedBoard([card('a', 'Open', { assigned_team_id: 2 })])
+    const conv = store.columns.Open.items[0]
+    const { assignUser, assignTeam } = useConversationActions()
+    await assignUser(conv, '9')
+    expect(conversationStore.mergeConversationUpdate).toHaveBeenLastCalledWith({
+      uuid: 'a',
+      assigned_user_id: 9
+    })
+    await assignTeam(conv, null)
+    expect(conversationStore.mergeConversationUpdate).toHaveBeenLastCalledWith({
+      uuid: 'a',
+      assigned_team_id: null
+    })
   })
 
   it('a new team clears the agent, the same team keeps it', async () => {
