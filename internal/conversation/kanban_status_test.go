@@ -94,10 +94,8 @@ func TestReOpenConversationQuery(t *testing.T) {
 	}{
 		{"Snoozed without reply", models.StatusSnoozed, false, models.StatusOpen},
 		{"Resolved without reply", models.StatusResolved, false, models.StatusOpen},
-		{"Closed without reply", models.StatusClosed, false, models.StatusOpen},
 		{"Snoozed with reply", models.StatusSnoozed, true, models.StatusOnYou},
 		{"Resolved with reply", models.StatusResolved, true, models.StatusOnYou},
-		{"Closed with reply", models.StatusClosed, true, models.StatusOnYou},
 		{"On customer", models.StatusOnCustomer, true, models.StatusOnYou},
 		{"On customer without recorded reply", models.StatusOnCustomer, false, models.StatusOnYou},
 		{"Open", models.StatusOpen, true, ""},

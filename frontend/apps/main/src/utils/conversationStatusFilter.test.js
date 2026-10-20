@@ -40,12 +40,13 @@ describe('listStatusFilter', () => {
     expect(matchesListStatus('Resolved', CONVERSATION_ACTIVE_STATUS)).toBe(false)
     expect(matchesListStatus('Open', 'Open')).toBe(true)
     expect(matchesListStatus('On you', 'Open')).toBe(false)
-    expect(matchesListStatus('Closed', '')).toBe(true)
+    expect(matchesListStatus('Resolved', '')).toBe(true)
   })
 
   it('treats the board statuses as default statuses', () => {
     expect(CONVERSATION_DEFAULT_STATUSES_LIST).toEqual(
-      expect.arrayContaining(['Open', 'Snoozed', 'Resolved', 'Closed', 'On you', 'On customer'])
+      expect.arrayContaining(['Open', 'Snoozed', 'Resolved', 'On you', 'On customer'])
     )
+    expect(CONVERSATION_DEFAULT_STATUSES_LIST).not.toContain('Closed')
   })
 })
