@@ -127,6 +127,7 @@ type Manager struct {
 	wg                         sync.WaitGroup
 	continuityConfig           ContinuityConfig
 	subjectRefFormat           string
+	assignOnFirstReplyEnabled  bool
 	aiAgent                    AIAgentEngine
 }
 
@@ -254,6 +255,8 @@ type Opts struct {
 	IncomingMessageQueueSize int
 	ContinuityConfig         *ContinuityConfig
 	SubjectRefFormat         string
+	// AssignOnFirstReply assigns an unassigned conversation to the agent who sends the first public reply.
+	AssignOnFirstReply bool
 }
 
 // New initializes a new conversation Manager.
@@ -323,6 +326,7 @@ func New(
 		outgoingProcessingMessages: sync.Map{},
 		continuityConfig:           continuityConfig,
 		subjectRefFormat:           subjectRefFormat,
+		assignOnFirstReplyEnabled:  opts.AssignOnFirstReply,
 	}
 
 	return c, nil
