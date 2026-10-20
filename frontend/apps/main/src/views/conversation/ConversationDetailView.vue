@@ -84,7 +84,9 @@ import { Sheet, SheetContent, SheetTitle } from '@shared-ui/components/ui/sheet'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@shared-ui/components/ui/resizable'
 
 const props = defineProps({
-  uuid: String
+  uuid: String,
+  // Show nothing until the requested conversation has loaded, instead of the previous one (board drawer).
+  hideStale: { type: Boolean, default: false }
 })
 
 const conversationStore = useConversationStore()
@@ -97,9 +99,10 @@ const panelSizes = useStorage('conversationDetailPanelSizes', DEFAULT_PANEL_SIZE
 if (!(panelSizes.value[1] > 0)) panelSizes.value = DEFAULT_PANEL_SIZES
 const sheetSidebarOpen = ref(false)
 
-const showContent = computed(
-  () => conversationStore.current || conversationStore.conversation.loading
-)
+const showContent = computed(() => {
+  if (props.hideStale) return conversationStore.current?.uuid === props.uuid
+  return conversationStore.current || conversationStore.conversation.loading
+})
 
 const isLoading = computed(
   () => conversationStore.conversation.loading || conversationStore.messages.loading
