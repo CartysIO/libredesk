@@ -29,6 +29,7 @@ import { Lock, Paperclip } from 'lucide-vue-next'
 import { Avatar, AvatarFallback, AvatarImage } from '@shared-ui/components/ui/avatar'
 import { formatMessageTimestamp } from '@shared-ui/utils/datetime.js'
 import { messageSnippet } from '@main/utils/threadFold'
+import { initials as toInitials } from '@main/utils/initials'
 
 const props = defineProps({
   message: { type: Object, required: true }
@@ -41,7 +42,7 @@ const name = computed(() => {
   const author = props.message.author ?? {}
   return `${author.first_name ?? ''} ${author.last_name ?? ''}`.trim() || author.email || ''
 })
-const initials = computed(() => (props.message.author?.first_name || '?').substring(0, 2).toUpperCase())
+const initials = computed(() => toInitials(props.message.author?.first_name, props.message.author?.last_name))
 const snippet = computed(() => messageSnippet(props.message))
 const time = computed(() => formatMessageTimestamp(props.message.created_at))
 </script>

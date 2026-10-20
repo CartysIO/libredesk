@@ -148,7 +148,21 @@ html[data-app='desk'],
 html[data-app='desk'] body {
   font-family: var(--desk-font);
   --vis-font-family: var(--desk-font);
-  font-feature-settings: 'tnum' 0;
+}
+
+// Type scale: 12 (meta), 14 (body), 16 (titles). Upstream's 20px panel titles step down to 16 here;
+// rank comes from weight and case, not size.
+html[data-app='desk'] {
+  .sidebar-secondary .text-xl,
+  .desk-title.text-xl {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+
+  // Composer placeholder at the muted text colour (4.5:1), not the editor's #adb5bd.
+  .tiptap p.is-editor-empty:first-child::before {
+    color: hsl(var(--muted-foreground));
+  }
 }
 
 html[data-app='desk'] .font-sans {
@@ -186,6 +200,18 @@ html[data-app='desk'] .message-bubble.message-bubble--thread {
   }
 }
 
+// In a thread, "Show quoted text" also folds the sender's signature and the whole Gmail quote block,
+// including its "On ... wrote:" line. vue-letter prefixes classes and ids with "msg_XYZ_", hence the
+// suffix matching (see .hide-quoted-text in shared-ui main.scss).
+html[data-app='desk'] .message-bubble--thread.hide-quoted-text {
+  [class*='_gmail_signature'],
+  [data-smartmail='gmail_signature'],
+  [id$='_Signature'],
+  [class*='_gmail_quote'] {
+    display: none;
+  }
+}
+
 // Conversation details as a two-column spec table: label left, value right, one hairline per row.
 html[data-app='desk'] .desk-spec {
   > * + * {
@@ -212,6 +238,12 @@ html[data-app='desk'] .desk-spec {
   .sidebar-label {
     font-size: 0.75rem;
     font-weight: 500;
+  }
+
+  // Values wrap at word boundaries; only an unbroken string (a long email or URL) breaks mid-word.
+  .break-all {
+    word-break: normal;
+    overflow-wrap: anywhere;
   }
 }
 

@@ -408,6 +408,7 @@ import CSATResponseDisplay from './CSATResponseDisplay.vue'
 import api from '@main/api'
 import { containsQuoteMarkers } from '@shared-ui/utils/quotedContent.js'
 import { getMessageDeliveryStatus } from './messageDeliveryStatus.js'
+import { initials } from '@main/utils/initials'
 
 const extendedCssProperties = [...allowedCssProperties, 'transform', 'transform-origin']
 // The sanitizer has no strikethrough tag, so these are rewritten to a styled span it keeps.
@@ -496,10 +497,9 @@ const getAvatar = computed(() => {
   return props.message.author?.avatar_url || ''
 })
 
-const avatarFallback = computed(() => {
-  const firstName = props.message.author?.first_name ?? (isOutgoing.value ? 'A' : 'U')
-  return firstName.toUpperCase().substring(0, 2)
-})
+const avatarFallback = computed(() =>
+  initials(props.message.author?.first_name, props.message.author?.last_name, isOutgoing.value ? 'A' : 'U')
+)
 
 const allowedSchemas = ['cid', 'https', 'http', 'mailto']
 
@@ -563,8 +563,13 @@ const retryMessage = (msg) => {
 }
 
 const showQuotedText = ref(false)
+// In a thread the toggle also folds signatures (desk-theme.scss), so a signature alone earns it too.
+const SIGNATURE_MARKERS = /gmail_signature|id="Signature"/
 const hasQuotedContent = computed(
-  () => !isOutgoing.value && containsQuoteMarkers(sanitizedContent.value)
+  () =>
+    !isOutgoing.value &&
+    (containsQuoteMarkers(sanitizedContent.value) ||
+      (props.thread && SIGNATURE_MARKERS.test(sanitizedContent.value)))
 )
 const toggleQuote = () => {
   showQuotedText.value = !showQuotedText.value

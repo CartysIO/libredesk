@@ -1,7 +1,7 @@
 <template>
   <section
-    class="flex flex-col h-full w-72 shrink-0 rounded-md border bg-muted/40 transition-colors"
-    :class="{ 'ring-2 ring-primary/50 bg-accent/40': isOver }"
+    class="flex flex-col h-full w-72 shrink-0 border-r border-border/70 transition-colors"
+    :class="{ 'bg-accent/50': isOver }"
     :aria-label="t(column.labelKey)"
     @dragover.prevent="onDragOver"
     @dragleave="onDragLeave"

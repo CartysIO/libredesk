@@ -12,19 +12,19 @@
         >
           <ChevronLeft class="w-4 h-4" />
         </Button>
-        <!-- The ticket number is the headline; subject and contact follow on the same line. -->
-        <span
-          v-if="conversationStore.current?.reference_number"
-          class="shrink-0 text-base font-bold tabular-nums tracking-tight"
-        >#{{ conversationStore.current.reference_number }}</span>
-        <span
-          v-if="conversationStore.current?.subject"
-          class="ml-2 truncate text-sm font-semibold"
-        >{{ conversationStore.current.subject }}</span>
-        <span
-          class="truncate text-sm"
-          :class="conversationStore.current?.subject ? 'ml-2 text-muted-foreground' : 'ml-2 font-semibold'"
-        >{{ conversationStore.currentContactName }}</span>
+        <!-- The ticket number is the headline with the contact beside it; the subject has its own line. -->
+        <div class="min-w-0 leading-tight">
+          <div class="flex min-w-0 items-baseline gap-2">
+            <span
+              v-if="conversationStore.current?.reference_number"
+              class="shrink-0 text-base font-bold tabular-nums tracking-tight"
+            >#{{ conversationStore.current.reference_number }}</span>
+            <span class="truncate text-xs text-muted-foreground">{{ conversationStore.currentContactName }}</span>
+          </div>
+          <div v-if="conversationStore.current?.subject" class="truncate text-sm font-semibold">
+            {{ conversationStore.current.subject }}
+          </div>
+        </div>
       </div>
       <div class="flex items-center gap-2 shrink-0">
         <Button
