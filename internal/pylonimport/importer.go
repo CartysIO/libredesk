@@ -708,11 +708,12 @@ func (im *Importer) authorUser(m Message) (User, bool) {
 		return User{}, false
 	}
 	name := strings.TrimSpace(m.Author.Name)
-	if name == "" {
+	switch {
+	case name != "":
+	case m.Source == "linear":
+		name = "Linear"
+	default:
 		name = "Pylon"
-	}
-	if m.Source == "linear" && !strings.Contains(strings.ToLower(name), "linear") {
-		name += " via Linear"
 	}
 	return User{ID: "author:" + strings.ToLower(name), Name: name}, true
 }
@@ -806,16 +807,22 @@ func (im *Importer) writeDirectory(d Data) error {
 		if name == "" {
 			name = "Unnamed account"
 		}
-		var id int
-		if err := tx.Get(&id, `WITH ins AS (
+		// Two Pylon accounts with the same Clyr team id share one organization.
+		var row struct {
+			ID  int  `db:"id"`
+			New bool `db:"new"`
+		}
+		if err := tx.Get(&row, `WITH ins AS (
 				INSERT INTO organizations (name, external_id) VALUES ($1, $2)
 				ON CONFLICT (external_id) WHERE external_id IS NOT NULL DO NOTHING RETURNING id
-			) SELECT id FROM ins UNION ALL SELECT id FROM organizations WHERE external_id = $2 LIMIT 1`,
+			) SELECT id, TRUE AS new FROM ins UNION ALL SELECT id, FALSE FROM organizations WHERE external_id = $2 LIMIT 1`,
 			name, clip(OrgExternalID(a), 128)); err != nil {
 			return fmt.Errorf("organization %s: %w", a.Name, err)
 		}
-		im.orgByAccount[a.ID] = id
-		im.rep.OrganizationsNew++
+		im.orgByAccount[a.ID] = row.ID
+		if row.New {
+			im.rep.OrganizationsNew++
+		}
 	}
 
 	members := im.memberships(d)
