@@ -49,9 +49,20 @@ export function computeRecipientsFromMessage (message, contactEmail, ownedAddres
             email && !inboxAddresses.includes(stripConvUUID(email).toLowerCase())
         )))
 
+    const to = clean(toList)
+    let cc = clean(ccList)
+    // The message came from one of our own addresses (a web form's confirmation copy, say), so nothing is left
+    // for TO. Move a recipient up from CC so the reply can be sent: the message's own TO (the customer the
+    // copy was addressed to) first, else the first CC.
+    if (to.length === 0 && cc.length > 0) {
+        const promoted = clean(isIncoming && Array.isArray(meta.to) ? meta.to : [])[0] || cc[0]
+        to.push(promoted)
+        cc = cc.filter(email => email !== promoted)
+    }
+
     return {
-        to: clean(toList),
-        cc: clean(ccList),
+        to,
+        cc,
         // BCC stays empty user is supposed to add it manually.
         bcc: [],
     }

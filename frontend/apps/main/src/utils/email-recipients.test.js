@@ -151,6 +151,27 @@ describe('computeRecipientsFromMessage', () => {
             expect(result.to).toEqual(['sender@example.com'])
         })
 
+        test('moves the customer from CC to TO when the message came from the inbox itself', () => {
+            // A web form confirmation: from the inbox, to the customer, inbox in CC.
+            const message = {
+                type: 'incoming',
+                meta: { from: [inboxEmail], to: ['josh@xl-rpm.com'], cc: [inboxEmail] }
+            }
+            const result = computeRecipientsFromMessage(message, inboxEmail, inboxEmail)
+            expect(result.to).toEqual(['josh@xl-rpm.com'])
+            expect(result.cc).toEqual([])
+        })
+
+        test('promotes the customer the copy was addressed to, not a CC colleague', () => {
+            const message = {
+                type: 'incoming',
+                meta: { from: [inboxEmail], to: ['josh@xl-rpm.com'], cc: ['colleague@xl-rpm.com', inboxEmail] }
+            }
+            const result = computeRecipientsFromMessage(message, inboxEmail, inboxEmail)
+            expect(result.to).toEqual(['josh@xl-rpm.com'])
+            expect(result.cc).toEqual(['colleague@xl-rpm.com'])
+        })
+
         test('falls back to contactEmail when no from', () => {
             const message = {
                 type: 'incoming',
