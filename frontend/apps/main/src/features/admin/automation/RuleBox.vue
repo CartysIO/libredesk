@@ -39,7 +39,7 @@
           <!-- Field -->
           <div class="flex space-x-5 items-start">
             <Select
-              v-model="rule.field"
+              :modelValue="fieldSelectValue(rule)"
               @update:modelValue="(value) => handleFieldChange(value, index)"
             >
               <SelectTrigger :class="fieldClass">
@@ -61,6 +61,17 @@
                   >
                     {{ field.label }}
                   </SelectItem>
+                  <!-- Organization custom attributes (Clyr fork) -->
+                  <template v-if="!contactsOnly && hasOrganizationCustomAttributes">
+                    <SelectLabel>{{ $t('globals.terms.organization') }}</SelectLabel>
+                    <SelectItem
+                      v-for="(field, key) in organizationCustomAttributes"
+                      :key="ORG_ATTRIBUTE_PREFIX + key"
+                      :value="ORG_ATTRIBUTE_PREFIX + key"
+                    >
+                      {{ field.label }}
+                    </SelectItem>
+                  </template>
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -120,6 +131,11 @@
                   v-model="rule.value"
                   @select="handleValueChange($event, index)"
                 />
+                <SelectOrganizationCombobox
+                  v-else-if="getFieldEntity(rule.field, rule.field_type) === 'organization'"
+                  v-model="rule.value"
+                  @select="handleValueChange($event, index)"
+                />
                 <SelectComboBox
                   v-else
                   v-model="rule.value"
@@ -127,6 +143,13 @@
                   @select="handleValueChange($event, index)"
                 />
               </div>
+
+              <!-- Several organizations, stored as a comma separated list of IDs -->
+              <SelectOrganizationsCombobox
+                v-if="inputType(index) === 'organizations'"
+                :modelValue="rule.value"
+                @update:modelValue="(value) => handleValueChange(value, index)"
+              />
 
               <!-- Tag input -->
               <div v-if="inputType(index) === 'tag'">
@@ -234,6 +257,8 @@ import { useConversationFilters } from '@/composables/useConversationFilters'
 import SelectComboBox from '@main/components/combobox/SelectCombobox.vue'
 import SelectAgentCombobox from '@main/components/combobox/SelectAgentCombobox.vue'
 import SelectTeamCombobox from '@main/components/combobox/SelectTeamCombobox.vue'
+import SelectOrganizationCombobox from '@main/components/combobox/SelectOrganizationCombobox.vue'
+import SelectOrganizationsCombobox from '@main/components/combobox/SelectOrganizationsCombobox.vue'
 import { operatorLabel } from '@/constants/filterConfig'
 
 const props = defineProps({
@@ -256,11 +281,40 @@ const fieldClass = 'flex-1 min-w-0 max-w-xs'
 
 const fieldTypeConstants = {
   conversation: 'conversation',
-  contact_custom_attribute: 'contact_custom_attribute'
+  contact_custom_attribute: 'contact_custom_attribute',
+  organization_custom_attribute: 'organization_custom_attribute'
 }
-const { conversationFilters, newConversationFilters, contactCustomAttributes } =
-  useConversationFilters()
+// The field picker gives organization attributes this prefix, as their keys can repeat contact attribute keys.
+const ORG_ATTRIBUTE_PREFIX = 'organization:'
+const {
+  conversationFilters,
+  newConversationFilters,
+  contactCustomAttributes,
+  organizationCustomAttributes
+} = useConversationFilters()
 const hasContactCustomAttributes = computed(() => Object.keys(contactCustomAttributes.value).length > 0)
+const hasOrganizationCustomAttributes = computed(
+  () => Object.keys(organizationCustomAttributes.value).length > 0
+)
+
+const fieldSelectValue = (rule) =>
+  rule.field_type === fieldTypeConstants.organization_custom_attribute
+    ? ORG_ATTRIBUTE_PREFIX + rule.field
+    : rule.field
+
+// fieldDef returns the definition of a condition field. A rule without a field type is a conversation field,
+// as older rules have none.
+const fieldDef = (field, fieldType) => {
+  switch (fieldType || fieldTypeConstants.conversation) {
+    case fieldTypeConstants.contact_custom_attribute:
+      return contactCustomAttributes.value[field]
+    case fieldTypeConstants.organization_custom_attribute:
+      return organizationCustomAttributes.value[field]
+    case fieldTypeConstants.conversation:
+      return currentFilters.value[field]
+  }
+  return undefined
+}
 const { ruleGroup } = toRefs(props)
 const emit = defineEmits(['update-group', 'add-condition', 'remove-condition'])
 const { t } = useI18n()
@@ -298,7 +352,10 @@ const handleGroupOperator = (value) => {
 const handleFieldChange = (value, ruleIndex) => {
   // Set the field type based on the selected field value.
   let fieldType = fieldTypeConstants.conversation
-  if (contactCustomAttributes.value[value]) {
+  if (value.startsWith(ORG_ATTRIBUTE_PREFIX)) {
+    fieldType = fieldTypeConstants.organization_custom_attribute
+    value = value.slice(ORG_ATTRIBUTE_PREFIX.length)
+  } else if (contactCustomAttributes.value[value]) {
     fieldType = fieldTypeConstants.contact_custom_attribute
   }
 
@@ -355,19 +412,7 @@ const emitUpdate = () => {
   emit('update-group', ruleGroup, props.groupIndex)
 }
 
-const getFieldOperators = (field, fieldType) => {
-  // Set default field type if not set for backwards compatibility as this field was added later.
-  if (!fieldType) {
-    fieldType = fieldTypeConstants.conversation
-  }
-  if (fieldType === fieldTypeConstants.contact_custom_attribute) {
-    return contactCustomAttributes.value[field]?.operators || []
-  }
-  if (fieldType === fieldTypeConstants.conversation) {
-    return currentFilters.value[field]?.operators || []
-  }
-  return []
-}
+const getFieldOperators = (field, fieldType) => fieldDef(field, fieldType)?.operators || []
 
 const getFieldEntity = (field, fieldType) => {
   if ((fieldType || fieldTypeConstants.conversation) !== fieldTypeConstants.conversation)
@@ -375,39 +420,15 @@ const getFieldEntity = (field, fieldType) => {
   return currentFilters.value[field]?.entity || ''
 }
 
-const getFieldOptions = (field, fieldType) => {
-  // Set default field type if not set for backwards compatibility as this field was added later.
-  if (!fieldType) {
-    fieldType = fieldTypeConstants.conversation
-  }
-  if (fieldType === fieldTypeConstants.contact_custom_attribute) {
-    return contactCustomAttributes.value[field]?.options || []
-  }
-  if (fieldType === fieldTypeConstants.conversation) {
-    return currentFilters.value[field]?.options || []
-  }
-  return []
-}
+const getFieldOptions = (field, fieldType) => fieldDef(field, fieldType)?.options || []
 
 const inputType = (index) => {
-  const field = ruleGroup.value.rules[index]?.field
-  const operator = ruleGroup.value.rules[index]?.operator
-  let fieldType = ruleGroup.value.rules[index]?.field_type
-  if (['contains', 'not contains'].includes(operator)) return 'tag'
-
-  // Set default field type if not set for backwards compatibility as this field was added later.
-  if (!fieldType) {
-    fieldType = fieldTypeConstants.conversation
+  const rule = ruleGroup.value.rules[index]
+  if (['contains', 'not contains'].includes(rule?.operator)) {
+    return getFieldEntity(rule.field, rule.field_type) === 'organization' ? 'organizations' : 'tag'
   }
-  if (field && fieldType) {
-    if (fieldType === fieldTypeConstants.contact_custom_attribute) {
-      return contactCustomAttributes.value[field]?.type || ''
-    }
-    if (fieldType === fieldTypeConstants.conversation) {
-      return currentFilters.value[field]?.type || ''
-    }
-  }
-  return ''
+  if (!rule?.field) return ''
+  return fieldDef(rule.field, rule.field_type)?.type || ''
 }
 
 const showInput = (index) => {
@@ -417,10 +438,6 @@ const showInput = (index) => {
 
 const showCaseSensitive = (index) => {
   const rule = ruleGroup.value.rules[index]
-  const field =
-    rule?.field_type === fieldTypeConstants.contact_custom_attribute
-      ? contactCustomAttributes.value[rule.field]
-      : currentFilters.value[rule?.field]
-  return field?.allowCaseSensitive === true
+  return fieldDef(rule?.field, rule?.field_type)?.allowCaseSensitive === true
 }
 </script>

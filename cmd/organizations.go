@@ -15,10 +15,12 @@ import (
 	"github.com/zerodha/fastglue"
 )
 
-// organizationReq is the body for creating or updating an organization.
+// organizationReq is the body for creating or updating an organization. Omitted domains or custom_attributes
+// are left unchanged; given ones replace the current ones.
 type organizationReq struct {
 	Name       string `json:"name"`
 	ExternalID string `json:"external_id"`
+	omodels.Fields
 }
 
 // contactOrganizationReq is the body for adding a contact to an organization or making it the default.
@@ -41,10 +43,13 @@ type orgSyncReq struct {
 	Organizations []orgSyncOrganization `json:"organizations"`
 }
 
+// orgSyncOrganization is one organization in a sync. Its domains are added to the current ones and its
+// custom_attributes merged into them; a sync never removes either.
 type orgSyncOrganization struct {
 	ExternalID string           `json:"external_id"`
 	Name       string           `json:"name"`
 	Contacts   []orgSyncContact `json:"contacts"`
+	omodels.Fields
 }
 
 type orgSyncContact struct {
@@ -90,7 +95,7 @@ func handleSyncOrganizations(r *fastglue.Request) error {
 
 	resp := orgSyncResp{Errors: []orgSyncError{}}
 	for _, o := range req.Organizations {
-		org, err := app.organization.UpsertByExternalID(o.ExternalID, o.Name)
+		org, err := app.organization.SyncByExternalID(o.ExternalID, o.Name, o.Fields)
 		if err != nil {
 			resp.Errors = append(resp.Errors, orgSyncError{ExternalID: o.ExternalID, Error: err.Error()})
 			continue
@@ -194,7 +199,7 @@ func handleCreateOrganization(r *fastglue.Request) error {
 	if err := r.Decode(&req, "json"); err != nil {
 		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, app.i18n.T("errors.parsingRequest"), nil, envelope.InputError)
 	}
-	org, err := app.organization.Create(req.Name, req.ExternalID)
+	org, err := app.organization.Save(0, req.Name, req.ExternalID, req.Fields)
 	if err != nil {
 		return sendErrorEnvelope(r, err)
 	}
@@ -214,7 +219,7 @@ func handleUpdateOrganization(r *fastglue.Request) error {
 	if err := r.Decode(&req, "json"); err != nil {
 		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, app.i18n.T("errors.parsingRequest"), nil, envelope.InputError)
 	}
-	org, err := app.organization.Update(id, req.Name, req.ExternalID)
+	org, err := app.organization.Save(id, req.Name, req.ExternalID, req.Fields)
 	if err != nil {
 		return sendErrorEnvelope(r, err)
 	}

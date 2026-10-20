@@ -8,7 +8,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// organizationSchema returns the columns, indexes and foreign keys that the organization migrations (clyr.1 and clyr.5) own.
+// organizationSchema returns the columns, indexes and foreign keys that the organization migrations (clyr.1, clyr.5 and clyr.7) own.
 func organizationSchema(t *testing.T, db *sqlx.DB) []string {
 	t.Helper()
 	var out []string
@@ -43,6 +43,9 @@ func TestV2_9_0_RC9_CLYR1Organizations(t *testing.T) {
 		}
 		if err := V2_9_0_RC9_CLYR5(db, nil, nil); err != nil {
 			t.Fatalf("running contact organizations migration: %v", err)
+		}
+		if err := V2_9_0_RC9_CLYR7(db, nil, nil); err != nil {
+			t.Fatalf("running organization fields migration: %v", err)
 		}
 	}
 	got := organizationSchema(t, db)

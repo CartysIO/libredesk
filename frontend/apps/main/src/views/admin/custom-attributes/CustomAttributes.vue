@@ -42,18 +42,24 @@
           </div>
           <div>
             <Tabs default-value="contact" v-model="appliesTo">
-              <TabsList class="grid w-full grid-cols-2 mb-5">
+              <TabsList class="grid w-full grid-cols-3 mb-5">
                 <TabsTrigger value="contact">
                   {{ $t('globals.terms.contact') }}
                 </TabsTrigger>
                 <TabsTrigger value="conversation">
                   {{ $t('globals.terms.conversation') }}
                 </TabsTrigger>
+                <TabsTrigger value="organization">
+                  {{ $t('globals.terms.organization') }}
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="contact">
                 <DataTable :columns="createColumns(t, { onEdit: editCustomAttribute })" :data="customAttributes" :loading="isLoading" />
               </TabsContent>
               <TabsContent value="conversation">
+                <DataTable :columns="createColumns(t, { onEdit: editCustomAttribute })" :data="customAttributes" :loading="isLoading" />
+              </TabsContent>
+              <TabsContent value="organization">
                 <DataTable :columns="createColumns(t, { onEdit: editCustomAttribute })" :data="customAttributes" :loading="isLoading" />
               </TabsContent>
             </Tabs>

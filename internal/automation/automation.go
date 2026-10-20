@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/abhinavxd/libredesk/internal/automation/models"
+	businesshours "github.com/abhinavxd/libredesk/internal/business_hours"
+	bhmodels "github.com/abhinavxd/libredesk/internal/business_hours/models"
 	cmodels "github.com/abhinavxd/libredesk/internal/conversation/models"
 	"github.com/abhinavxd/libredesk/internal/dbutil"
 	"github.com/abhinavxd/libredesk/internal/envelope"
@@ -63,6 +65,43 @@ type Engine struct {
 
 	suppressed   map[string]int
 	suppressedMu sync.Mutex
+
+	// defaultBusinessHours returns the app's default business hours and time zone, or nil hours when none
+	// are configured (Clyr fork). now is the clock; nil means time.Now.
+	defaultBusinessHours func() (*bhmodels.BusinessHours, *time.Location, error)
+	now                  func() time.Time
+}
+
+// SetDefaultBusinessHours sets how the engine reads the default business hours for the
+// outside_business_hours condition (Clyr fork).
+func (e *Engine) SetDefaultBusinessHours(fn func() (*bhmodels.BusinessHours, *time.Location, error)) {
+	e.defaultBusinessHours = fn
+}
+
+// outsideBusinessHours reports whether now is outside the default business hours.
+// It is false when no business hours are configured or they cannot be read.
+func (e *Engine) outsideBusinessHours(conversationUUID string) bool {
+	if e.defaultBusinessHours == nil {
+		return false
+	}
+	bh, loc, err := e.defaultBusinessHours()
+	if err != nil {
+		e.lo.Error("error reading default business hours", "conversation_uuid", conversationUUID, "error", err)
+		return false
+	}
+	if bh == nil {
+		return false
+	}
+	now := time.Now
+	if e.now != nil {
+		now = e.now
+	}
+	open, err := businesshours.IsOpen(*bh, now(), loc)
+	if err != nil {
+		e.lo.Error("error checking business hours", "business_hours_id", bh.ID, "conversation_uuid", conversationUUID, "error", err)
+		return false
+	}
+	return !open
 }
 
 type Opts struct {

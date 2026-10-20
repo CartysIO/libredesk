@@ -1,10 +1,16 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"strconv"
+	"time"
 
 	amodels "github.com/abhinavxd/libredesk/internal/automation/models"
+	businesshours "github.com/abhinavxd/libredesk/internal/business_hours"
+	bhmodels "github.com/abhinavxd/libredesk/internal/business_hours/models"
 	"github.com/abhinavxd/libredesk/internal/envelope"
+	"github.com/abhinavxd/libredesk/internal/setting"
 	"github.com/valyala/fasthttp"
 	"github.com/zerodha/fastglue"
 )
@@ -142,4 +148,36 @@ func handleUpdateAutomationRuleExecutionMode(r *fastglue.Request) error {
 		return sendErrorEnvelope(r, err)
 	}
 	return r.SendEnvelope(true)
+}
+
+// defaultBusinessHours returns a reader of the app's default business hours (app.business_hours_id) and time zone
+// (app.timezone, UTC when empty) for the outside_business_hours automation condition (Clyr fork).
+// It returns nil hours when none are set or the set ones were deleted.
+func defaultBusinessHours(settings *setting.Manager, bh *businesshours.Manager) func() (*bhmodels.BusinessHours, *time.Location, error) {
+	return func() (*bhmodels.BusinessHours, *time.Location, error) {
+		raw, err := settings.Get("app.business_hours_id")
+		if err != nil {
+			return nil, nil, err
+		}
+		var v any
+		if err := json.Unmarshal(raw, &v); err != nil {
+			return nil, nil, fmt.Errorf("parsing app.business_hours_id: %w", err)
+		}
+		id, _ := strconv.Atoi(fmt.Sprint(v))
+		if id <= 0 {
+			return nil, nil, nil
+		}
+		hours, err := bh.Get(id)
+		if err == businesshours.ErrBusinessHoursNotFound {
+			return nil, nil, nil
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+		loc, err := time.LoadLocation(settings.GetAppTimezone())
+		if err != nil {
+			return nil, nil, fmt.Errorf("loading app.timezone: %w", err)
+		}
+		return &hours, loc, nil
+	}
 }

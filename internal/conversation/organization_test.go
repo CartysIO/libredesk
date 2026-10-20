@@ -78,6 +78,18 @@ func TestConversationOrganization(t *testing.T) {
 	if conv.OrganizationID.Int != acme || conv.OrganizationName.String != "Acme" || conv.OrganizationExternalID.String != "team_1" {
 		t.Fatalf("conversation organization = %v %v, want %d Acme", conv.OrganizationID, conv.OrganizationName, acme)
 	}
+	// Reads carry the organization's custom attributes, and {} for a conversation without an organization.
+	db.MustExec(`UPDATE organizations SET custom_attributes = '{"tier":"top"}' WHERE id = $1`, acme)
+	if conv, err = m.GetConversation(0, acmeUUID, ""); err != nil || string(conv.OrganizationAttributes) != `{"tier": "top"}` {
+		t.Fatalf("organization custom attributes = %s, %v", conv.OrganizationAttributes, err)
+	}
+	noneUUID := insert(withoutOrg, "no org", 0)
+	if c, err := m.GetConversation(0, noneUUID, ""); err != nil || string(c.OrganizationAttributes) != `{}` {
+		t.Fatalf("no organization custom attributes = %s, %v", c.OrganizationAttributes, err)
+	}
+	if err := m.DeleteConversation(noneUUID); err != nil {
+		t.Fatal(err)
+	}
 	if conv.Contact.OrganizationID.Int != acme || conv.Contact.OrganizationExternalID.String != "team_1" || conv.Contact.OrganizationName.String != "Acme" {
 		t.Fatalf("contact organization = %+v", conv.Contact)
 	}

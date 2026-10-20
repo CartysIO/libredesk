@@ -233,6 +233,7 @@ type Conversation struct {
 	OrganizationID            null.Int               `db:"organization_id" json:"organization_id"`
 	OrganizationName          null.String            `db:"organization_name" json:"organization_name"`
 	OrganizationExternalID    null.String            `db:"organization_external_id" json:"organization_external_id"`
+	OrganizationAttributes    json.RawMessage        `db:"organization_custom_attributes" json:"organization_custom_attributes"`
 	SlaPolicyName             null.String            `db:"sla_policy_name" json:"sla_policy_name"`
 	AppliedSLAID              null.Int               `db:"applied_sla_id" json:"applied_sla_id"`
 	NextSLADeadlineAt         null.Time              `db:"next_sla_deadline_at" json:"next_sla_deadline_at"`
@@ -596,6 +597,10 @@ type IncomingMessage struct {
 	ConversationUUIDFromReplyTo string // UUID extracted from plus-addressed recipient (inbox+conv-{uuid}@domain)
 	InReplyTo                   string
 	References                  []string
+
+	// FromDomainVerified is true when the receiving mail server recorded DMARC pass for the From domain (Clyr fork).
+	// Only then is an email contact matched to an organization by its domain.
+	FromDomainVerified bool
 }
 
 // ToMessage converts IncomingMessage to a Message for DB insertion.

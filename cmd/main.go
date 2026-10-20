@@ -302,6 +302,8 @@ func main() {
 	automation.SetSystemUserID(systemUser.ID)
 	conversation.SetAIAgent(aiAgent)
 	conversation.SetAIClassifier(aiclassify.New(ctx, ai, customAttributes, conversation, lo))
+	conversation.SetOrganizationStore(organization)
+	automation.SetDefaultBusinessHours(defaultBusinessHours(settings, businessHours))
 	if slackBridge != nil {
 		slackBridge.SetConversationStore(conversation)
 	}
