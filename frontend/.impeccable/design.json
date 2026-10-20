@@ -1,0 +1,994 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-20T03:44:26+00:00",
+  "title": "Design System: Clyr Support desk",
+  "extensions": {
+    "scope": {
+      "selector": "html[data-app='desk']",
+      "darkSelector": "html[data-app='desk'].dark",
+      "railSelector": ".desk-rail",
+      "source": "apps/main/src/assets/desk-theme.scss",
+      "note": "Agent app only. The chat widget and help center use the upstream tokens in shared-ui/assets/styles/main.scss (see DESIGN.md, Upstream Libredesk system)."
+    },
+    "colorMeta": {
+      "brand": {
+        "role": "primary",
+        "displayName": "Clyr Brand Green",
+        "canonical": "hsl(135 45% 58%)",
+        "hex": "#64C47C",
+        "tonalRamp": [
+          "#15371E",
+          "#235C31",
+          "#318145",
+          "#3FA659",
+          "#64C47C",
+          "#90D5A1",
+          "#BCE6C7",
+          "#EDF8EF"
+        ]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Deep Desk Green",
+        "canonical": "hsl(153 58% 24%)",
+        "hex": "#1A6141",
+        "tonalRamp": [
+          "#103C28",
+          "#1B6543",
+          "#258D5E",
+          "#30B579",
+          "#56D29A",
+          "#86DFB7",
+          "#B6ECD4",
+          "#EBFAF3"
+        ]
+      },
+      "primary-foreground": {
+        "role": "neutral",
+        "displayName": "Primary Foreground",
+        "canonical": "hsl(0 0% 100%)",
+        "hex": "#FFFFFF",
+        "tonalRamp": [
+          "#262626",
+          "#404040",
+          "#595959",
+          "#737373",
+          "#949494",
+          "#B2B2B2",
+          "#D1D1D1",
+          "#F2F2F2"
+        ]
+      },
+      "background": {
+        "role": "neutral",
+        "displayName": "Tinted Ground",
+        "canonical": "hsl(150 20% 99%)",
+        "hex": "#FCFDFC",
+        "tonalRamp": [
+          "#1F2E26",
+          "#334C40",
+          "#476B59",
+          "#5C8A73",
+          "#7EA994",
+          "#A3C2B2",
+          "#C8DAD1",
+          "#F0F5F2"
+        ]
+      },
+      "foreground": {
+        "role": "neutral",
+        "displayName": "Desk Ink",
+        "canonical": "hsl(160 35% 9%)",
+        "hex": "#0F1F1A",
+        "tonalRamp": [
+          "#19342B",
+          "#295647",
+          "#3A7864",
+          "#4B9B80",
+          "#6EB9A0",
+          "#98CDBB",
+          "#C1E1D6",
+          "#EEF7F4"
+        ]
+      },
+      "foreground-lighter": {
+        "role": "neutral",
+        "displayName": "Foreground Lighter",
+        "canonical": "hsl(158 10% 38%)",
+        "hex": "#576B63",
+        "tonalRamp": [
+          "#222A27",
+          "#394641",
+          "#50625C",
+          "#677E76",
+          "#899F97",
+          "#ABBAB5",
+          "#CDD6D2",
+          "#F1F4F3"
+        ]
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "Pane White",
+        "canonical": "hsl(0 0% 100%)",
+        "hex": "#FFFFFF",
+        "tonalRamp": [
+          "#262626",
+          "#404040",
+          "#595959",
+          "#737373",
+          "#949494",
+          "#B2B2B2",
+          "#D1D1D1",
+          "#F2F2F2"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "hsl(150 14% 95.5%)",
+        "hex": "#F2F5F4",
+        "tonalRamp": [
+          "#212C26",
+          "#374940",
+          "#4D6659",
+          "#638373",
+          "#85A394",
+          "#A8BDB2",
+          "#CBD8D1",
+          "#F0F4F2"
+        ]
+      },
+      "muted-foreground": {
+        "role": "neutral",
+        "displayName": "Quiet Ink",
+        "canonical": "hsl(160 9% 36%)",
+        "hex": "#54645F",
+        "tonalRamp": [
+          "#232A27",
+          "#3A4542",
+          "#51615C",
+          "#687D76",
+          "#8A9E97",
+          "#ACB9B5",
+          "#CDD5D2",
+          "#F1F3F3"
+        ]
+      },
+      "accent": {
+        "role": "neutral",
+        "displayName": "Accent",
+        "canonical": "hsl(150 18% 93.5%)",
+        "hex": "#EBF1EE",
+        "tonalRamp": [
+          "#1F2D26",
+          "#344B40",
+          "#496959",
+          "#5E8773",
+          "#81A794",
+          "#A5C0B2",
+          "#C9D9D1",
+          "#F0F5F2"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "hsl(150 12% 89%)",
+        "hex": "#E0E6E3",
+        "tonalRamp": [
+          "#222B26",
+          "#384740",
+          "#4F6459",
+          "#658173",
+          "#87A194",
+          "#A9BCB2",
+          "#CCD7D1",
+          "#F1F4F2"
+        ]
+      },
+      "input": {
+        "role": "neutral",
+        "displayName": "Field Line",
+        "canonical": "hsl(150 10% 82%)",
+        "hex": "#CDD6D1",
+        "tonalRamp": [
+          "#222A26",
+          "#394640",
+          "#506259",
+          "#677E73",
+          "#899F94",
+          "#ABBAB2",
+          "#CDD6D1",
+          "#F1F4F2"
+        ]
+      },
+      "ring": {
+        "role": "neutral",
+        "displayName": "Ring",
+        "canonical": "hsl(137 45% 46%)",
+        "hex": "#41AA5E",
+        "tonalRamp": [
+          "#15371F",
+          "#235C33",
+          "#318148",
+          "#3FA65C",
+          "#64C47F",
+          "#90D5A4",
+          "#BCE6C8",
+          "#EDF8F0"
+        ]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Hairline (canvas)",
+        "canonical": "hsl(150 12% 89%)",
+        "hex": "#E0E6E3",
+        "tonalRamp": [
+          "#222B26",
+          "#384740",
+          "#4F6459",
+          "#658173",
+          "#87A194",
+          "#A9BCB2",
+          "#CCD7D1",
+          "#F1F4F2"
+        ]
+      },
+      "private": {
+        "role": "neutral",
+        "displayName": "Note Amber",
+        "canonical": "hsl(42 92% 93%)",
+        "hex": "#FEF4DD",
+        "tonalRamp": [
+          "#493403",
+          "#7A5705",
+          "#AB7A07",
+          "#DC9D09",
+          "#F6BB31",
+          "#F9CF6C",
+          "#FBE2A7",
+          "#FEF7E7"
+        ]
+      },
+      "destructive": {
+        "role": "neutral",
+        "displayName": "Destructive",
+        "canonical": "hsl(4 68% 45%)",
+        "hex": "#C12F25",
+        "tonalRamp": [
+          "#40100C",
+          "#6B1A14",
+          "#96251D",
+          "#C12F25",
+          "#DD554B",
+          "#E7857E",
+          "#F0B6B2",
+          "#FBEBEA"
+        ]
+      },
+      "success": {
+        "role": "neutral",
+        "displayName": "Success",
+        "canonical": "hsl(147 60% 30%)",
+        "hex": "#1F7A48",
+        "tonalRamp": [
+          "#0F3D24",
+          "#19663C",
+          "#248F54",
+          "#2EB86C",
+          "#54D48D",
+          "#85E0AE",
+          "#B6EDCE",
+          "#EBFAF1"
+        ]
+      },
+      "sidebar-background": {
+        "role": "neutral",
+        "displayName": "Nav Ground",
+        "canonical": "hsl(150 16% 97%)",
+        "hex": "#F6F9F7",
+        "tonalRamp": [
+          "#202C26",
+          "#364A40",
+          "#4B6859",
+          "#608573",
+          "#83A594",
+          "#A6BFB2",
+          "#CAD8D1",
+          "#F0F4F2"
+        ]
+      },
+      "code-new": {
+        "role": "secondary",
+        "displayName": "New Green",
+        "canonical": "hsl(137 50% 36%)",
+        "hex": "#2E8A48",
+        "tonalRamp": [
+          "#13391E",
+          "#206032",
+          "#2D8646",
+          "#39AC5A",
+          "#5EC97D",
+          "#8CD9A2",
+          "#BAE8C7",
+          "#ECF9EF"
+        ]
+      },
+      "code-you": {
+        "role": "secondary",
+        "displayName": "Signal Vermilion",
+        "canonical": "hsl(11 80% 50%)",
+        "hex": "#E63F19",
+        "tonalRamp": [
+          "#451308",
+          "#731F0D",
+          "#A12C12",
+          "#CF3917",
+          "#EA5E3E",
+          "#F08C75",
+          "#F6BAAC",
+          "#FCECE8"
+        ]
+      },
+      "code-customer": {
+        "role": "secondary",
+        "displayName": "Waiting Blue",
+        "canonical": "hsl(217 72% 50%)",
+        "hex": "#246ADB",
+        "tonalRamp": [
+          "#0B2042",
+          "#12356E",
+          "#194A9A",
+          "#205FC5",
+          "#4782E1",
+          "#7BA6EA",
+          "#B0C9F2",
+          "#E9F0FB"
+        ]
+      },
+      "code-hold": {
+        "role": "secondary",
+        "displayName": "Hold Slate",
+        "canonical": "hsl(215 14% 50%)",
+        "hex": "#6E7D91",
+        "tonalRamp": [
+          "#21252C",
+          "#373E49",
+          "#4D5766",
+          "#637083",
+          "#8591A3",
+          "#A8B1BD",
+          "#CBD0D8",
+          "#F0F2F4"
+        ]
+      },
+      "code-done": {
+        "role": "secondary",
+        "displayName": "Resolved Grey-Green",
+        "canonical": "hsl(155 8% 62%)",
+        "hex": "#96A69F",
+        "tonalRamp": [
+          "#232927",
+          "#3B4541",
+          "#52605A",
+          "#6A7C74",
+          "#8B9C95",
+          "#ACB9B4",
+          "#CDD5D2",
+          "#F1F3F2"
+        ]
+      },
+      "dark-background": {
+        "role": "neutral",
+        "displayName": "Tinted Ground (dark)",
+        "canonical": "hsl(160 18% 7.5%)",
+        "hex": "#101714",
+        "tonalRamp": [
+          "#1F2D29",
+          "#344B44",
+          "#49695F",
+          "#5E877A",
+          "#81A79A",
+          "#A5C0B7",
+          "#C9D9D4",
+          "#F0F5F3"
+        ]
+      },
+      "dark-foreground": {
+        "role": "neutral",
+        "displayName": "Desk Ink (dark)",
+        "canonical": "hsl(140 12% 92%)",
+        "hex": "#E8EDEA",
+        "tonalRamp": [
+          "#222B25",
+          "#38473D",
+          "#4F6456",
+          "#65816E",
+          "#87A190",
+          "#A9BCAF",
+          "#CCD7CF",
+          "#F1F4F2"
+        ]
+      },
+      "dark-card": {
+        "role": "neutral",
+        "displayName": "Pane White (dark)",
+        "canonical": "hsl(160 15% 10%)",
+        "hex": "#161D1B",
+        "tonalRamp": [
+          "#212C28",
+          "#364943",
+          "#4C675E",
+          "#628478",
+          "#84A499",
+          "#A7BEB6",
+          "#CAD8D3",
+          "#F0F4F3"
+        ]
+      },
+      "dark-popover": {
+        "role": "neutral",
+        "displayName": "Dark Popover (dark)",
+        "canonical": "hsl(160 14% 12%)",
+        "hex": "#1A2320",
+        "tonalRamp": [
+          "#212C28",
+          "#374943",
+          "#4D665D",
+          "#638378",
+          "#85A399",
+          "#A8BDB6",
+          "#CBD8D3",
+          "#F0F4F3"
+        ]
+      },
+      "dark-primary": {
+        "role": "primary",
+        "displayName": "Deep Desk Green (dark)",
+        "canonical": "hsl(136 45% 58%)",
+        "hex": "#64C47D",
+        "tonalRamp": [
+          "#15371E",
+          "#235C32",
+          "#318147",
+          "#3FA65B",
+          "#64C47D",
+          "#90D5A2",
+          "#BCE6C7",
+          "#EDF8F0"
+        ]
+      },
+      "dark-primary-foreground": {
+        "role": "neutral",
+        "displayName": "Dark Primary Foreground (dark)",
+        "canonical": "hsl(156 54% 9%)",
+        "hex": "#0B2319",
+        "tonalRamp": [
+          "#123B2A",
+          "#1D6247",
+          "#298963",
+          "#35B17F",
+          "#5ACE9F",
+          "#89DCBB",
+          "#B8EAD6",
+          "#EBF9F4"
+        ]
+      },
+      "dark-muted": {
+        "role": "neutral",
+        "displayName": "Dark Muted (dark)",
+        "canonical": "hsl(160 12% 13%)",
+        "hex": "#1D2522",
+        "tonalRamp": [
+          "#222B28",
+          "#384742",
+          "#4F645D",
+          "#658177",
+          "#87A198",
+          "#A9BCB6",
+          "#CCD7D3",
+          "#F1F4F3"
+        ]
+      },
+      "dark-muted-foreground": {
+        "role": "neutral",
+        "displayName": "Quiet Ink (dark)",
+        "canonical": "hsl(145 7% 68%)",
+        "hex": "#A8B3AC",
+        "tonalRamp": [
+          "#242926",
+          "#3B443F",
+          "#535F58",
+          "#6B7B71",
+          "#8C9B93",
+          "#ADB8B2",
+          "#CED4D1",
+          "#F1F3F2"
+        ]
+      },
+      "dark-accent": {
+        "role": "neutral",
+        "displayName": "Dark Accent (dark)",
+        "canonical": "hsl(160 12% 15.5%)",
+        "hex": "#232C29",
+        "tonalRamp": [
+          "#222B28",
+          "#384742",
+          "#4F645D",
+          "#658177",
+          "#87A198",
+          "#A9BCB6",
+          "#CCD7D3",
+          "#F1F4F3"
+        ]
+      },
+      "dark-border": {
+        "role": "neutral",
+        "displayName": "Hairline (dark)",
+        "canonical": "hsl(160 10% 17%)",
+        "hex": "#27302D",
+        "tonalRamp": [
+          "#222A28",
+          "#394642",
+          "#50625C",
+          "#677E77",
+          "#899F97",
+          "#ABBAB5",
+          "#CDD6D3",
+          "#F1F4F3"
+        ]
+      },
+      "dark-input": {
+        "role": "neutral",
+        "displayName": "Field Line (dark)",
+        "canonical": "hsl(160 10% 21%)",
+        "hex": "#303B37",
+        "tonalRamp": [
+          "#222A28",
+          "#394642",
+          "#50625C",
+          "#677E77",
+          "#899F97",
+          "#ABBAB5",
+          "#CDD6D3",
+          "#F1F4F3"
+        ]
+      },
+      "dark-private": {
+        "role": "neutral",
+        "displayName": "Note Amber (dark)",
+        "canonical": "hsl(38 35% 17%)",
+        "hex": "#3B2F1C",
+        "tonalRamp": [
+          "#342A19",
+          "#564629",
+          "#78623A",
+          "#9B7D4B",
+          "#B99E6E",
+          "#CDBA98",
+          "#E1D5C1",
+          "#F7F3EE"
+        ]
+      },
+      "dark-destructive": {
+        "role": "neutral",
+        "displayName": "Dark Destructive (dark)",
+        "canonical": "hsl(6 85% 70%)",
+        "hex": "#F47E71",
+        "tonalRamp": [
+          "#470C06",
+          "#76140A",
+          "#A51D0D",
+          "#D42511",
+          "#EF4B39",
+          "#F47E71",
+          "#F8B2AA",
+          "#FDEAE7"
+        ]
+      },
+      "dark-success": {
+        "role": "neutral",
+        "displayName": "Dark Success (dark)",
+        "canonical": "hsl(140 50% 58%)",
+        "hex": "#5EC982",
+        "tonalRamp": [
+          "#133920",
+          "#206035",
+          "#2D864A",
+          "#39AC60",
+          "#5EC982",
+          "#8CD9A6",
+          "#BAE8C9",
+          "#ECF9F0"
+        ]
+      },
+      "dark-sidebar-background": {
+        "role": "neutral",
+        "displayName": "Nav Ground (dark)",
+        "canonical": "hsl(160 16% 9%)",
+        "hex": "#131B18",
+        "tonalRamp": [
+          "#202C28",
+          "#364A43",
+          "#4B685E",
+          "#608579",
+          "#83A59A",
+          "#A6BFB7",
+          "#CAD8D4",
+          "#F0F4F3"
+        ]
+      },
+      "dark-code-new": {
+        "role": "secondary",
+        "displayName": "New Green (dark)",
+        "canonical": "hsl(137 48% 56%)",
+        "hex": "#59C577",
+        "tonalRamp": [
+          "#14391E",
+          "#215E32",
+          "#2E8447",
+          "#3CAA5B",
+          "#60C77E",
+          "#8ED7A3",
+          "#BBE7C8",
+          "#ECF8F0"
+        ]
+      },
+      "dark-code-you": {
+        "role": "secondary",
+        "displayName": "Signal Vermilion (dark)",
+        "canonical": "hsl(12 85% 64%)",
+        "hex": "#F17455",
+        "tonalRamp": [
+          "#471306",
+          "#761F0A",
+          "#A52C0D",
+          "#D43811",
+          "#EF5D39",
+          "#F48B71",
+          "#F8BAAA",
+          "#FDECE7"
+        ]
+      },
+      "dark-code-customer": {
+        "role": "secondary",
+        "displayName": "Waiting Blue (dark)",
+        "canonical": "hsl(217 85% 68%)",
+        "hex": "#689DF3",
+        "tonalRamp": [
+          "#061F47",
+          "#0A3376",
+          "#0D48A5",
+          "#115CD4",
+          "#397FEF",
+          "#71A3F4",
+          "#AAC8F8",
+          "#E7F0FD"
+        ]
+      },
+      "dark-code-hold": {
+        "role": "secondary",
+        "displayName": "Hold Slate (dark)",
+        "canonical": "hsl(215 12% 62%)",
+        "hex": "#929CAA",
+        "tonalRamp": [
+          "#22252B",
+          "#383E47",
+          "#4F5764",
+          "#657081",
+          "#8792A1",
+          "#A9B1BC",
+          "#CCD0D7",
+          "#F1F2F4"
+        ]
+      },
+      "dark-code-done": {
+        "role": "secondary",
+        "displayName": "Resolved Grey-Green (dark)",
+        "canonical": "hsl(150 6% 46%)",
+        "hex": "#6E7C75",
+        "tonalRamp": [
+          "#242926",
+          "#3C4440",
+          "#545F59",
+          "#6C7A73",
+          "#8D9A94",
+          "#AEB7B2",
+          "#CED4D1",
+          "#F1F3F2"
+        ]
+      },
+      "rail": {
+        "role": "neutral",
+        "displayName": "Rail Green",
+        "canonical": "hsl(155 54% 12%)",
+        "hex": "#0E2F21",
+        "tonalRamp": [
+          "#123B2A",
+          "#1D6245",
+          "#298961",
+          "#35B17D",
+          "#5ACE9E",
+          "#89DCB9",
+          "#B8EAD5",
+          "#EBF9F3"
+        ]
+      },
+      "rail-raised": {
+        "role": "neutral",
+        "displayName": "Rail Raised",
+        "canonical": "hsl(153 42% 20%)",
+        "hex": "#1E4835",
+        "tonalRamp": [
+          "#163628",
+          "#255B42",
+          "#347F5D",
+          "#43A378",
+          "#67C198",
+          "#92D3B6",
+          "#BEE4D3",
+          "#EDF8F3"
+        ]
+      },
+      "rail-text": {
+        "role": "neutral",
+        "displayName": "Rail Text",
+        "canonical": "hsl(140 25% 96%)",
+        "hex": "#F2F7F4",
+        "tonalRamp": [
+          "#1D3023",
+          "#30503A",
+          "#437052",
+          "#568F69",
+          "#79AF8B",
+          "#9FC6AC",
+          "#C6DDCD",
+          "#EFF5F1"
+        ]
+      },
+      "rail-text-quiet": {
+        "role": "neutral",
+        "displayName": "Rail Text Quiet",
+        "canonical": "hsl(145 20% 74%)",
+        "hex": "#AFCABA",
+        "tonalRamp": [
+          "#1F2E25",
+          "#334C3E",
+          "#476B56",
+          "#5C8A6F",
+          "#7EA990",
+          "#A3C2B0",
+          "#C8DAD0",
+          "#F0F5F2"
+        ]
+      },
+      "dark-rail": {
+        "role": "neutral",
+        "displayName": "Rail Green (dark)",
+        "canonical": "hsl(156 52% 9%)",
+        "hex": "#0B2319",
+        "tonalRamp": [
+          "#123A2A",
+          "#1F6146",
+          "#2B8863",
+          "#37AE7F",
+          "#5CCC9F",
+          "#8BDABA",
+          "#B9E9D6",
+          "#ECF9F4"
+        ]
+      },
+      "dark-rail-raised": {
+        "role": "neutral",
+        "displayName": "Rail Raised (dark)",
+        "canonical": "hsl(153 40% 16%)",
+        "hex": "#18392A",
+        "tonalRamp": [
+          "#173628",
+          "#265942",
+          "#367D5D",
+          "#45A177",
+          "#69BF98",
+          "#94D1B6",
+          "#BFE3D3",
+          "#EDF7F3"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Title",
+        "purpose": "Page and panel titles (16px; upstream text-xl stepped down)."
+      },
+      "reference": {
+        "displayName": "Reference",
+        "purpose": "#reference headline in the ticket header."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Snippets, values, messages."
+      },
+      "body-strong": {
+        "displayName": "Body Strong",
+        "purpose": "Sender names and the ticket subject."
+      },
+      "email-body": {
+        "displayName": "Email Body",
+        "purpose": "Email HTML inside a thread block."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Times, recipients, counts."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Right-sidebar section headers, uppercase."
+      }
+    },
+    "shadows": [
+      {
+        "name": "overlay-md",
+        "value": "Tailwind shadow-md (upstream)",
+        "purpose": "Popovers and menus only."
+      },
+      {
+        "name": "overlay-lg",
+        "value": "Tailwind shadow-lg (upstream)",
+        "purpose": "Dialogs only."
+      },
+      {
+        "name": "drawer",
+        "value": "Tailwind shadow-2xl",
+        "purpose": "Board drawer, which overlays the board."
+      }
+    ],
+    "motion": [
+      {
+        "name": "row-hover",
+        "value": "150ms ease-in-out on background-color",
+        "purpose": "List, fold and board hover washes."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px",
+        "purpose": "Fold-row sender column is 96px below, 144px at and above."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Whose-move swatch",
+      "kind": "custom",
+      "refersTo": "status-swatch",
+      "description": "8px square in the status code colour; filled = someone must act, hollow = resolved.",
+      "html": "<span class=\"ds-row\"><span class=\"ds-sw ds-new\"></span>New</span><span class=\"ds-row\"><span class=\"ds-sw ds-you\"></span>On you</span><span class=\"ds-row\"><span class=\"ds-sw ds-cust\"></span>On customer</span><span class=\"ds-row\"><span class=\"ds-sw ds-hold\"></span>On hold</span><span class=\"ds-row\"><span class=\"ds-sw ds-done ds-hollow\"></span>Resolved</span>",
+      "css": ".ds-row{display:inline-flex;align-items:center;gap:8px;margin-right:16px;font-family: Urbanist, ui-sans-serif, system-ui, sans-serif;font-size:14px;font-weight:600;color:#0F1F1A} .ds-sw{width:8px;height:8px;border-radius:1px;background:currentColor;display:inline-block} .ds-new{color:#2E8A48} .ds-you{color:#E63F19} .ds-cust{color:#246ADB} .ds-hold{color:#6E7D91} .ds-done{color:#96A69F} .ds-hollow{background:transparent;box-shadow:inset 0 0 0 1.5px currentColor}"
+    },
+    {
+      "name": "Conversation list row",
+      "kind": "card",
+      "refersTo": "list-row",
+      "description": "Swatch cell, name and time, subject, snippet with a neutral unread count; hairline below.",
+      "html": "<a class=\"ds-lr\" href=\"#\"><span class=\"ds-sw\"></span><span class=\"ds-lr-c\"><span class=\"ds-lr-1\"><b>Dana Levi</b><span class=\"ds-meta\">2m</span></span><span class=\"ds-lr-s\">Card declined at vendor</span><span class=\"ds-lr-3\"><span class=\"ds-snip\">Hi team, the card ending 4421 was declined again this morning</span><span class=\"ds-unread\">2</span></span></span></a>",
+      "css": ".ds-lr{display:flex;gap:10px;padding:8px 12px;border-bottom:1px solid rgba(224,230,227,.7);background:#fff;text-decoration:none;color:#0F1F1A;font-family: Urbanist, ui-sans-serif, system-ui, sans-serif;width:340px;transition:background-color .15s ease-in-out} .ds-lr:hover{background:rgba(235,241,238,.5)} .ds-lr:focus-visible{outline:2px solid #41AA5E;outline-offset:-2px} .ds-sw{width:8px;height:8px;border-radius:1px;background:#E63F19;margin:6px 4px 0;flex:none} .ds-lr-c{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px} .ds-lr-1,.ds-lr-3{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px} .ds-lr-1 b{font-weight:700} .ds-meta{font-size:12px;color:#54645F;font-variant-numeric:tabular-nums} .ds-lr-s{font-size:14px} .ds-snip{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .ds-unread{min-width:20px;height:20px;padding:0 4px;border-radius:9999px;background:#0F1F1A;color:#FCFDFC;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none}"
+    },
+    {
+      "name": "Folded thread row",
+      "kind": "custom",
+      "refersTo": "fold-row",
+      "description": "One-line folded email: avatar, sender, snippet, time. Click expands.",
+      "html": "<button class=\"ds-fold\" type=\"button\"><span class=\"ds-av\">DL</span><span class=\"ds-name\">Dana Levi</span><span class=\"ds-snip\">Thanks, that worked. One more question about the receipt sync</span><span class=\"ds-meta\">Oct 12</span></button>",
+      "css": ".ds-fold{display:flex;align-items:center;gap:12px;width:480px;padding:8px 16px;border:0;border-bottom:1px solid rgba(224,230,227,.7);background:#fff;text-align:left;font-family: Urbanist, ui-sans-serif, system-ui, sans-serif;cursor:pointer;transition:background-color .15s} .ds-fold:hover{background:rgba(235,241,238,.5)} .ds-fold:focus-visible{outline:none;background:#EBF1EE} .ds-av{width:24px;height:24px;border-radius:9999px;background:#F2F5F4;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none} .ds-name{width:144px;flex:none;font-size:14px;font-weight:600;color:#0F1F1A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .ds-snip{flex:1;min-width:0;font-size:14px;color:#54645F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .ds-meta{font-size:12px;color:#54645F;font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Ticket header",
+      "kind": "custom",
+      "refersTo": "status-trigger",
+      "description": "#reference headline with the contact beside it, subject below, outline status trigger with swatch.",
+      "html": "<div class=\"ds-hd\"><div><div class=\"ds-l1\"><span class=\"ds-ref\">#1042</span><span class=\"ds-meta\">Dana Levi</span></div><div class=\"ds-subj\">Card declined at vendor</div></div><button class=\"ds-st\" type=\"button\"><span class=\"ds-sw\"></span>On you</button></div>",
+      "css": ".ds-hd{display:flex;align-items:center;justify-content:space-between;gap:16px;width:480px;padding:8px 16px;border-bottom:1px solid #E0E6E3;background:#fff;font-family: Urbanist, ui-sans-serif, system-ui, sans-serif;color:#0F1F1A} .ds-l1{display:flex;align-items:baseline;gap:8px} .ds-ref{font-size:16px;font-weight:700;letter-spacing:-.025em;font-variant-numeric:tabular-nums} .ds-meta{font-size:12px;color:#54645F} .ds-subj{font-size:14px;font-weight:600} .ds-st{display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border:1px solid #CDD6D1;border-radius:4px;background:#FCFDFC;font-family: Urbanist, ui-sans-serif, system-ui, sans-serif;font-size:14px;font-weight:600;color:#0F1F1A;cursor:pointer;transition:background-color .15s} .ds-st:hover{background:#EBF1EE} .ds-st:focus-visible{outline:2px solid #41AA5E;outline-offset:2px} .ds-sw{width:8px;height:8px;border-radius:1px;background:#E63F19}"
+    },
+    {
+      "name": "Spec table",
+      "kind": "custom",
+      "refersTo": "desk-spec",
+      "description": "Conversation details: one aligned label column, a hairline per row.",
+      "html": "<div class=\"ds-spec\"><div><span class=\"ds-k\">Inbox</span><span>support@clyr.io</span></div><div><span class=\"ds-k\">Created</span><span>Oct 12, 2026 9:41 AM</span></div><div><span class=\"ds-k\">First reply</span><span>Oct 12, 2026 10:02 AM</span></div></div>",
+      "css": ".ds-spec{display:grid;grid-template-columns:max-content minmax(0,1fr);column-gap:12px;width:280px;font-family: Urbanist, ui-sans-serif, system-ui, sans-serif;font-size:14px;color:#0F1F1A} .ds-spec>div{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:baseline;padding:7px 0;border-bottom:1px solid rgba(224,230,227,.7)} .ds-spec>div:last-child{border-bottom:0} .ds-k{font-size:12px;font-weight:500;color:#54645F}"
+    },
+    {
+      "name": "Board lane",
+      "kind": "custom",
+      "refersTo": "board-card",
+      "description": "Hairline lane with a swatch header and flat bordered cards.",
+      "html": "<div class=\"ds-lane\"><div class=\"ds-lh\"><span class=\"ds-sw\"></span>On customer</div><div class=\"ds-bc\" tabindex=\"0\"><div class=\"ds-bc1\"><span class=\"ds-sw\"></span><b>#1038</b><span class=\"ds-dot\"></span></div><div class=\"ds-bcs\">Buildium sync stuck on bill</div></div></div>",
+      "css": ".ds-lane{width:288px;border-right:1px solid rgba(224,230,227,.7);padding:12px;font-family: Urbanist, ui-sans-serif, system-ui, sans-serif;color:#0F1F1A} .ds-lh{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;margin-bottom:8px} .ds-sw{width:8px;height:8px;border-radius:1px;background:#246ADB;flex:none} .ds-bc{border:1px solid #E0E6E3;border-radius:4px;background:#fff;padding:10px 12px;cursor:pointer;transition:background-color .15s,border-color .15s} .ds-bc:hover{border-color:#CDD6D1;background:rgba(235,241,238,.4)} .ds-bc:focus-visible{outline:2px solid #41AA5E;outline-offset:2px} .ds-bc1{display:flex;align-items:center;gap:8px;font-size:12px;font-variant-numeric:tabular-nums} .ds-dot{width:8px;height:8px;border-radius:9999px;background:#0F1F1A} .ds-bcs{font-size:14px;margin-top:4px}"
+    },
+    {
+      "name": "Rail",
+      "kind": "nav",
+      "refersTo": "rail",
+      "description": "48px deep-green icon rail with the Clyr mark.",
+      "html": "<nav class=\"ds-rail\"><a class=\"ds-mark\" href=\"#\" aria-label=\"Inbox\"><svg viewBox=\"0 0 33 43\" width=\"18\" height=\"24\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M0 23.2459C0.103363 22.231 0.197423 21.2151 0.312156 20.2013C0.785559 15.9882 1.91428 11.9739 4.0725 8.28719C6.02399 4.95278 9.02981 2.88106 12.5452 1.43712C17.7268 -0.690915 22.8412 -0.371404 27.9049 1.8447C28.6759 2.18265 29.4357 2.5421 30.1044 3.06233C30.7856 3.59075 30.8517 4.01574 30.3587 4.71929C29.1907 6.38546 28.0227 8.05164 26.8527 9.71574C26.3575 10.4203 26.0175 10.4736 25.2578 10.0865C20.6778 7.7526 16.1411 7.76999 11.6294 10.3118C5.61157 13.7025 2.30396 19.04 0.480638 25.4589C0.402082 25.7375 0.366938 26.0273 0.291483 26.3068C0.246004 26.4738 0.266677 26.7031 0.00103363 26.7267C0 25.5664 0 24.4062 0 23.2459Z\"/><path fill=\"currentColor\" fill-opacity=\"0.6\" d=\"M32.4952 25.352C32.5086 25.607 32.3443 25.7934 32.2223 25.9849C29.939 29.5364 26.7141 31.8191 22.6509 32.9763C18.8812 34.0505 15.277 33.4975 11.7626 31.9379C8.22349 30.368 5.76036 27.7464 4.12826 24.3054C3.79956 23.6122 3.47397 22.9168 3.2228 22.1897C3.14115 21.9531 3.14424 21.7473 3.25898 21.5087C4.46522 18.9833 6.06735 16.7467 8.14084 14.8491C8.22557 14.7713 8.30829 14.6227 8.42919 14.6781C8.55737 14.7364 8.54599 14.9095 8.58007 15.0416C10.1357 21.1584 13.9415 25.2025 20.0503 26.9465C24.1704 28.1222 28.1881 27.6531 31.9628 25.5456C32.0972 25.4708 32.2358 25.4022 32.3753 25.3356C32.399 25.3244 32.4373 25.3428 32.4972 25.3531L32.4952 25.352Z\"/></svg></a><a class=\"ds-ri ds-on\" href=\"#\" aria-label=\"Conversations\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"/></svg></a><a class=\"ds-ri\" href=\"#\" aria-label=\"Contacts\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/></svg></a></nav>",
+      "css": ".ds-rail{width:48px;height:200px;background:#0E2F21;display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:12px} .ds-mark{width:32px;height:32px;display:flex;align-items:center;justify-content:center;color:#64C47C;border-radius:4px;margin-bottom:6px} .ds-ri{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:4px;color:#AFCABA;transition:background-color .15s,color .15s} .ds-ri:hover{background:#1E4835;color:#fff} .ds-ri:focus-visible,.ds-mark:focus-visible{outline:2px solid #64C47C;outline-offset:1px} .ds-on{background:#1E4835;color:#fff}"
+    },
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Deep Desk Green action, 4px radius.",
+      "html": "<button class=\"ds-btn\" type=\"button\">Send reply</button>",
+      "css": ".ds-btn{height:36px;padding:0 16px;border:0;border-radius:4px;background:#1A6141;color:#fff;font-family: Urbanist, ui-sans-serif, system-ui, sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:opacity .15s} .ds-btn:hover{opacity:.9} .ds-btn:focus-visible{outline:2px solid #41AA5E;outline-offset:2px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Identity Manual Desk",
+    "overview": "Clyr's identity manual applied to a support desk: one strict grid, flush-left Urbanist, and colour used only as a code for whose move it is. A deep Clyr-green rail holds navigation. Next to it, white work panes meet on 1px hairlines over a faintly green-tinted ground. Nothing floats: no gutters, no rounded pane cards, no pane shadows.\n\nDensity is high but scannable. The agent reads rows by their coded swatch, opens a ticket whose reference number is the headline, and reads the newest email first, with older messages folded to one-line rows. Chrome (headers, recipients, quoted history, signatures) stays out of view until asked for.\n\nThe system rejects the grey shadcn admin with one green accent. Green is identity (rail, mark, primary action), and the whose-move code is the only other colour family in the chrome.",
+    "keyCharacteristics": [
+      "Deep green rail (48px) with the Clyr \"C\" mark; everything else is light panes on hairlines.",
+      "One five-value whose-move code, shown as an 8px square swatch, filled or hollow.",
+      "Three type sizes (12 / 14 / 16), Urbanist only, rank by weight and case.",
+      "Tabular figures for every number, time and reference.",
+      "Gmail-style email thread: folded rows, newest open.",
+      "Unread, priority and counts are neutral; they never borrow a code colour."
+    ],
+    "rules": [
+      {
+        "name": "The Whose-Move Rule",
+        "body": "The five code colours mean whose move it is, and they appear only on a status swatch. Other colour in the chrome is limited to brand green (identity) and the upstream semantic states (SLA badges, errors and delete, private-note amber).",
+        "section": "colors"
+      },
+      {
+        "name": "The Neutral Signal Rule",
+        "body": "Unread counts, unread dots and priority markers are neutral (`foreground` or `muted-foreground`). The unread count is a `foreground` pill with `background` text; the board unread dot is `foreground`; priority is the bar count of `PriorityIcon` (low 1 bar muted, medium 2 bars, high 3 bars in `foreground`), never red or amber.",
+        "section": "colors"
+      },
+      {
+        "name": "The One-Token-Name Rule",
+        "body": "The desk restyles upstream by giving upstream token names new values under `html[data-app='desk']`. Do not fork a component to recolour it.",
+        "section": "colors"
+      },
+      {
+        "name": "The Three Sizes Rule",
+        "body": "The desk uses 12, 14 and 16px. Rank comes from weight (400 / 500 / 600 / 700) and case, not size.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Every reference number, time, count and date uses `tabular-nums`.",
+        "section": "typography"
+      },
+      {
+        "name": "The Hairline Pane Rule",
+        "body": "Panes are separated by one 1px `border` line, never by a gutter, a rounded card or a shadow.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat Pane Rule",
+        "body": "If it is part of the page, it has no shadow. Only overlays (menus, popovers, dialogs, the board drawer) lift.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do show ticket state with `StatusSwatch` and `statusCode()`, filled for every status but Resolved.",
+      "Do keep chrome to 12, 14 and 16px Urbanist; rank with weight and case.",
+      "Do use `tabular-nums` on every reference, time, date and count.",
+      "Do separate panes, rows and sections with one 1px `border` line.",
+      "Do keep unread and priority neutral (`foreground` / `muted-foreground`).",
+      "Do scope new desk styling under `html[data-app='desk']` and reuse upstream token names, so rebases on upstream stay easy.",
+      "Do keep incoming email on a light canvas in dark mode (`.dark .email-light-canvas`: white, #1a1a1a text, `color-scheme: light`). Sender colours in email HTML are only legible on white. This is a deliberate exception to the theme."
+    ],
+    "donts": [
+      "Don't put a code colour on anything that is not a status swatch: no coloured chips, coloured left bars, coloured row tints or coloured lane fills.",
+      "Don't colour unread counts, unread dots or priority markers.",
+      "Don't add a fourth type size or a display tier.",
+      "Don't float panes: no gutters, rounded pane cards or pane shadows.",
+      "Don't fill a light-mode button with brand green #62C47A; white text fails on it. Use `primary`.",
+      "Don't hide a signature without a Gmail or Outlook marker. Signatures are only detected by those markers, never guessed.",
+      "Don't restyle the chat widget or the help center with desk tokens; they follow the upstream system below."
+    ]
+  }
+}
