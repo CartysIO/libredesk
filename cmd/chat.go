@@ -20,6 +20,7 @@ import (
 	"github.com/abhinavxd/libredesk/internal/attachment"
 	bhmodels "github.com/abhinavxd/libredesk/internal/business_hours/models"
 	cmodels "github.com/abhinavxd/libredesk/internal/conversation/models"
+	camodels "github.com/abhinavxd/libredesk/internal/custom_attribute/models"
 	"github.com/abhinavxd/libredesk/internal/envelope"
 	"github.com/abhinavxd/libredesk/internal/inbox/channel/livechat"
 	"github.com/abhinavxd/libredesk/internal/inbox/channel/livechat/proactive"
@@ -1409,7 +1410,8 @@ func filterPreChatFormFields(fields []livechat.PreChatFormField, app *App) ([]li
 	existingCustomAttrs := make(map[int]customAttributeWidget)
 	for id := range customAttrIDs {
 		attr, err := app.customAttribute.Get(id)
-		if err != nil {
+		// The widget has no multi-select input, so such a field is dropped like a missing attribute.
+		if err != nil || attr.DataType == camodels.DataTypeMultiSelect {
 			continue
 		}
 		existingCustomAttrs[id] = customAttributeWidget{
