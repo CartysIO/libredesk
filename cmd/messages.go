@@ -25,6 +25,8 @@ type messageReq struct {
 	EchoID      string                 `json:"echo_id"`
 	SourceID    string                 `json:"source_id"` // RFC 5322 Message-ID of the inbound message; stored on the created contact message so replies thread on it. Contact sender only.
 	SendFrom    string                 `json:"send_from"`
+	// KeepStatus is set when the agent picked the status to set with the reply, so sending does not move it to "On customer".
+	KeepStatus bool `json:"keep_status"`
 
 	// WhatsApp-only. Set TemplateID to send an approved template. Omit for free-form.
 	WhatsAppTemplateID     int               `json:"whatsapp_template_id,omitempty"`
@@ -279,6 +281,9 @@ func handleSendMessage(r *fastglue.Request) error {
 	meta := map[string]any{}
 	if req.EchoID != "" {
 		meta["echo_id"] = req.EchoID
+	}
+	if req.KeepStatus {
+		meta["keep_status"] = true
 	}
 	if req.WhatsAppTemplateID > 0 {
 		meta["whatsapp_template_id"] = req.WhatsAppTemplateID

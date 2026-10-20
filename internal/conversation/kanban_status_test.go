@@ -41,6 +41,7 @@ func TestShouldMoveToOnCustomer(t *testing.T) {
 		{"csat message", reply(func(m *models.Message) { m.Meta = json.RawMessage(`{"is_csat":true}`) }), models.StatusOpen, false},
 		{"continuity email", reply(func(m *models.Message) { m.Meta = json.RawMessage(`{"continuity_email":true}`) }), models.StatusOpen, false},
 		{"incoming message", reply(func(m *models.Message) { m.Type = models.MessageIncoming }), models.StatusOpen, false},
+		{"reply sent with a chosen status", reply(func(m *models.Message) { m.Meta = json.RawMessage(`{"keep_status":true}`) }), models.StatusOnYou, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

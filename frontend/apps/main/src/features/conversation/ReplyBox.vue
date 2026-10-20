@@ -643,7 +643,9 @@ const processSend = async (
           bcc: parsedBCC,
           to: parsedTo,
           echo_id: isPrivate ? '' : tempUUIDs[i],
-          send_from: isPrivate ? '' : sendFrom.value
+          send_from: isPrivate ? '' : sendFrom.value,
+          // The agent picked the status, so the server must not move it to "On customer" once sent.
+          keep_status: !isPrivate && !!statusToSet
         })
 
         if (isPrivate && response?.data?.data) {

@@ -287,9 +287,10 @@ func (m *Manager) sendOutgoingMessage(message models.Message) {
 
 // shouldMoveToOnCustomer reports whether a sent outgoing message moves a conversation in the given status to
 // "On customer". Only a customer-facing reply from an agent (human or AI) counts, from "Open" or "On you".
-// Private notes, automated messages (auto-replies, CSAT) and continuity emails never move the conversation.
+// Private notes, automated messages (auto-replies, CSAT), continuity emails and replies sent with a chosen
+// status (the agent's "send and set status") never move the conversation.
 func shouldMoveToOnCustomer(message models.Message, status string) bool {
-	if message.Type != models.MessageOutgoing || message.Private || message.IsAutomated() || message.HasCSAT() || message.IsContinuityMessage() {
+	if message.Type != models.MessageOutgoing || message.Private || message.IsAutomated() || message.HasCSAT() || message.IsContinuityMessage() || message.KeepsStatus() {
 		return false
 	}
 	return status == models.StatusOpen || status == models.StatusOnYou
