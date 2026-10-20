@@ -95,6 +95,16 @@ func Titled(s string) string {
 	return strings.Join(words, " ")
 }
 
+// MaskEmail keeps the first letter and the domain of an email address: "josh@xl-rpm.com" becomes "j***@xl-rpm.com".
+func MaskEmail(e string) string {
+	local, domain, ok := strings.Cut(NormalizeEmail(e), "@")
+	if !ok || local == "" {
+		return "***"
+	}
+	r, _ := utf8.DecodeRuneInString(local)
+	return string(r) + "***@" + domain
+}
+
 // NormalizeEmail lowercases and trims an email address.
 func NormalizeEmail(e string) string {
 	return strings.ToLower(strings.TrimSpace(e))

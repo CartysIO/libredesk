@@ -77,6 +77,15 @@ func TestSplitNameAndTitled(t *testing.T) {
 	if got := Titled("jaleel"); got != "Jaleel" {
 		t.Errorf("Titled = %q", got)
 	}
+	if got := Titled("élodie"); got != "Élodie" {
+		t.Errorf("Titled non-ASCII = %q", got)
+	}
+	if got := MaskEmail("Josh@XL-rpm.com"); got != "j***@xl-rpm.com" {
+		t.Errorf("MaskEmail = %q", got)
+	}
+	if got := MaskEmail(""); got != "***" {
+		t.Errorf("MaskEmail empty = %q", got)
+	}
 }
 
 func TestFileNameAndKey(t *testing.T) {

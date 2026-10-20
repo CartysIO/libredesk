@@ -1352,8 +1352,9 @@ func (im *Importer) describe(is Issue, msgs []Message, matches map[string]duplic
 		assignee = fmt.Sprintf("%s (agent %d)", u.Name, p.existingID)
 	}
 	req := im.requester(is, msgs)
-	fmt.Fprintf(&b, "Pylon #%d %q: %s, %s -> %s, assignee %s, contact %s, question_type %q, tags %v\n",
-		is.Number, is.Title, target, is.State, MapStatus(is.State), assignee, req.Email, QuestionType(is.CustomFields), is.Tags)
+	// Samples show structure, not content: customer emails are masked and message text is left out.
+	fmt.Fprintf(&b, "Pylon #%d: %s, %s -> %s, assignee %s, contact %s, question_type %q, tags %v\n",
+		is.Number, target, is.State, MapStatus(is.State), assignee, MaskEmail(req.Email), QuestionType(is.CustomFields), is.Tags)
 	for i, m := range orderedMessages(is, msgs) {
 		if i == 8 {
 			fmt.Fprintf(&b, "    ... %d more\n", len(msgs)-i)
@@ -1367,9 +1368,9 @@ func (im *Importer) describe(is Issue, msgs []Message, matches map[string]duplic
 				kind = "note"
 			}
 		} else if m.Author != nil && m.Author.Contact != nil {
-			who = m.Author.Contact.Email
+			who = MaskEmail(m.Author.Contact.Email)
 		}
-		fmt.Fprintf(&b, "    %s %-8s %-28s %d files, %q\n", m.Timestamp.Format(time.RFC3339), kind, who, len(m.FileURLs), clip(strings.Join(strings.Fields(stringutil.HTML2Text(m.MessageHTML)), " "), 70))
+		fmt.Fprintf(&b, "    %s %-8s %-28s %d files, %d characters\n", m.Timestamp.Format(time.RFC3339), kind, who, len(m.FileURLs), len(stringutil.HTML2Text(m.MessageHTML)))
 	}
 	return b.String()
 }

@@ -153,7 +153,7 @@ func (f *Fetcher) Fetch(ctx context.Context) (Data, error) {
 	}
 	// Messages allow 120 requests a minute; one request every 550ms stays under every endpoint's limit but /issues.
 	f.limiter = time.Tick(550 * time.Millisecond)
-	if err := os.MkdirAll(filepath.Join(f.Dir, "messages"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(f.Dir, "messages"), 0o700); err != nil {
 		return Data{}, err
 	}
 
@@ -352,7 +352,7 @@ func (f *Fetcher) DownloadFiles(ctx context.Context, urls []string) map[string]e
 		f.HTTP = &http.Client{Timeout: 2 * time.Minute}
 	}
 	dir := filepath.Join(f.Dir, "files")
-	_ = os.MkdirAll(dir, 0o755)
+	_ = os.MkdirAll(dir, 0o700)
 	var (
 		mu     sync.Mutex
 		failed = map[string]error{}
@@ -448,7 +448,7 @@ func writeJSON(path string, v any) error {
 		return err
 	}
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
 		return err
 	}
 	return os.Rename(tmp, path)
