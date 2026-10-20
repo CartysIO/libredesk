@@ -184,6 +184,41 @@ describe('drag and drop moves', () => {
     expect(store.columns.Open.items).toEqual([])
     expect(store.columns.Resolved.items).toEqual([])
   })
+
+  it('brings back a card that a status with no column took off the board when the API fails', async () => {
+    const store = await loaded()
+    api.updateConversationStatus.mockRejectedValue(new Error('nope'))
+    expect(await store.moveCard('a', 'Waiting on vendor')).toBe(false)
+    expect(store.columns.Open.items.map((c) => c.uuid)).toEqual(['a'])
+  })
+
+  it('ignores a second move while the first is in flight, so a failure restores the server column', async () => {
+    const store = await loaded()
+    let fail
+    api.updateConversationStatus.mockReturnValue(new Promise((_, reject) => (fail = reject)))
+    const first = store.moveCard('a', 'Snoozed')
+    expect(await store.moveCard('a', 'Resolved')).toBe(false)
+    expect(api.updateConversationStatus).toHaveBeenCalledTimes(1)
+    expect(store.columns.Snoozed.items.map((c) => c.uuid)).toEqual(['a'])
+    fail(new Error('nope'))
+    expect(await first).toBe(false)
+    expect(store.columns.Open.items.map((c) => c.uuid)).toEqual(['a'])
+    // Once it settles, the card moves again.
+    api.updateConversationStatus.mockResolvedValue({})
+    expect(await store.moveCard('a', 'Resolved')).toBe(true)
+  })
+
+  it('does not bring back a card deleted while its move was in flight', async () => {
+    const store = await loaded()
+    let fail
+    api.updateConversationStatus.mockReturnValue(new Promise((_, reject) => (fail = reject)))
+    const pending = store.moveCard('a', 'Waiting on vendor')
+    store.removeConversations(['a'])
+    fail(new Error('not found'))
+    expect(await pending).toBe(false)
+    expect(store.columns.Open.items).toEqual([])
+    expect(store.columns.Open.total).toBe(0)
+  })
 })
 
 describe('live updates', () => {

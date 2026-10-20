@@ -108,6 +108,21 @@ describe('moving cards', () => {
     expect(again.Open.items.filter((c) => c.uuid === 'a')).toHaveLength(1)
   })
 
+  it('a status with no column takes the card off the board, and undo brings it back', () => {
+    const columns = board()
+    const move = applyBoardMove(columns, 'a', 'Waiting on vendor')
+    expect(findBoardCard(columns, 'a')).toBeNull()
+    expect(columns.Open.total).toBe(1)
+    expect(undoBoardMove(columns, move)).toBe(true)
+    expect(columns.Open.items.map((c) => c.uuid)).toEqual(['a', 'b'])
+    expect(findBoardCard(columns, 'a').card.status).toBe('Open')
+    // A live update put it back meanwhile: undo must not add a second copy.
+    const m2 = applyBoardMove(columns, 'a', 'Waiting on vendor')
+    columns.Resolved.items.unshift({ ...m2.card, status: 'Resolved' })
+    expect(undoBoardMove(columns, m2)).toBe(false)
+    expect(findBoardCard(columns, 'a').status).toBe('Resolved')
+  })
+
   it('drops a card moved to a status that has no column', () => {
     const columns = board()
     applyBoardMove(columns, 'a', 'Escalated')

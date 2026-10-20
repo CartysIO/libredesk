@@ -54,10 +54,15 @@ export const applyBoardMove = (columns, uuid, toStatus) => {
 export const undoBoardMove = (columns, move) => {
   if (!move) return false
   const found = findBoardCard(columns, move.uuid)
-  if (!found || found.status !== move.toStatus) return false
   const to = columns[move.toStatus]
-  to.items.splice(found.index, 1)
-  to.total = Math.max(0, to.total - 1)
+  if (to) {
+    if (!found || found.status !== move.toStatus) return false
+    to.items.splice(found.index, 1)
+    to.total = Math.max(0, to.total - 1)
+  } else if (found) {
+    // A status with no column took the card off the board. Restore it unless a live update brought it back.
+    return false
+  }
   move.card.status = move.fromStatus
   const from = columns[move.fromStatus]
   from.items.splice(Math.min(move.fromIndex, from.items.length), 0, move.card)
