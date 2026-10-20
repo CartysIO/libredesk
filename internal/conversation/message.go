@@ -1087,8 +1087,9 @@ func (m *Manager) ProcessIncomingMessage(in models.IncomingMessage) (models.Mess
 	}
 
 	// A contact with no organization joins the organization of its email domain, so a new conversation
-	// is filed under it (Clyr fork). A failure is logged by the store and does not stop the message.
-	if m.organizationStore != nil && in.Contact.Email.Valid {
+	// is filed under it (Clyr fork). Only a From domain that passed DMARC counts, as From is easy to forge.
+	// A failure is logged by the store and does not stop the message.
+	if m.organizationStore != nil && in.Contact.Email.Valid && in.FromDomainVerified {
 		if orgID, _, err := m.organizationStore.AssignByEmailDomain(senderID, in.Contact.Email.String); err == nil && orgID > 0 {
 			m.lo.Info("contact joined organization by email domain", "contact_id", senderID, "organization_id", orgID)
 		}

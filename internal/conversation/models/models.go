@@ -597,6 +597,10 @@ type IncomingMessage struct {
 	ConversationUUIDFromReplyTo string // UUID extracted from plus-addressed recipient (inbox+conv-{uuid}@domain)
 	InReplyTo                   string
 	References                  []string
+
+	// FromDomainVerified is true when the receiving mail server recorded DMARC pass for the From domain (Clyr fork).
+	// Only then is an email contact matched to an organization by its domain.
+	FromDomainVerified bool
 }
 
 // ToMessage converts IncomingMessage to a Message for DB insertion.
