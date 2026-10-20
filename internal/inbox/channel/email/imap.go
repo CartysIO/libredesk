@@ -539,6 +539,9 @@ func (e *Email) processFullMessage(item imapclient.FetchItemDataBodySection, inc
 
 	incomingMsg.InReplyTo = inReplyTo
 	incomingMsg.References = references
+	// GetHeader returns the topmost Authentication-Results, the one the receiving server added.
+	fromEmail := incomingMsg.Contact.Email.String
+	incomingMsg.FromDomainVerified = dmarcPass(envelope.GetHeader("Authentication-Results"), fromEmail[strings.LastIndex(fromEmail, "@")+1:])
 	if err := setInboxAddressMeta(&incomingMsg, e.resolveInboxAddress(envelope)); err != nil {
 		return err
 	}

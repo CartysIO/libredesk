@@ -35,6 +35,10 @@ describe('Custom Attributes Form Schema', () => {
         expect(() => schema.parse({ ...validForm, applies_to: 'conversation' })).not.toThrow()
     })
 
+    test('applies_to organization accepted', () => {
+        expect(() => schema.parse({ ...validForm, applies_to: 'organization' })).not.toThrow()
+    })
+
     test('name missing', () => {
         const { name, ...form } = validForm
         expect(() => schema.parse(form)).toThrow()

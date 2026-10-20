@@ -43,6 +43,9 @@
                   <SelectItem value="conversation">
                     {{ $t('globals.terms.conversation') }}
                   </SelectItem>
+                  <SelectItem value="organization">
+                    {{ $t('globals.terms.organization') }}
+                  </SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>

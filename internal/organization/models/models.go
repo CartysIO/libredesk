@@ -2,6 +2,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/lib/pq"
@@ -11,12 +12,23 @@ import (
 
 // Organization is a customer company that contacts belong to.
 type Organization struct {
-	ID           int         `db:"id" json:"id"`
-	CreatedAt    time.Time   `db:"created_at" json:"created_at"`
-	UpdatedAt    time.Time   `db:"updated_at" json:"updated_at"`
-	Name         string      `db:"name" json:"name"`
-	ExternalID   null.String `db:"external_id" json:"external_id"`
-	ContactCount int         `db:"contact_count" json:"contact_count"`
+	ID         int         `db:"id" json:"id"`
+	CreatedAt  time.Time   `db:"created_at" json:"created_at"`
+	UpdatedAt  time.Time   `db:"updated_at" json:"updated_at"`
+	Name       string      `db:"name" json:"name"`
+	ExternalID null.String `db:"external_id" json:"external_id"`
+	// CustomAttributes holds the values of the custom attributes that apply to organizations.
+	CustomAttributes json.RawMessage `db:"custom_attributes" json:"custom_attributes"`
+	// Domains are lowercase email domains. An email contact with no organization joins the one organization
+	// that has its domain.
+	Domains      pq.StringArray `db:"domains" json:"domains"`
+	ContactCount int            `db:"contact_count" json:"contact_count"`
+}
+
+// Fields are the organization fields set apart from the name and external ID. A nil field is left unchanged.
+type Fields struct {
+	Domains          []string       `json:"domains"`
+	CustomAttributes map[string]any `json:"custom_attributes"`
 }
 
 // Contact is a contact listed under an organization.

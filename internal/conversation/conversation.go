@@ -130,6 +130,7 @@ type Manager struct {
 	assignOnFirstReplyEnabled  bool
 	aiAgent                    AIAgentEngine
 	aiClassifier               AIClassifier
+	organizationStore          organizationStore
 }
 
 // AIClassifier fills a conversation custom attribute from AI in the background; value is the action's value.
@@ -140,6 +141,16 @@ type AIClassifier interface {
 // SetAIClassifier wires the AI attribute classifier after construction to avoid an import cycle.
 func (c *Manager) SetAIClassifier(cl AIClassifier) {
 	c.aiClassifier = cl
+}
+
+// organizationStore files an email contact with no organization under the organization of its email domain (Clyr fork).
+type organizationStore interface {
+	AssignByEmailDomain(contactID int, email string) (int, []string, error)
+}
+
+// SetOrganizationStore wires the organization manager after construction. Nil turns off matching by email domain.
+func (c *Manager) SetOrganizationStore(s organizationStore) {
+	c.organizationStore = s
 }
 
 type replyNotificationGroup struct {

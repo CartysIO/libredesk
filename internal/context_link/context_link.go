@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -167,25 +169,49 @@ func (m *Manager) Toggle(id int) (models.ContextLink, error) {
 	return result, nil
 }
 
+// orgAttributeVar matches {{organization_custom_attributes.<key>}} (Clyr fork).
+var orgAttributeVar = regexp.MustCompile(`\{\{organization_custom_attributes\.([A-Za-z0-9_-]+)\}\}`)
+
 // GenerateURL builds the final URL for a context link by substituting template
 // variables and optionally generating an AES-256-GCM encrypted token.
-func (m *Manager) GenerateURL(link models.ContextLink, contact convmodels.ConversationContact, conversationUUID string, agent authmodels.User) (string, error) {
-	u := link.URLTemplate
+// The organization variables are those of the conversation's organization, empty when it has none.
+func (m *Manager) GenerateURL(link models.ContextLink, conv convmodels.Conversation, agent authmodels.User) (string, error) {
+	var (
+		u                = link.URLTemplate
+		contact          = conv.Contact
+		conversationUUID = conv.UUID
+		orgAttrs         = map[string]any{}
+		orgID            string
+	)
+	if len(conv.OrganizationAttributes) > 0 {
+		if err := json.Unmarshal(conv.OrganizationAttributes, &orgAttrs); err != nil || orgAttrs == nil {
+			orgAttrs = map[string]any{}
+		}
+	}
+	if conv.OrganizationID.Valid {
+		orgID = strconv.Itoa(conv.OrganizationID.Int)
+	}
 
 	// Substitute plain template variables with URL-encoded values.
 	replacements := map[string]string{
-		"{{email}}":              url.QueryEscape(contact.Email.String),
-		"{{phone}}":              url.QueryEscape(contact.PhoneNumber.String),
-		"{{phone_country_code}}": url.QueryEscape(contact.PhoneNumberCountryCode.String),
-		"{{external_user_id}}":   url.QueryEscape(contact.ExternalUserID.String),
-		"{{contact_id}}":         fmt.Sprintf("%d", contact.ID),
-		"{{first_name}}":         url.QueryEscape(contact.FirstName),
-		"{{last_name}}":          url.QueryEscape(contact.LastName),
-		"{{conversation_uuid}}":  conversationUUID,
+		"{{email}}":                    url.QueryEscape(contact.Email.String),
+		"{{phone}}":                    url.QueryEscape(contact.PhoneNumber.String),
+		"{{phone_country_code}}":       url.QueryEscape(contact.PhoneNumberCountryCode.String),
+		"{{external_user_id}}":         url.QueryEscape(contact.ExternalUserID.String),
+		"{{contact_id}}":               fmt.Sprintf("%d", contact.ID),
+		"{{first_name}}":               url.QueryEscape(contact.FirstName),
+		"{{last_name}}":                url.QueryEscape(contact.LastName),
+		"{{conversation_uuid}}":        conversationUUID,
+		"{{organization_id}}":          orgID,
+		"{{organization_name}}":        url.QueryEscape(conv.OrganizationName.String),
+		"{{organization_external_id}}": url.QueryEscape(conv.OrganizationExternalID.String),
 	}
 	for placeholder, value := range replacements {
 		u = strings.ReplaceAll(u, placeholder, value)
 	}
+	u = orgAttributeVar.ReplaceAllStringFunc(u, func(v string) string {
+		return url.QueryEscape(attributeString(orgAttrs[orgAttributeVar.FindStringSubmatch(v)[1]]))
+	})
 
 	// Generate encrypted token if {{token}} is in the URL and secret is set.
 	if strings.Contains(u, "{{token}}") && link.Secret != "" {
@@ -205,10 +231,15 @@ func (m *Manager) GenerateURL(link models.ContextLink, contact convmodels.Conver
 			"first_name":         contact.FirstName,
 			"last_name":          contact.LastName,
 			"conversation_uuid":  conversationUUID,
-			"agent_id":           agent.ID,
-			"agent_email":        agent.Email,
-			"iat":                now.Unix(),
-			"exp":                now.Add(time.Duration(link.TokenExpirySeconds) * time.Second).Unix(),
+			// Clyr fork: the conversation's organization.
+			"organization_id":                conv.OrganizationID,
+			"organization_name":              conv.OrganizationName.String,
+			"organization_external_id":       conv.OrganizationExternalID.String,
+			"organization_custom_attributes": orgAttrs,
+			"agent_id":                       agent.ID,
+			"agent_email":                    agent.Email,
+			"iat":                            now.Unix(),
+			"exp":                            now.Add(time.Duration(link.TokenExpirySeconds) * time.Second).Unix(),
 		}
 
 		plaintext, err := json.Marshal(payload)
@@ -228,6 +259,20 @@ func (m *Manager) GenerateURL(link models.ContextLink, contact convmodels.Conver
 	}
 
 	return u, nil
+}
+
+// attributeString formats a custom attribute value for a URL: "" when it is missing or null.
+func attributeString(v any) string {
+	switch t := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return t
+	case float64:
+		return strconv.FormatFloat(t, 'f', -1, 64)
+	default:
+		return fmt.Sprint(t)
+	}
 }
 
 func (m *Manager) encryptSecret(secret string) (string, error) {

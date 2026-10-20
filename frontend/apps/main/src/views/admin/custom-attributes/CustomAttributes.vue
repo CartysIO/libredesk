@@ -11,6 +11,9 @@
                   <TabsTrigger value="conversation">{{
                     $t('globals.terms.conversation')
                   }}</TabsTrigger>
+                  <TabsTrigger value="organization">{{
+                    $t('globals.terms.organization')
+                  }}</TabsTrigger>
                 </TabsList>
               </template>
               <template #actions>
@@ -54,6 +57,15 @@
               />
             </TabsContent>
             <TabsContent value="conversation">
+              <DataTable
+                v-model:search="searchTerm"
+                :searchable="false"
+                :columns="createColumns(t, { onEdit: editCustomAttribute })"
+                :data="customAttributes"
+                :loading="isLoading"
+              />
+            </TabsContent>
+            <TabsContent value="organization">
               <DataTable
                 v-model:search="searchTerm"
                 :searchable="false"
