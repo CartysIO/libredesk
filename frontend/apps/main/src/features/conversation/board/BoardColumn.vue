@@ -20,16 +20,21 @@
         <Skeleton v-for="i in 4" :key="i" class="h-24 w-full" />
       </template>
       <template v-else>
-        <BoardCard
+        <BoardCardMenu
           v-for="conversation in state.items"
           :key="conversation.uuid"
           :conversation="conversation"
-          :is-dragging="dragging?.uuid === conversation.uuid"
-          :active="activeUuid === conversation.uuid"
-          @open="$emit('open', $event)"
-          @dragstart="$emit('dragstart', $event)"
-          @dragend="$emit('dragend')"
-        />
+          @action="$emit('card-action', { action: $event, conversation })"
+        >
+          <BoardCard
+            :conversation="conversation"
+            :is-dragging="dragging?.uuid === conversation.uuid"
+            :active="activeUuid === conversation.uuid"
+            @open="$emit('open', $event)"
+            @dragstart="$emit('dragstart', $event)"
+            @dragend="$emit('dragend')"
+          />
+        </BoardCardMenu>
         <p v-if="state.error" class="text-xs text-destructive px-1">{{ state.error }}</p>
         <p
           v-else-if="!state.items.length && !state.fetching"
@@ -51,6 +56,7 @@ import { useI18n } from 'vue-i18n'
 import { CircleDot, UserRound, Hourglass, CirclePause, CircleCheck, Loader2 } from 'lucide-vue-next'
 import { Skeleton } from '@shared-ui/components/ui/skeleton'
 import BoardCard from './BoardCard.vue'
+import BoardCardMenu from './BoardCardMenu.vue'
 
 const ICONS = { CircleDot, UserRound, Hourglass, CirclePause, CircleCheck }
 const NEAR_BOTTOM_PX = 240
@@ -61,7 +67,7 @@ const props = defineProps({
   dragging: { type: Object, default: null },
   activeUuid: { type: String, default: '' }
 })
-const emit = defineEmits(['open', 'dragstart', 'dragend', 'drop', 'load-more'])
+const emit = defineEmits(['open', 'dragstart', 'dragend', 'drop', 'load-more', 'card-action'])
 
 const { t } = useI18n()
 const scroller = ref(null)

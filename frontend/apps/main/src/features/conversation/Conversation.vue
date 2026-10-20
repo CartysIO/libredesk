@@ -99,36 +99,12 @@
       </div>
     </div>
 
-    <AlertDialog :open="confirmOpen" @update:open="(v) => (confirmOpen = v)">
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            {{
-              t(
-                confirmAction === 'spam'
-                  ? 'conversation.markAsSpam'
-                  : 'conversation.deleteConversation'
-              )
-            }}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {{
-              confirmAction === 'spam'
-                ? t('conversation.markAsSpamConfirm', { contact: spamContactLabel })
-                : t('conversation.deleteConfirm')
-            }}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{{ t('globals.messages.cancel') }}</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" @click="runConfirmedAction">
-            {{
-              t(confirmAction === 'spam' ? 'conversation.markAsSpam' : 'globals.messages.delete')
-            }}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <RemoveConversationDialog
+      v-model:open="confirmOpen"
+      :action="confirmAction"
+      :contact="spamContactLabel"
+      @confirm="runConfirmedAction"
+    />
 
     <!-- Messages & reply box -->
     <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -144,7 +120,6 @@ const MOBILE_ICON_BUTTON_CLASS = 'w-11 h-11 lg:w-8 lg:h-8 p-0'
 
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useConversationStore } from '@main/stores/conversation'
-import { useConversationBoardStore } from '@main/stores/conversationBoard'
 import { useUserStore } from '@main/stores/user'
 import {
   Clock,
@@ -164,28 +139,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@shared-ui/components/ui/dropdown-menu'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle
-} from '@shared-ui/components/ui/alert-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@shared-ui/components/ui/tooltip'
 import { formatMessageTimestamp } from '@shared-ui/utils/datetime.js'
 import { Button } from '@shared-ui/components/ui/button'
 import MessageList from '@/features/conversation/message/MessageList.vue'
 import ReplyBox from './ReplyBox.vue'
 import WhatsAppComposer from './WhatsAppComposer.vue'
+import RemoveConversationDialog from './RemoveConversationDialog.vue'
 import { WHATSAPP_CHANNEL } from '@main/features/conversation/whatsappTemplate'
 import { EMITTER_EVENTS, CONVERSATION_ACTIONS } from '@main/constants/emitterEvents.js'
 import { useCommandPalette } from '@main/features/command/useCommandPalette'
 import { SNOOZE_COMMAND } from '@main/features/command/providers/useConversationCommands'
 import { CONVERSATION_DEFAULT_STATUSES } from '@main/constants/conversation'
 import { useEmitter } from '@main/composables/useEmitter'
+import { useConversationActions } from '@main/composables/useConversationActions'
 import { useI18n } from 'vue-i18n'
 import { handleHTTPError } from '@shared-ui/utils/http.js'
 import { downloadBlobResponse, parseBlobError } from '@shared-ui/utils/file'
@@ -193,7 +160,7 @@ import api from '@main/api'
 import { permissions as perms } from '@main/constants/permissions.js'
 defineProps({ detailsOpen: { type: Boolean, default: false } })
 const conversationStore = useConversationStore()
-const boardStore = useConversationBoardStore()
+const { removeConversation } = useConversationActions()
 const userStore = useUserStore()
 const emitter = useEmitter()
 const palette = useCommandPalette()
@@ -232,29 +199,10 @@ const spamContactLabel = computed(
 )
 
 const runConfirmedAction = async () => {
-  const action = confirmAction.value
   const conversation = conversationStore.current
   confirmOpen.value = false
-  if (!conversation) return
-  try {
-    let deletedUUIDs = [conversation.uuid]
-    if (action === 'spam') {
-      const response = await api.markConversationSpam(conversation.uuid)
-      deletedUUIDs = response.data.data.deleted_uuids
-    } else {
-      await api.deleteConversation(conversation.uuid)
-    }
-    conversationStore.removeConversations(deletedUUIDs)
-    boardStore.removeConversations(deletedUUIDs)
-    emitter.emit(EMITTER_EVENTS.SHOW_TOAST, {
-      description: t(action === 'spam' ? 'conversation.markedAsSpam' : 'conversation.deleted')
-    })
+  if (conversation && (await removeConversation(conversation.uuid, confirmAction.value))) {
     goBackToList()
-  } catch (error) {
-    emitter.emit(EMITTER_EVENTS.SHOW_TOAST, {
-      variant: 'destructive',
-      description: handleHTTPError(error).message
-    })
   }
 }
 

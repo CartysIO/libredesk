@@ -242,9 +242,15 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
     col.total = Math.max(0, col.total - 1)
   }
 
+  // Moves waiting for the server, by uuid. A card deleted meanwhile must not come back when its move fails.
+  const pendingMoves = new Map()
+
   // Drops deleted or spam conversations. The server sends no event for them.
   function removeConversations(uuids) {
-    for (const uuid of uuids) removeCard(uuid)
+    for (const uuid of uuids) {
+      pendingMoves.delete(uuid)
+      removeCard(uuid)
+    }
   }
 
   const cardUUIDs = () => {
@@ -324,8 +330,11 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
 
   // Optimistic move. Reverts and shows a toast when the server refuses.
   async function moveCard(uuid, toStatus, snoozedUntil = '') {
+    // One move per card at a time, so a failed move always rolls back to the column the server still has.
+    if (pendingMoves.has(uuid)) return false
     const move = applyBoardMove(columns, uuid, toStatus)
     if (!move) return false
+    pendingMoves.set(uuid, move)
     try {
       const body = { status: toStatus }
       if (snoozedUntil) body.snoozed_until = snoozedUntil
@@ -334,9 +343,11 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
       return true
     } catch (error) {
       // A websocket update may have moved the card meanwhile. Undo only when it is still where we put it.
-      undoBoardMove(columns, move)
+      if (pendingMoves.get(uuid) === move) undoBoardMove(columns, move)
       toast(error)
       return false
+    } finally {
+      if (pendingMoves.get(uuid) === move) pendingMoves.delete(uuid)
     }
   }
 
