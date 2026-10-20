@@ -300,10 +300,11 @@ const fetchCustomAttributes = async () => {
       api.getCustomAttributes('conversation')
     ])
 
+    // The widget has no multi-select input, so those attributes cannot be pre-chat fields.
     customAttributes.value = [
       ...(contactAttrs.data?.data || []),
       ...(conversationAttrs.data?.data || [])
-    ]
+    ].filter((attr) => attr.data_type !== 'multi_select')
 
     // Build lookup map for custom attributes
     const customAttrMap = new Map(customAttributes.value.map((attr) => [attr.id, attr]))

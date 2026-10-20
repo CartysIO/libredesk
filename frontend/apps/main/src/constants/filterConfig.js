@@ -17,6 +17,7 @@ export const FIELD_TYPE = {
     DATE: 'date',
     WEBHOOK: 'webhook',
     RECIPIENTS: 'recipients',
+    AI_CLASSIFY: 'ai_classify',
 }
 
 export const OPERATOR = {

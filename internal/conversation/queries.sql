@@ -767,6 +767,28 @@ SET custom_attributes = $2,
     updated_at = NOW()
 WHERE uuid = $1;
 
+-- name: set-conversation-custom-attribute-if-empty
+-- Merges one key ($3 is a JSON value) and skips the row when the key already holds a value, so an agent's choice wins over AI.
+-- Missing, null, blank strings and empty arrays count as unset; keep in step with aiclassify.HasValue.
+UPDATE conversations
+SET custom_attributes = custom_attributes || jsonb_build_object($2::text, $3::jsonb),
+    updated_at = NOW()
+WHERE uuid = $1
+  AND COALESCE(btrim(custom_attributes->>$2::text), '') IN ('', '[]')
+RETURNING custom_attributes;
+
+-- name: get-first-incoming-messages
+SELECT m.created_at,
+    COALESCE(m.content, '') AS content,
+    COALESCE(m.text_content, '') AS text_content,
+    COALESCE(m.content_type::text, '') AS content_type,
+    m.sender_type
+FROM conversation_messages m
+JOIN conversations c ON c.id = m.conversation_id
+WHERE c.uuid = $1 AND m.type = 'incoming' AND m.private = false
+ORDER BY m.created_at, m.id
+LIMIT $2;
+
 -- name: start-conversation-waiting-since
 UPDATE conversations
 SET waiting_since = $2,

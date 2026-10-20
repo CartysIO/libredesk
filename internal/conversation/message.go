@@ -482,6 +482,15 @@ func (m *Manager) GetAllConversationMessages(conversationUUID string, private *b
 	return all, nil
 }
 
+// GetFirstIncomingMessages returns a conversation's oldest public customer messages, oldest first, with only the fields a transcript needs.
+func (m *Manager) GetFirstIncomingMessages(conversationUUID string, limit int) ([]models.Message, error) {
+	msgs := make([]models.Message, 0, limit)
+	if err := m.q.GetFirstIncomingMessages.Select(&msgs, conversationUUID, limit); err != nil {
+		return nil, fmt.Errorf("fetching first incoming messages: %w", err)
+	}
+	return msgs, nil
+}
+
 // GetMessage retrieves a message by UUID.
 func (m *Manager) GetMessage(uuid string) (models.Message, error) {
 	var message models.Message

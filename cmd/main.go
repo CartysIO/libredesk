@@ -20,6 +20,7 @@ import (
 	activitylog "github.com/abhinavxd/libredesk/internal/activity_log"
 	"github.com/abhinavxd/libredesk/internal/ai"
 	"github.com/abhinavxd/libredesk/internal/aiagent"
+	"github.com/abhinavxd/libredesk/internal/aiclassify"
 	auth_ "github.com/abhinavxd/libredesk/internal/auth"
 	"github.com/abhinavxd/libredesk/internal/authz"
 	businesshours "github.com/abhinavxd/libredesk/internal/business_hours"
@@ -284,6 +285,7 @@ func main() {
 		helpCenter                  = initHelpCenter(db, i18n, ai)
 		autoassigner                = initAutoAssigner(team, user, conversation)
 		rateLimiter                 = initRateLimit(rdb)
+		customAttributes            = initCustomAttribute(db, i18n)
 	)
 
 	wsHub.SetConversationStore(conversation)
@@ -294,6 +296,7 @@ func main() {
 	}
 	automation.SetSystemUserID(systemUser.ID)
 	conversation.SetAIAgent(aiAgent)
+	conversation.SetAIClassifier(aiclassify.New(ctx, ai, customAttributes, conversation, lo))
 	if slackBridge != nil {
 		slackBridge.SetConversationStore(conversation)
 	}
@@ -352,7 +355,7 @@ func main() {
 		automation:       automation,
 		businessHours:    businessHours,
 		activityLog:      initActivityLog(db, i18n),
-		customAttribute:  initCustomAttribute(db, i18n),
+		customAttribute:  customAttributes,
 		authz:            initAuthz(i18n),
 		view:             initView(db, i18n),
 		report:           initReport(db, i18n),

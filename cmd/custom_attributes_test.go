@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"testing"
+
+	cmodels "github.com/abhinavxd/libredesk/internal/custom_attribute/models"
 )
 
 func TestStripPreChatFormAttribute(t *testing.T) {
@@ -56,5 +58,24 @@ func TestStripPreChatFormAttribute(t *testing.T) {
 	}
 	if _, changed, err := stripPreChatFormAttribute(json.RawMessage(`{}`), 7); err != nil || changed {
 		t.Fatalf("config without a pre-chat form changed = %v, err = %v", changed, err)
+	}
+}
+
+func TestValidateCustomAttributeMultiSelect(t *testing.T) {
+	app := newValidatorTestApp(t)
+	base := cmodels.CustomAttribute{Name: "Question type", AppliesTo: "conversation", DataType: cmodels.DataTypeMultiSelect, Description: "What the customer asks", Key: "question_type"}
+
+	ok := base
+	ok.Values = []string{"Bug", "User Error"}
+	if err := validateCustomAttribute(app, ok); err != nil {
+		t.Fatalf("valid multi_select rejected: %v", err)
+	}
+	if err := validateCustomAttribute(app, base); err == nil {
+		t.Fatal("multi_select without values must be rejected")
+	}
+	contact := ok
+	contact.AppliesTo = "contact"
+	if err := validateCustomAttribute(app, contact); err == nil {
+		t.Fatal("multi_select on a contact attribute must be rejected")
 	}
 }
