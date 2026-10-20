@@ -33,9 +33,9 @@ describe('board column mapping', () => {
 
   it('finds a column by status', () => {
     expect(boardColumnForStatus('Snoozed').key).toBe('onHold')
-    expect(boardColumnForStatus('Closed')).toBeNull()
+    expect(boardColumnForStatus('Escalated')).toBeNull()
     expect(isBoardStatus('On you')).toBe(true)
-    expect(isBoardStatus('Closed')).toBe(false)
+    expect(isBoardStatus('Escalated')).toBe(false)
   })
 
   it('builds the status name filter the list API expects', () => {
@@ -110,7 +110,7 @@ describe('moving cards', () => {
 
   it('drops a card moved to a status that has no column', () => {
     const columns = board()
-    applyBoardMove(columns, 'a', 'Closed')
+    applyBoardMove(columns, 'a', 'Escalated')
     expect(findBoardCard(columns, 'a')).toBeNull()
     expect(columns.Open.total).toBe(1)
   })
@@ -132,7 +132,7 @@ describe('scope and grouping', () => {
   it('groups view rows by status and drops other statuses', () => {
     const groups = groupByBoardStatus([
       { uuid: '1', status: 'Open' },
-      { uuid: '2', status: 'Closed' },
+      { uuid: '2', status: 'Escalated' },
       { uuid: '3', status: 'On you' }
     ])
     expect(groups.Open.map((c) => c.uuid)).toEqual(['1'])

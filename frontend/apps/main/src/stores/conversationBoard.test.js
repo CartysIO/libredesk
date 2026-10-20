@@ -113,7 +113,7 @@ describe('board loading', () => {
       page([
         { uuid: 'a', status: 'Open' },
         { uuid: 'b', status: 'Snoozed' },
-        { uuid: 'c', status: 'Closed' }
+        { uuid: 'c', status: 'Escalated' }
       ])
     )
     const store = useConversationBoardStore()

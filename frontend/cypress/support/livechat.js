@@ -290,15 +290,6 @@ Cypress.Commands.add('widgetSend', (text) => {
   return cy.widgetBody().contains(text, { timeout: 20000 }).should('be.visible')
 })
 
-Cypress.Commands.add('closeConversation', (inbox) =>
-  cy.latestConversation(inbox).then((conversation) =>
-    cy
-      .api('PUT', `/api/v1/conversations/${conversation.uuid}/status`, { status: 'Closed' })
-      .its('status')
-      .should('eq', 200)
-  )
-)
-
 Cypress.Commands.add('conversationForInbox', (inbox) =>
   cy
     .api('GET', '/api/v1/conversations/all?order=desc&order_by=conversations.created_at&page=1&page_size=50')
