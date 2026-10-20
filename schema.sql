@@ -189,7 +189,8 @@ CREATE TABLE organizations (
 	-- Lowercase email domains. An email contact with no organization joins the one organization that has its domain.
 	domains TEXT[] DEFAULT '{}'::TEXT[] NOT NULL,
 	CONSTRAINT constraint_organizations_on_name CHECK (length("name") <= 255),
-	CONSTRAINT constraint_organizations_on_external_id CHECK (length(external_id) <= 128)
+	CONSTRAINT constraint_organizations_on_external_id CHECK (length(external_id) <= 128),
+	CONSTRAINT constraint_organizations_on_domains CHECK (cardinality(domains) <= 100)
 );
 CREATE UNIQUE INDEX index_unique_organizations_on_external_id ON organizations (external_id) WHERE external_id IS NOT NULL;
 CREATE INDEX index_organizations_on_domains ON organizations USING GIN (domains);

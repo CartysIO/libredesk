@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/abhinavxd/libredesk/internal/dbutil"
 	"github.com/abhinavxd/libredesk/internal/envelope"
 	"github.com/abhinavxd/libredesk/internal/organization/models"
 	"github.com/lib/pq"
@@ -83,13 +84,22 @@ func (m *Manager) SetFields(id int, f models.Fields, merge bool) (models.Organiz
 	}
 	var gotID int
 	if err := m.q.SetOrganizationFields.Get(&gotID, id, domains, attrs, merge); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return org, envelope.NewError(envelope.NotFoundError, m.i18n.T("validation.notFoundOrganization"), nil)
-		}
-		m.lo.Error("error setting organization fields", "id", id, "error", err)
-		return org, m.generalError()
+		return org, m.fieldsError(id, err)
 	}
 	return m.Get(id)
+}
+
+// fieldsError maps an error of the set-organization-fields query. The domains check constraint also caps
+// a merged list, which ValidateFields cannot see.
+func (m *Manager) fieldsError(id int, err error) error {
+	if errors.Is(err, sql.ErrNoRows) {
+		return envelope.NewError(envelope.NotFoundError, m.i18n.T("validation.notFoundOrganization"), nil)
+	}
+	if dbutil.IsCheckViolationError(err) {
+		return envelope.NewError(envelope.InputError, m.i18n.Ts("organization.tooManyDomains", "max", strconv.Itoa(maxDomains)), nil)
+	}
+	m.lo.Error("error setting organization fields", "id", id, "error", err)
+	return m.generalError()
 }
 
 // ValidateFields checks the fields and returns them as query arguments: NULL for a field that is left unchanged.

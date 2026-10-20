@@ -1236,9 +1236,11 @@ func validateCustomAttributes(formData map[string]any, config livechat.Config, a
 			continue
 		}
 
-		if attr.AppliesTo == "conversation" {
+		// Organization attributes come from the sync API, never from a visitor (Clyr fork).
+		switch attr.AppliesTo {
+		case "conversation":
 			conversationAttrs[field.Key] = validated
-		} else {
+		case "contact":
 			contactAttrs[field.Key] = validated
 		}
 	}
@@ -1411,7 +1413,8 @@ func filterPreChatFormFields(fields []livechat.PreChatFormField, app *App) ([]li
 	for id := range customAttrIDs {
 		attr, err := app.customAttribute.Get(id)
 		// The widget has no multi-select input, so such a field is dropped like a missing attribute.
-		if err != nil || attr.DataType == camodels.DataTypeMultiSelect {
+		// A visitor never fills an organization attribute, so the form drops it too (Clyr fork).
+		if err != nil || attr.DataType == camodels.DataTypeMultiSelect || attr.AppliesTo == "organization" {
 			continue
 		}
 		existingCustomAttrs[id] = customAttributeWidget{

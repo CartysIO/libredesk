@@ -2,6 +2,7 @@ package organization
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -70,6 +71,42 @@ func TestSetFields(t *testing.T) {
 	}
 	if _, err := mgr.SetFields(999999, models.Fields{Domains: []string{"x.com"}}, false); errType(err) != envelope.NotFoundError {
 		t.Fatalf("missing organization: %v", err)
+	}
+}
+
+func TestSaveAndDomainCap(t *testing.T) {
+	mgr, _ := newTestManager(t)
+	org, err := mgr.Save(0, "Acme", "team_1", models.Fields{Domains: []string{"acme.com"}, CustomAttributes: map[string]any{"tier": "top"}})
+	if err != nil {
+		t.Fatalf("Save create: %v", err)
+	}
+	assertFields(t, org, []string{"acme.com"}, map[string]any{"tier": "top"})
+	org, err = mgr.Save(org.ID, "Acme Inc", "team_1", models.Fields{CustomAttributes: map[string]any{}})
+	if err != nil || org.Name != "Acme Inc" {
+		t.Fatalf("Save update: %+v %v", org, err)
+	}
+	assertFields(t, org, []string{"acme.com"}, map[string]any{})
+	if _, err := mgr.Save(0, "Bad", "team_2", models.Fields{Domains: []string{"bad domain"}}); errType(err) != envelope.InputError {
+		t.Fatalf("invalid domain: %v", err)
+	}
+	if _, err := mgr.GetByExternalID("team_2"); errType(err) != envelope.NotFoundError {
+		t.Fatal("organization created although its fields were invalid")
+	}
+
+	// A merge cannot grow the list past the cap; the stored domains stay as they were.
+	full := make([]string, maxDomains)
+	for i := range full {
+		full[i] = fmt.Sprintf("d%03d.com", i)
+	}
+	if _, err := mgr.SetFields(org.ID, models.Fields{Domains: full}, false); err != nil {
+		t.Fatalf("100 domains: %v", err)
+	}
+	if _, err := mgr.SetFields(org.ID, models.Fields{Domains: []string{"one-more.com"}}, true); errType(err) != envelope.InputError {
+		t.Fatalf("merge past the cap: %v", err)
+	}
+	got, _ := mgr.Get(org.ID)
+	if len(got.Domains) != maxDomains {
+		t.Fatalf("domains = %d, want %d", len(got.Domains), maxDomains)
 	}
 }
 

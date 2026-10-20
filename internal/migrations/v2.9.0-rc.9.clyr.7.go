@@ -13,6 +13,11 @@ func V2_9_0_RC9_CLYR7(db *sqlx.DB, fs stuffbin.FileSystem, ko *koanf.Koanf) erro
 		ALTER TABLE organizations ADD COLUMN IF NOT EXISTS custom_attributes JSONB DEFAULT '{}'::jsonb NOT NULL;
 		ALTER TABLE organizations ADD COLUMN IF NOT EXISTS domains TEXT[] DEFAULT '{}'::TEXT[] NOT NULL;
 		CREATE INDEX IF NOT EXISTS index_organizations_on_domains ON organizations USING GIN (domains);
+		DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'constraint_organizations_on_domains') THEN
+				ALTER TABLE organizations ADD CONSTRAINT constraint_organizations_on_domains CHECK (cardinality(domains) <= 100);
+			END IF;
+		END $$;
 	`)
 	return err
 }

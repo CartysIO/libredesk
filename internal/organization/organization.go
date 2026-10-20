@@ -120,36 +120,55 @@ func (m *Manager) GetByExternalID(externalID string) (models.Organization, error
 
 // Create creates an organization. An empty external ID is stored as NULL.
 func (m *Manager) Create(name, externalID string) (models.Organization, error) {
-	var org models.Organization
-	name, extID, err := m.validate(name, externalID)
-	if err != nil {
-		return org, err
-	}
-	if err := m.q.InsertOrganization.Get(&org, name, extID); err != nil {
-		if dbutil.IsUniqueViolationError(err) {
-			return org, envelope.NewError(envelope.ConflictError, m.i18n.T("errors.alreadyExistsOrganization"), nil)
-		}
-		m.lo.Error("error inserting organization", "error", err)
-		return org, m.generalError()
-	}
-	return org, nil
+	return m.Save(0, name, externalID, models.Fields{})
 }
 
 // Update changes an organization's name and external ID.
 func (m *Manager) Update(id int, name, externalID string) (models.Organization, error) {
+	return m.Save(id, name, externalID, models.Fields{})
+}
+
+// Save creates an organization (id 0) or changes one, with its fields, in one transaction.
+// A nil field keeps the stored value; a given one replaces it.
+func (m *Manager) Save(id int, name, externalID string, f models.Fields) (models.Organization, error) {
 	var org models.Organization
 	name, extID, err := m.validate(name, externalID)
 	if err != nil {
 		return org, err
 	}
-	if err := m.q.UpdateOrganization.Get(&org, id, name, extID); err != nil {
+	domains, attrs, err := m.ValidateFields(f)
+	if err != nil {
+		return org, err
+	}
+	tx, err := m.db.Beginx()
+	if err != nil {
+		m.lo.Error("error starting transaction", "error", err)
+		return org, m.generalError()
+	}
+	defer tx.Rollback()
+	if id == 0 {
+		err = tx.Stmtx(m.q.InsertOrganization).Get(&org, name, extID)
+	} else {
+		err = tx.Stmtx(m.q.UpdateOrganization).Get(&org, id, name, extID)
+	}
+	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return org, envelope.NewError(envelope.NotFoundError, m.i18n.T("validation.notFoundOrganization"), nil)
 		}
 		if dbutil.IsUniqueViolationError(err) {
 			return org, envelope.NewError(envelope.ConflictError, m.i18n.T("errors.alreadyExistsOrganization"), nil)
 		}
-		m.lo.Error("error updating organization", "id", id, "error", err)
+		m.lo.Error("error saving organization", "id", id, "error", err)
+		return org, m.generalError()
+	}
+	if domains != nil || attrs != nil {
+		var gotID int
+		if err := tx.Stmtx(m.q.SetOrganizationFields).Get(&gotID, org.ID, domains, attrs, false); err != nil {
+			return org, m.fieldsError(org.ID, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		m.lo.Error("error committing organization", "id", org.ID, "error", err)
 		return org, m.generalError()
 	}
 	return m.Get(org.ID)
