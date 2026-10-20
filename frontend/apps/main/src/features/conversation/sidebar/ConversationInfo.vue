@@ -96,6 +96,7 @@
     </div>
 
     <CustomAttributes
+      class="desk-spec-full"
       v-if="customAttributeStore.conversationAttributeOptions.length > 0"
       :loading="conversationStore.conversation.loading"
       :attributes="customAttributeStore.conversationAttributeOptions"

@@ -217,7 +217,8 @@ html[data-app='desk'] .message-bubble--thread.hide-quoted-text {
 // head the ticket, so the desk does not repeat them here.
 html[data-app='desk'] .desk-spec {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
+  // The label track grows to the widest label but never past 8rem; longer labels wrap.
+  grid-template-columns: fit-content(8rem) minmax(0, 1fr);
   column-gap: 0.75rem;
 
   > * + * {
@@ -228,7 +229,14 @@ html[data-app='desk'] .desk-spec {
     display: none;
   }
 
-  > div {
+  // Custom attributes keep their own stacked layout across the full width.
+  > .desk-spec-full {
+    grid-column: 1 / -1;
+    padding: 0.4375rem 0;
+    border-bottom: 1px solid hsl(var(--border) / 0.7);
+  }
+
+  > div:not(.desk-spec-full, .desk-redundant) {
     grid-column: 1 / -1;
     display: grid;
     grid-template-columns: subgrid;
@@ -251,10 +259,12 @@ html[data-app='desk'] .desk-spec {
     font-weight: 500;
   }
 
-  // Values wrap at word boundaries; only an unbroken string (a long email or URL) breaks mid-word.
-  .break-all {
+  // Values wrap at word boundaries; an unbroken string (a long email, URL or inbox name) may break
+  // mid-word, and 'anywhere' lets it shrink the column instead of overflowing it.
+  .break-all,
+  .sidebar-value {
     word-break: normal;
-    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
   }
 }
 
