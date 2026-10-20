@@ -4,9 +4,11 @@
       <div ref="contentEl" class="min-h-full px-4 pb-10 relative">
         <MessagesSkeleton :count="10" v-if="conversationStore.messages.loading" />
 
+        <!-- The key also changes when the first messages land: the conversation often loads before
+             its messages, and the group must not animate them in as if they had just arrived. -->
         <TransitionGroup
           v-else
-          :key="conversationStore.current?.uuid"
+          :key="`${conversationStore.current?.uuid}:${messageRows.length > 0}`"
           :enter-active-class="loadingOlder ? '' : 'animate-slide-in'"
           tag="div"
         >
