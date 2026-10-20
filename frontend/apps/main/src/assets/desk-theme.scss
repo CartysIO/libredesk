@@ -213,14 +213,25 @@ html[data-app='desk'] .message-bubble--thread.hide-quoted-text {
 }
 
 // Conversation details as a two-column spec table: label left, value right, one hairline per row.
+// One label column for every row (subgrid), so values line up. Subject and reference number already
+// head the ticket, so the desk does not repeat them here.
 html[data-app='desk'] .desk-spec {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 0.75rem;
+
   > * + * {
     margin-top: 0;
   }
 
+  .desk-redundant {
+    display: none;
+  }
+
   > div {
+    grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: minmax(6.5rem, 40%) minmax(0, 1fr);
+    grid-template-columns: subgrid;
     column-gap: 0.75rem;
     align-items: baseline;
     padding: 0.4375rem 0;
@@ -243,7 +254,7 @@ html[data-app='desk'] .desk-spec {
   // Values wrap at word boundaries; only an unbroken string (a long email or URL) breaks mid-word.
   .break-all {
     word-break: normal;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 }
 

@@ -11,14 +11,14 @@
       </div>
     </div>
 
-    <div v-if="conversation.subject">
+    <div v-if="conversation.subject" class="desk-redundant">
       <p class="sidebar-label">{{ $t('globals.terms.subject') }}</p>
       <p class="sidebar-value break-all">
         {{ conversation.subject }}
       </p>
     </div>
 
-    <div>
+    <div class="desk-redundant">
       <p class="sidebar-label">{{ $t('globals.terms.referenceNumber') }}</p>
       <p class="sidebar-value">
         {{ conversation.reference_number }}
@@ -28,7 +28,7 @@
     <div>
       <p class="sidebar-label">{{ $t('globals.terms.initiatedAt') }}</p>
       <p v-if="conversation.created_at" class="sidebar-value">
-        {{ format(conversation.created_at, 'PPpp') }}
+        {{ format(conversation.created_at, 'PP p') }}
       </p>
       <p v-else class="sidebar-value">-</p>
     </div>
@@ -44,7 +44,7 @@
         />
       </div>
       <p v-if="conversation.first_reply_at" class="sidebar-value">
-        {{ format(conversation.first_reply_at, 'PPpp') }}
+        {{ format(conversation.first_reply_at, 'PP p') }}
       </p>
       <p v-else class="sidebar-value">-</p>
     </div>
@@ -60,7 +60,7 @@
         />
       </div>
       <p v-if="conversation.resolved_at" class="sidebar-value">
-        {{ format(conversation.resolved_at, 'PPpp') }}
+        {{ format(conversation.resolved_at, 'PP p') }}
       </p>
       <p v-else class="sidebar-value">-</p>
     </div>
@@ -76,7 +76,7 @@
         />
       </div>
       <p v-if="conversation.last_reply_at" class="sidebar-value">
-        {{ format(conversation.last_reply_at, 'PPpp') }}
+        {{ format(conversation.last_reply_at, 'PP p') }}
       </p>
       <p v-else class="sidebar-value">-</p>
     </div>
@@ -84,7 +84,7 @@
     <div v-if="conversation.closed_at">
       <p class="sidebar-label">{{ $t('globals.terms.closedAt') }}</p>
       <p class="sidebar-value">
-        {{ format(conversation.closed_at, 'PPpp') }}
+        {{ format(conversation.closed_at, 'PP p') }}
       </p>
     </div>
 
