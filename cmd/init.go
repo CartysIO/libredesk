@@ -151,6 +151,17 @@ func initFlags() {
 	f.Bool("set-system-user-password", false, "set password for the system user")
 	f.String("static-dir", "", "path to a directory with custom static files and templates to override the defaults")
 
+	// Clyr fork: one-time Pylon history import (cmd/pylon_import.go).
+	f.Bool("pylon-import", false, "import the Pylon history (reads PYLON_API_KEY) and exit")
+	f.String("pylon-cache", "pylon-cache", "with --pylon-import: directory that caches every Pylon response and file")
+	f.Bool("dry-run", false, "with --pylon-import: print what would be imported and write nothing")
+	f.Int("limit", 0, "with --pylon-import: import at most this many conversations (0 = all)")
+	f.String("since", "", "with --pylon-import: only issues created on or after this date (YYYY-MM-DD)")
+	f.Int("pylon-inbox", 0, "with --pylon-import: email inbox id for the conversations (default: the only email inbox)")
+	f.Int("pylon-reference-floor", 4000, "with --pylon-import: new conversations get reference numbers from here up (at least the highest Pylon number + 1)")
+	f.Bool("pylon-allow-missing-files", false, "with --pylon-import: import even when some files cannot be downloaded (their URLs stay in message meta)")
+	f.StringSlice("pylon-agent-alias", []string{"omer.menashe@gmail.com=omer@clyr.io"}, "with --pylon-import: pylon-user-email=libredesk-agent-email")
+
 	if err := f.Parse(os.Args[1:]); err != nil {
 		log.Fatalf("loading flags: %v", err)
 	}

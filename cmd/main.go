@@ -227,6 +227,11 @@ func main() {
 
 	validateConfig(ko)
 
+	if ko.Bool("pylon-import") {
+		runPylonImport(ctx, db, fs, settings)
+		os.Exit(0)
+	}
+
 	startPprof()
 
 	// Fallback for config typo. Logs a warning but continues to work with the incorrect key.

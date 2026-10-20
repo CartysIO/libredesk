@@ -46,7 +46,12 @@ docker build -f Dockerfile.clyr -t libredesk-clyr:local .
   - It gets conversation events through `eventFanout` (`cmd/slack_bridge.go`), which wraps the webhook manager. All its work runs on one worker goroutine, in order; that order is what stops a note from Slack being posted back.
   - Slack sends events to `POST /webhooks/slack/events`, signed with the signing secret. A thread reply becomes a private note by the agent with the Slack user's email; a reply that mentions the bot is sent to the customer.
   - Enabled when `[slack] bot_token`, `signing_secret` and `channel_id` are set. The app manifest is `deploy/slack-app-manifest.yml`.
-- Planned: a Pylon import script in `scripts/`. See the plan doc.
+- Pylon history import (`internal/pylonimport`, `cmd/pylon_import.go`): `libredesk --pylon-import [--dry-run] [--limit N] [--since YYYY-MM-DD] [--pylon-cache DIR] [--pylon-inbox ID]`, with `PYLON_API_KEY` set. One-time, run at cutover.
+  - Reads Pylon with GET only and caches every response and file under `--pylon-cache`; a rerun reads the cache. Use a new cache directory to pick up newer Pylon data.
+  - Writes with SQL only, one transaction per conversation, so imported rows send no email and fire no automation, SLA, CSAT, webhook, Slack or notification. Time-trigger rules skip conversations with `meta.pylon_issue_id` (`get-conversations-created-after`).
+  - Idempotent: `conversations.meta.pylon_issue_id` (created) or `pylon_merged_issue_id` (merged), `conversation_messages.meta.pylon_message_id`.
+  - Reference number = Pylon number. Before the import the sequence moves to `max(--pylon-reference-floor, highest Pylon number + 1)`. An existing conversation that holds a Pylon issue (same email Message-ID, else same contact, subject and day) gets that issue's messages merged in and takes its number; any other existing conversation whose number is a Pylon number moves to the sequence (`meta.pre_pylon_import_reference_number` keeps the old one).
+  - Pylon users map to agents by email (`--pylon-agent-alias`, default `omer.menashe@gmail.com=omer@clyr.io`). Others (jaleel, API keys, Linear) become disabled agents with no password and no role, "Jaleel (former)" and "<name> (Pylon bot)".
 
 ## Configuration
 

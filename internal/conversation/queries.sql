@@ -323,11 +323,14 @@ WHERE
 
 
 -- name: get-conversations-created-after
+-- Clyr fork: a conversation the Pylon import created is history until it gets a message after the import, so time
+-- triggers skip it until then.
 SELECT
     c.id,
     c.uuid
 FROM conversations c
 WHERE c.created_at > $1 AND c.id > $2
+  AND NOT COALESCE(c.meta ? 'pylon_issue_id' AND c.last_message_at <= (c.meta->>'pylon_imported_at')::timestamptz, FALSE)
 ORDER BY c.id
 LIMIT $3;
 
