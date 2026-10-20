@@ -259,6 +259,11 @@ const setContactDefaultOrganization = (id, organizationID) =>
   http.put(`/api/v1/contacts/${id}/organization`, { organization_id: organizationID })
 const setConversationOrganization = (uuid, organizationID) =>
   http.put(`/api/v1/conversations/${uuid}/organization`, { organization_id: organizationID })
+const getLinearIssues = (uuid) => http.get(`/api/v1/conversations/${uuid}/linear-issues`)
+const linkLinearIssue = (uuid, ref) =>
+  http.post(`/api/v1/conversations/${uuid}/linear-issues`, { ref })
+const unlinkLinearIssue = (uuid, id) =>
+  http.delete(`/api/v1/conversations/${uuid}/linear-issues/${id}`)
 const deleteTeam = (id) => http.delete(`/api/v1/teams/${id}`)
 const updateUser = (id, data) =>
   http.put(`/api/v1/agents/${id}`, data, {
@@ -823,6 +828,9 @@ export default {
   removeContactOrganization,
   setContactDefaultOrganization,
   setConversationOrganization,
+  getLinearIssues,
+  linkLinearIssue,
+  unlinkLinearIssue,
   getUsersCompact,
   getEmailNotificationSettings,
   updateEmailNotificationSettings,

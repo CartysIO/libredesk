@@ -73,6 +73,10 @@ func initHandlers(g *fastglue.Fastglue, hub *ws.Hub) {
 	g.PUT("/api/v1/conversations/{uuid}/mark-unread", perm(handleMarkConversationAsUnread, "conversations:read"))
 	g.POST("/api/v1/conversations/{uuid}/tags", perm(handleUpdateConversationtags, "conversations:update_tags"))
 	g.PUT("/api/v1/conversations/{uuid}/organization", perm(handleSetConversationOrganization, "conversations:update_organization"))
+	// Linear issues (Clyr fork). Linking reuses the tags permission: both label the conversation.
+	g.GET("/api/v1/conversations/{uuid}/linear-issues", perm(handleGetLinearIssues, "conversations:read"))
+	g.POST("/api/v1/conversations/{uuid}/linear-issues", perm(handleLinkLinearIssue, "conversations:update_tags"))
+	g.DELETE("/api/v1/conversations/{uuid}/linear-issues/{id}", perm(handleUnlinkLinearIssue, "conversations:update_tags"))
 	g.GET("/api/v1/conversations/{uuid}/page-visits", perm(handleGetContactPageVisits, "conversations:read"))
 	g.GET("/api/v1/conversations/{cuuid}/messages/{uuid}", perm(handleGetMessage, "messages:read"))
 	g.GET("/api/v1/conversations/{uuid}/messages", perm(handleGetMessages, "messages:read"))
@@ -420,6 +424,8 @@ func initHandlers(g *fastglue.Fastglue, hub *ws.Hub) {
 
 	// Slack bridge (Clyr fork). Slack signs each request; handleSlackEvents checks the signature.
 	g.POST("/webhooks/slack/events", rateLimit(handleSlackEvents, "public"))
+	// Linear (Clyr fork). Linear signs each request; handleLinearWebhook checks the signature.
+	g.POST("/webhooks/linear", rateLimit(handleLinearWebhook, "public"))
 
 	g.GET("/api/v1/whatsapp/contacts/{contact_id}/open-conversation", perm(handleGetWhatsAppOpenConversation, "conversations:read"))
 
