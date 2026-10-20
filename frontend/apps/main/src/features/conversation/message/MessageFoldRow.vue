@@ -10,7 +10,7 @@
       <AvatarImage :src="message.author?.avatar_url || ''" />
       <AvatarFallback class="font-semibold">{{ initials }}</AvatarFallback>
     </Avatar>
-    <span class="w-36 shrink-0 truncate text-sm font-semibold">{{ name }}</span>
+    <span class="w-24 shrink-0 truncate text-sm font-semibold sm:w-36">{{ name }}</span>
     <Lock v-if="message.private" class="h-3 w-3 shrink-0 text-muted-foreground" :aria-label="t('globals.terms.privateNote')" />
     <Paperclip
       v-if="message.attachments?.length"

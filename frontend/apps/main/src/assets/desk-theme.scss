@@ -130,6 +130,11 @@ html[data-app='desk'] .desk-rail {
   --foreground: 140 25% 96%;
   --accent: 153 42% 20%;
   --accent-foreground: 0 0% 100%;
+  // Avatar fallbacks and badges inside the rail sit on green, not on a white chip.
+  --muted: 153 42% 20%;
+  --secondary: 153 42% 20%;
+  --background: 155 54% 12%;
+  --card: 153 42% 20%;
 }
 
 html[data-app='desk'].dark .desk-rail {
@@ -169,6 +174,16 @@ html[data-app='desk'] .message-bubble.message-bubble--thread {
   border-radius: 0;
   box-shadow: none;
   padding: 0.75rem 1rem 0.875rem;
+
+  // Email bodies read at the desk's body size, not the 16px browser default. Inline email styles still win.
+  .native-html {
+    font-size: 0.875rem;
+    line-height: 1.55;
+  }
+
+  .email-light-canvas {
+    border-radius: calc(var(--radius) - 2px);
+  }
 }
 
 // Conversation details as a two-column spec table: label left, value right, one hairline per row.
