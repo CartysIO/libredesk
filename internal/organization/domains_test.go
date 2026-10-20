@@ -108,6 +108,19 @@ func TestSaveAndDomainCap(t *testing.T) {
 	if len(got.Domains) != maxDomains {
 		t.Fatalf("domains = %d, want %d", len(got.Domains), maxDomains)
 	}
+
+	// A sync that fails on its fields does not keep the rename either.
+	if _, err := mgr.SyncByExternalID("team_1", "Renamed", models.Fields{Domains: []string{"one-more.com"}}); errType(err) != envelope.InputError {
+		t.Fatalf("sync past the cap: %v", err)
+	}
+	if got, _ := mgr.Get(org.ID); got.Name != "Acme Inc" {
+		t.Fatalf("name = %q after a failed sync", got.Name)
+	}
+	synced, err := mgr.SyncByExternalID("team_9", "Initech", models.Fields{Domains: []string{"initech.com"}, CustomAttributes: map[string]any{"tier": "top"}})
+	if err != nil {
+		t.Fatalf("sync new: %v", err)
+	}
+	assertFields(t, synced, []string{"initech.com"}, map[string]any{"tier": "top"})
 }
 
 func assertFields(t *testing.T, org models.Organization, domains []string, attrs map[string]any) {

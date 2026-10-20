@@ -95,20 +95,10 @@ func handleSyncOrganizations(r *fastglue.Request) error {
 
 	resp := orgSyncResp{Errors: []orgSyncError{}}
 	for _, o := range req.Organizations {
-		if _, _, err := app.organization.ValidateFields(o.Fields); err != nil {
-			resp.Errors = append(resp.Errors, orgSyncError{ExternalID: o.ExternalID, Error: err.Error()})
-			continue
-		}
-		org, err := app.organization.UpsertByExternalID(o.ExternalID, o.Name)
+		org, err := app.organization.SyncByExternalID(o.ExternalID, o.Name, o.Fields)
 		if err != nil {
 			resp.Errors = append(resp.Errors, orgSyncError{ExternalID: o.ExternalID, Error: err.Error()})
 			continue
-		}
-		if o.Domains != nil || o.CustomAttributes != nil {
-			if _, err := app.organization.SetFields(org.ID, o.Fields, true); err != nil {
-				resp.Errors = append(resp.Errors, orgSyncError{ExternalID: o.ExternalID, Error: err.Error()})
-				continue
-			}
 		}
 		resp.Organizations++
 		for _, c := range o.Contacts {
