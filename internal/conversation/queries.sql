@@ -766,6 +766,15 @@ SET custom_attributes = $2,
     updated_at = NOW()
 WHERE uuid = $1;
 
+-- name: set-conversation-custom-attribute-if-empty
+-- Merges one key and skips the row when the key already holds a value, so an agent's choice wins over AI.
+UPDATE conversations
+SET custom_attributes = custom_attributes || jsonb_build_object($2::text, $3::text),
+    updated_at = NOW()
+WHERE uuid = $1
+  AND COALESCE(custom_attributes->>$2::text, '') = ''
+RETURNING custom_attributes;
+
 -- name: start-conversation-waiting-since
 UPDATE conversations
 SET waiting_since = $2,

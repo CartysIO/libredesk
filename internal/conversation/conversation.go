@@ -128,6 +128,17 @@ type Manager struct {
 	continuityConfig           ContinuityConfig
 	subjectRefFormat           string
 	aiAgent                    AIAgentEngine
+	aiClassifier               AIClassifier
+}
+
+// AIClassifier fills a conversation custom attribute from AI in the background.
+type AIClassifier interface {
+	Classify(conv models.Conversation, key, instructions string)
+}
+
+// SetAIClassifier wires the AI attribute classifier after construction to avoid an import cycle.
+func (c *Manager) SetAIClassifier(cl AIClassifier) {
+	c.aiClassifier = cl
 }
 
 type replyNotificationGroup struct {
@@ -364,6 +375,7 @@ type queries struct {
 	ClaimUnassignedConversation         *sqlx.Stmt `query:"claim-unassigned-conversation"`
 	UpdateConversationAssignedTeam      *sqlx.Stmt `query:"update-conversation-assigned-team"`
 	UpdateConversationCustomAttributes  *sqlx.Stmt `query:"update-conversation-custom-attributes"`
+	SetConversationAttrIfEmpty          *sqlx.Stmt `query:"set-conversation-custom-attribute-if-empty"`
 	UpdateConversationPriority          *sqlx.Stmt `query:"update-conversation-priority"`
 	UpdateConversationStatus            *sqlx.Stmt `query:"update-conversation-status"`
 	UpdateConversationStatusIfCurrent   *sqlx.Stmt `query:"update-conversation-status-if-current"`
@@ -1756,6 +1768,22 @@ func (m *Manager) ApplyAction(action amodels.RuleAction, conv models.Conversatio
 			"actor_id":     user.ID,
 		})
 		return nil
+	case amodels.ActionAIClassifyAttribute:
+		key := strings.TrimSpace(action.Value[0])
+		if key == "" {
+			return fmt.Errorf("ai classify action requires an attribute key")
+		}
+		if m.aiClassifier == nil {
+			m.lo.Warn("ai classify action skipped: classifier not configured", "conversation_uuid", conv.UUID)
+			return nil
+		}
+		instructions := ""
+		if len(action.Value) > 1 {
+			instructions = action.Value[1]
+		}
+		// Runs in the background so a slow provider never holds up the automation worker.
+		m.aiClassifier.Classify(conv, key, instructions)
+		return nil
 	case amodels.ActionNotify:
 		subject := strings.TrimSpace(action.Subject)
 		message := strings.TrimSpace(action.Message)
@@ -2063,6 +2091,19 @@ func (c *Manager) UpdateConversationCustomAttributes(uuid string, customAttribut
 	// Broadcast the custom attributes update.
 	c.BroadcastConversationUpdate(uuid, map[string]any{"custom_attributes": customAttributes})
 	return nil
+}
+
+// SetConversationCustomAttributeIfEmpty sets one custom attribute unless it already holds a value; false means it was left alone.
+func (c *Manager) SetConversationCustomAttributeIfEmpty(uuid, key, value string) (bool, error) {
+	var attrs []byte
+	if err := c.q.SetConversationAttrIfEmpty.Get(&attrs, uuid, key, value); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("setting conversation custom attribute: %w", err)
+	}
+	c.BroadcastConversationUpdate(uuid, map[string]any{"custom_attributes": json.RawMessage(attrs)})
+	return true, nil
 }
 
 // addConversationParticipant adds a user as participant to a conversation.

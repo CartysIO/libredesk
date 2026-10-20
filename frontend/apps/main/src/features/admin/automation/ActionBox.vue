@@ -114,6 +114,27 @@
               </div>
 
               <div
+                class="flex-1 min-w-0 max-w-md space-y-3"
+                v-if="action.type && conversationActions[action.type]?.type === 'ai_classify'"
+              >
+                <SelectComboBox
+                  v-model="action.value[0]"
+                  :items="classifiableAttributeOptions"
+                  :placeholder="t('placeholders.selectAttribute')"
+                  @select="handleClassifyAttributeChange($event, index)"
+                />
+                <Textarea
+                  :placeholder="t('admin.automation.aiClassifyInstructions')"
+                  :modelValue="action.value[1] || ''"
+                  @update:modelValue="(value) => handleClassifyInstructionsChange(value, index)"
+                  class="h-24"
+                />
+                <p class="text-xs text-muted-foreground">
+                  {{ $t('admin.automation.aiClassifyHint') }}
+                </p>
+              </div>
+
+              <div
                 :class="fieldClass"
                 v-if="action.type && conversationActions[action.type]?.type === 'text'"
               >
@@ -160,6 +181,7 @@ import CloseButton from '@main/components/button/CloseButton.vue'
 import { useWebhookStore } from '@main/stores/webhook'
 import { useUsersStore } from '@main/stores/users'
 import { useTeamStore } from '@main/stores/team'
+import { useCustomAttributeStore } from '@main/stores/customAttributes'
 import {
   Select,
   SelectContent,
@@ -194,8 +216,17 @@ const webhookStore = useWebhookStore()
 const uStore = useUsersStore()
 const tStore = useTeamStore()
 const { conversationActions } = useConversationFilters()
+const customAttributeStore = useCustomAttributeStore()
 
 webhookStore.fetchWebhooks()
+customAttributeStore.fetchCustomAttributes()
+
+// The AI classify action fills list or text conversation attributes, addressed by key.
+const classifiableAttributeOptions = computed(() =>
+  customAttributeStore.conversationAttributeOptions
+    .filter((att) => att.data_type === 'list' || att.data_type === 'text')
+    .map((att) => ({ label: att.name, value: att.key }))
+)
 
 const recipientKeywords = computed(() => [
   { label: t('globals.terms.assignee'), value: 'assignee' },
@@ -272,6 +303,23 @@ const handleNotifyMessageChange = (value, index) => {
 
 const handleTextChange = (value, index) => {
   actions.value[index].value = [value]
+  emitUpdate(index)
+}
+
+// Classify actions store [attribute key, instructions]; empty instructions are dropped so the rule form's every-value-set check passes.
+const classifyValue = (key, instructions) =>
+  instructions?.trim() ? [key || '', instructions] : [key || '']
+
+const handleClassifyAttributeChange = (value, index) => {
+  if (typeof value === 'object') {
+    value = value.value
+  }
+  actions.value[index].value = classifyValue(value, actions.value[index].value?.[1])
+  emitUpdate(index)
+}
+
+const handleClassifyInstructionsChange = (value, index) => {
+  actions.value[index].value = classifyValue(actions.value[index].value?.[0], value)
   emitUpdate(index)
 }
 
