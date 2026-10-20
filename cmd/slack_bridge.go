@@ -34,6 +34,11 @@ func initSlackBridge(db *sqlx.DB, users *user.Manager, mediaStore *media.Manager
 	if !cfg.Enabled() {
 		return nil
 	}
+	aliases, err := slackbridge.ParseEmailAliases(ko.String("slack.agent_email_aliases"))
+	if err != nil {
+		log.Fatalf("error reading slack.agent_email_aliases: %v", err)
+	}
+	cfg.AgentEmailAliases = aliases
 	m, err := slackbridge.New(cfg, db, initLogger("slack_bridge"), users, mediaStore, settings)
 	if err != nil {
 		log.Fatalf("error initializing slack bridge: %v", err)

@@ -54,9 +54,41 @@ type Config struct {
 	// AIBotID is the bot_id of the Slack AI agent. Its messages are handled as the agent AIAgentEmail.
 	AIBotID      string
 	AIAgentEmail string
+	// AgentEmailAliases maps a Slack account email to the Libredesk agent email, for agents whose
+	// Slack account uses another address. Keys and values are lowercase. See ParseEmailAliases.
+	AgentEmailAliases map[string]string
 	// APIURL overrides the Slack Web API base URL (tests).
 	APIURL    string
 	QueueSize int
+}
+
+// ParseEmailAliases reads "slack@example.com=agent@example.com, other@x.com=agent2@x.com" into a
+// lowercase map. Malformed pairs are returned as an error so a typo is not silently ignored.
+func ParseEmailAliases(s string) (map[string]string, error) {
+	out := map[string]string{}
+	for _, pair := range strings.Split(s, ",") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		from, to, ok := strings.Cut(pair, "=")
+		from, to = strings.ToLower(strings.TrimSpace(from)), strings.ToLower(strings.TrimSpace(to))
+		if !ok || !plainEmail(from) || !plainEmail(to) {
+			return nil, fmt.Errorf("invalid slack agent email alias %q: want slack-email=agent-email", pair)
+		}
+		out[from] = to
+	}
+	return out, nil
+}
+
+// plainEmail reports whether s is one bare address: a single @ with text on both sides, no spaces,
+// separators, quotes or brackets (an apostrophe, as in o'brien@, is allowed).
+func plainEmail(s string) bool {
+	if strings.ContainsAny(s, "=, <>\"\t") || strings.Count(s, "@") != 1 {
+		return false
+	}
+	local, domain, _ := strings.Cut(s, "@")
+	return local != "" && strings.Contains(domain, ".") && !strings.HasSuffix(domain, ".")
 }
 
 // Enabled reports whether the bridge has the settings it needs.
@@ -635,6 +667,9 @@ func (m *Manager) agentFor(ctx context.Context, ev slackEvent, isAI bool) (umode
 			return umodels.User{}, "", err
 		}
 		email = u.Email
+		if alias, ok := m.cfg.AgentEmailAliases[strings.ToLower(email)]; ok {
+			email = alias
+		}
 	}
 	if email == "" {
 		return umodels.User{}, "", errors.New("slack user has no email")

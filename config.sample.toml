@@ -210,4 +210,7 @@ channel_id = ""
 # bot_id of the Slack AI agent, and the email of the Libredesk agent its messages are added as.
 ai_bot_id = ""
 ai_agent_email = ""
+# For agents whose Slack account uses another email than their Libredesk agent:
+# "slack-email=agent-email" pairs, comma separated.
+agent_email_aliases = ""
 queue_size = 1000
