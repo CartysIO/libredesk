@@ -407,6 +407,17 @@ func (m *Message) ShouldEvaluateAutomation(systemUserID int) bool {
 }
 
 // IsAutomated returns true if the message was produced by an automation rule action.
+// KeepsStatus reports whether the agent chose the conversation's status when sending (send and set status),
+// so sending must not move the conversation to "On customer".
+func (m *Message) KeepsStatus() bool {
+	var meta map[string]any
+	if err := json.Unmarshal([]byte(m.Meta), &meta); err != nil {
+		return false
+	}
+	keep, _ := meta["keep_status"].(bool)
+	return keep
+}
+
 func (m *Message) IsAutomated() bool {
 	var meta map[string]any
 	if err := json.Unmarshal([]byte(m.Meta), &meta); err != nil {
