@@ -597,6 +597,12 @@ const processSend = async (
             .map((e) => e.trim())
             .filter(Boolean)
         : []
+    // A loaded macro that sets a status picks the status too (applied right after the send below), so the
+    // server must not move the conversation to "On customer" once the queued reply goes out.
+    const macroSetsStatus = (conversationStore.getMacro(MACRO_CONTEXT.REPLY)?.actions || []).some(
+      (action) => action.type === 'set_status'
+    )
+
     const meta = {}
     if (parsedTo.length) meta.to = parsedTo
     if (parsedCC.length) meta.cc = parsedCC
@@ -640,7 +646,7 @@ const processSend = async (
           echo_id: isPrivate ? '' : tempUUIDs[i],
           send_from: isPrivate ? '' : sendFrom.value,
           // The agent picked the status, so the server must not move it to "On customer" once sent.
-          keep_status: !isPrivate && !!statusToSet
+          keep_status: !isPrivate && (!!statusToSet || macroSetsStatus)
         })
 
         if (isPrivate && response?.data?.data) {
