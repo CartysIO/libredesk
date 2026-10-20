@@ -358,6 +358,18 @@ func TestPendingCommentClaim(t *testing.T) {
 	if len(h.notes.notes) != 1 {
 		t.Fatalf("want 1 note after takeover, got %d", len(h.notes.notes))
 	}
+
+	// The note was saved but recording its ID failed: a stale claim is not taken over and nothing is re-sent.
+	h.db.MustExec(`INSERT INTO linear_comment_notes (comment_id, conversation_id, created_at) VALUES ('c8', $1, NOW() - INTERVAL '2 minutes')`, h.convs[0])
+	h.db.MustExec(`INSERT INTO conversation_messages (type, status, private, conversation_id, content_type, content, text_content, sender_id, sender_type)
+		VALUES ('outgoing', 'sent', true, $1, 'html', $2, '', $3, 'agent')`,
+		h.convs[0], noteHTML("ENG-123", "Dana Dev", "hi", "https://linear.app/clyr/issue/ENG-123#comment-c8"), h.agentID)
+	if err := h.webhook(t, comment("c8", "issue-uuid-1", "hi"), time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if len(h.notes.notes) != 1 {
+		t.Fatalf("note re-sent although it is in the conversation: %d notes", len(h.notes.notes))
+	}
 }
 
 func TestWebhookRejectsBadSignatureAndStaleTimestamp(t *testing.T) {

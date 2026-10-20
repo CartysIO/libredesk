@@ -220,12 +220,13 @@ func (m *Manager) addComment(c commentData, author, commentURL string) error {
 	if err := m.q.GetLinksByIssue.Select(&links, c.IssueID); err != nil {
 		return err
 	}
+	marker := noteMarker(commentURL)
 	for _, l := range links {
 		var claimID int
-		err := m.q.ClaimComment.Get(&claimID, c.ID, l.ConversationID)
+		err := m.q.ClaimComment.Get(&claimID, c.ID, l.ConversationID, marker)
 		if errors.Is(err, sql.ErrNoRows) {
 			var noted bool
-			if err := m.q.CommentNoted.Get(&noted, c.ID, l.ConversationID); err != nil {
+			if err := m.q.CommentNoted.Get(&noted, c.ID, l.ConversationID, marker); err != nil {
 				return err
 			}
 			if !noted {
@@ -251,6 +252,15 @@ func (m *Manager) addComment(c commentData, author, commentURL string) error {
 		}
 	}
 	return nil
+}
+
+// noteMarker returns the text that only this comment's note contains: the link to the comment
+// (Linear's comment URLs end in #comment-<id>). It is "" when the URL does not name one comment.
+func noteMarker(commentURL string) string {
+	if !strings.HasPrefix(commentURL, "https://") || !strings.Contains(commentURL, "#comment-") {
+		return ""
+	}
+	return strings.ReplaceAll(`href="`+html.EscapeString(commentURL)+`"`, "{{", "&#123;&#123;")
 }
 
 // noteHTML renders "Linear ENG-123 · author:" followed by the comment's markdown as HTML.

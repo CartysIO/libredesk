@@ -29,17 +29,29 @@ UPDATE conversation_linear_issues SET
 WHERE issue_id = $1;
 
 -- name: claim-comment
+-- $1 = comment ID, $2 = conversation ID, $3 = the escaped comment URL that the note contains, or ''.
 -- Returns no row when this comment is already in this conversation, or another request is adding it,
--- which makes webhook retries harmless. A claim with no note after a minute was left by a crash or a
--- failed release, so it is taken over and the retry adds the note.
+-- which makes webhook retries harmless. A claim with no recorded note after a minute was left by a
+-- crash or a failed release, so it is taken over and the retry adds the note; unless the note is in
+-- the conversation after all (the note was saved but recording its ID failed).
 INSERT INTO linear_comment_notes (comment_id, conversation_id) VALUES ($1, $2)
 ON CONFLICT (comment_id, conversation_id) DO UPDATE SET created_at = NOW()
-	WHERE linear_comment_notes.message_id IS NULL AND linear_comment_notes.created_at < NOW() - INTERVAL '1 minute'
+	WHERE linear_comment_notes.message_id IS NULL
+	AND linear_comment_notes.created_at < NOW() - INTERVAL '1 minute'
+	AND ($3 = '' OR NOT EXISTS (
+		SELECT 1 FROM conversation_messages m
+		WHERE m.conversation_id = $2 AND m.private AND m.created_at >= linear_comment_notes.created_at
+		AND m.content LIKE '%' || $3 || '%'))
 RETURNING id;
 
 -- name: comment-noted
--- True when the comment's note is in the conversation; false while a claim is still pending.
-SELECT message_id IS NOT NULL FROM linear_comment_notes WHERE comment_id = $1 AND conversation_id = $2;
+-- $1, $2, $3 as in claim-comment. True when the comment's note is in the conversation; false while a
+-- claim is still pending.
+SELECT n.message_id IS NOT NULL OR ($3 <> '' AND EXISTS (
+	SELECT 1 FROM conversation_messages m
+	WHERE m.conversation_id = $2 AND m.private AND m.created_at >= n.created_at
+	AND m.content LIKE '%' || $3 || '%'))
+FROM linear_comment_notes n WHERE n.comment_id = $1 AND n.conversation_id = $2;
 
 -- name: set-comment-message
 UPDATE linear_comment_notes SET message_id = $2 WHERE id = $1;
