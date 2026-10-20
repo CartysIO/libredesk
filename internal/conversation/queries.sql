@@ -579,10 +579,11 @@ updated_at = NOW()
 WHERE uuid = $1;
 
 -- name: claim-unassigned-conversation
+-- $3 = the team the caller saw; 0 means the conversation had no team.
 UPDATE conversations
 SET assigned_user_id = $2,
 updated_at = NOW()
-WHERE uuid = $1 AND assigned_user_id IS NULL AND assigned_team_id = $3;
+WHERE uuid = $1 AND assigned_user_id IS NULL AND assigned_team_id IS NOT DISTINCT FROM NULLIF($3::INT, 0);
 
 -- name: update-conversation-contact-last-seen
 UPDATE conversations

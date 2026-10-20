@@ -276,6 +276,9 @@ func (m *Manager) sendOutgoingMessage(message models.Message) {
 
 		m.BroadcastConversationUpdate(message.ConversationUUID, wsData)
 
+		// The first agent to reply on an unassigned conversation takes it (Pylon's "assign to first responder").
+		m.assignOnFirstReply(message, conversation, systemUser.ID)
+
 		// A sent human or AI reply puts the ball in the customer's court.
 		m.moveToOnCustomerAfterReply(message, conversation.Status.String)
 
@@ -310,6 +313,41 @@ func (m *Manager) moveToOnCustomerAfterReply(message models.Message, status stri
 	// Guarded in SQL: a snooze or resolve that landed after the status snapshot must not be overwritten.
 	if err := m.updateConversationStatus(message.ConversationUUID, 0, models.StatusOnCustomer, "", actor, []string{models.StatusOpen, models.StatusOnYou}); err != nil {
 		m.lo.Error("error moving conversation to On customer after reply", "conversation_uuid", message.ConversationUUID, "error", err)
+	}
+}
+
+// shouldAssignOnFirstReply reports whether a sent message assigns its conversation to the sender. Only a
+// customer-facing reply from a human agent (not the system user, not an AI assistant) on a conversation with
+// no assigned user counts. Private notes, automated messages, CSAT and continuity emails never assign.
+func shouldAssignOnFirstReply(message models.Message, sender umodels.User, systemUserID int, assigned bool) bool {
+	if assigned || message.Type != models.MessageOutgoing || message.Private || message.IsAutomated() || message.HasCSAT() || message.IsContinuityMessage() {
+		return false
+	}
+	return sender.Type == umodels.UserTypeAgent && sender.ID != systemUserID
+}
+
+// assignOnFirstReply assigns an unassigned conversation to the agent who sent the reply, acting as that agent,
+// when app.assign_on_first_reply is on. The claim is guarded in SQL: it only lands if the conversation is still
+// unassigned and still in the team it was in, so a concurrent assignment wins.
+func (m *Manager) assignOnFirstReply(message models.Message, conversation models.Conversation, systemUserID int) {
+	if !m.assignOnFirstReplyEnabled || conversation.AssignedUserID.Valid {
+		return
+	}
+	sender, err := m.userStore.GetAgentCachedOrLoad(message.SenderID)
+	if err != nil {
+		m.lo.Error("error fetching reply sender for first-reply assignment", "sender_id", message.SenderID, "error", err)
+		return
+	}
+	if !shouldAssignOnFirstReply(message, sender, systemUserID, conversation.AssignedUserID.Valid) {
+		return
+	}
+	err = m.ClaimUnassignedConversation(message.ConversationUUID, sender.ID, conversation.AssignedTeamID.Int, sender)
+	if errors.Is(err, ErrConversationAlreadyAssigned) {
+		m.lo.Debug("no first-reply assignment: conversation assigned concurrently", "conversation_uuid", message.ConversationUUID)
+		return
+	}
+	if err != nil {
+		m.lo.Error("error assigning conversation to first responder", "conversation_uuid", message.ConversationUUID, "error", err)
 	}
 }
 
