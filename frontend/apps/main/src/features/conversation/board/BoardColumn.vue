@@ -15,7 +15,8 @@
       <span class="text-sm text-muted-foreground tabular-nums">{{ state.total }}</span>
     </header>
 
-    <div ref="scroller" class="flex-1 overflow-y-auto overscroll-contain px-2 pb-2 space-y-2" @scroll.passive="onScroll">
+    <!-- overscroll-y only: a sideways swipe on a card must chain to the board so columns scroll on phones. -->
+    <div ref="scroller" class="flex-1 overflow-y-auto overscroll-y-contain px-2 pb-2 space-y-2" @scroll.passive="onScroll">
       <template v-if="state.loading">
         <Skeleton v-for="i in 4" :key="i" class="h-24 w-full" />
       </template>
