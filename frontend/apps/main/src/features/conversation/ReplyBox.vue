@@ -511,6 +511,7 @@ const processSend = async (
   statusToSet = null
 ) => {
   let hasMessageSendingErrored = false
+  let macroSetsStatus = false
   isEditorFullscreen.value = false
 
   const html = htmlContent.value
@@ -606,7 +607,7 @@ const processSend = async (
         : []
     // A loaded macro that sets a status picks the status too (applied right after the send below), so the
     // server must not move the conversation to "On customer" once the queued reply goes out.
-    const macroSetsStatus = (conversationStore.getMacro(MACRO_CONTEXT.REPLY)?.actions || []).some(
+    macroSetsStatus = (conversationStore.getMacro(MACRO_CONTEXT.REPLY)?.actions || []).some(
       (action) => action.type === 'set_status'
     )
 
