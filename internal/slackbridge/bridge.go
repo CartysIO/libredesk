@@ -73,12 +73,22 @@ func ParseEmailAliases(s string) (map[string]string, error) {
 		}
 		from, to, ok := strings.Cut(pair, "=")
 		from, to = strings.ToLower(strings.TrimSpace(from)), strings.ToLower(strings.TrimSpace(to))
-		if !ok || !strings.Contains(from, "@") || !strings.Contains(to, "@") {
+		if !ok || !plainEmail(from) || !plainEmail(to) {
 			return nil, fmt.Errorf("invalid slack agent email alias %q: want slack-email=agent-email", pair)
 		}
 		out[from] = to
 	}
 	return out, nil
+}
+
+// plainEmail reports whether s is one bare address: a single @ with text on both sides, no spaces,
+// separators or brackets.
+func plainEmail(s string) bool {
+	if strings.ContainsAny(s, "=, <>\"'\t") || strings.Count(s, "@") != 1 {
+		return false
+	}
+	local, domain, _ := strings.Cut(s, "@")
+	return local != "" && strings.Contains(domain, ".") && !strings.HasSuffix(domain, ".")
 }
 
 // Enabled reports whether the bridge has the settings it needs.

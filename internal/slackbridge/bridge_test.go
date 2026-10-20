@@ -454,7 +454,7 @@ func TestParseEmailAliases(t *testing.T) {
 	if empty, err := ParseEmailAliases(""); err != nil || len(empty) != 0 {
 		t.Fatalf("empty input: %v %v", empty, err)
 	}
-	for _, bad := range []string{"omer@clyr.io", "a@x.com=", "=b@x.com", "nope=b@x.com"} {
+	for _, bad := range []string{"omer@clyr.io", "a@x.com=", "=b@x.com", "nope=b@x.com", "a@x.com=b@x.com=typo", "a@x.com=b@@x.com", "a@x.com=b@x", "a b@x.com=c@x.com"} {
 		if _, err := ParseEmailAliases(bad); err == nil {
 			t.Fatalf("want an error for %q", bad)
 		}
