@@ -55,6 +55,7 @@ var migList = []migFunc{
 	{"v2.9.0-rc.9.clyr.3", migrations.V2_9_0_RC9_CLYR3},
 	{"v2.9.0-rc.9.clyr.4", migrations.V2_9_0_RC9_CLYR4},
 	{"v2.9.0-rc.9.clyr.5", migrations.V2_9_0_RC9_CLYR5},
+	{"v2.9.0-rc.9.clyr.6", migrations.V2_9_0_RC9_CLYR6},
 	{"v2.9.0-rc.10", migrations.V2_9_0_RC10},
 }
 

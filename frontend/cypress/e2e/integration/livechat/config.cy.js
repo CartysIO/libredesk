@@ -158,26 +158,6 @@ describe('Live chat widget config applied end to end', () => {
     })
   })
 
-  it('blocks replies to a closed conversation when configured', () => {
-    let inbox
-    cy.createLivechatInbox(
-      withStart({
-        visitors: {
-          allow_start_conversation: true,
-          prevent_reply_to_closed_conversation: true,
-          start_conversation_button_text: startText
-        }
-      })
-    ).then((created) => {
-      inbox = created
-    })
-    cy.then(() => cy.openWidget(inbox))
-    cy.widgetBody().contains(startText).click()
-    cy.widgetSend(`Message before close ${Date.now()}`)
-    cy.then(() => cy.closeConversation(inbox))
-    cy.widgetBody().find('textarea', { timeout: 20000 }).should('not.exist')
-  })
-
   it('applies dark mode', () => {
     cy.createLivechatInbox(withStart({ theme: 'dark' })).then((inbox) => {
       cy.openWidget(inbox)

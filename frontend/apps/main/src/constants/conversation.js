@@ -10,8 +10,7 @@ export const CONVERSATION_LIST_TYPE = {
 export const CONVERSATION_DEFAULT_STATUSES = {
   OPEN: 'Open',
   SNOOZED: 'Snoozed',
-  RESOLVED: 'Resolved',
-  CLOSED: 'Closed',
+  RESOLVED: 'Resolved'
 }
 
 // Kanban board statuses. "On you" and "On customer" are added by the backend.

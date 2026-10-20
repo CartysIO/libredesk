@@ -6,8 +6,7 @@ import { CONVERSATION_DEFAULT_STATUSES_LIST } from '@/constants/conversation.js'
 const DEFAULT_STATUS_KEY = {
   Open: 'globals.terms.open',
   Snoozed: 'globals.terms.snoozed',
-  Resolved: 'globals.terms.resolved',
-  Closed: 'globals.terms.closed'
+  Resolved: 'globals.terms.resolved'
   // On you / On customer have no translation key; the status name shows as is.
 }
 

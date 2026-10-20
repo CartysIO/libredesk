@@ -1171,24 +1171,7 @@
                           />
                         </FormItem>
                       </FormField>
-
-                      <FormField
-                        v-slot="{ componentField, handleChange }"
-                        name="config.visitors.prevent_reply_to_closed_conversation"
-                      >
-                        <FormItem>
-                          <SwitchField
-                            :title="$t('admin.inbox.livechat.preventReplyToClosedConversation')"
-                            :description="
-                              $t(
-                                'admin.inbox.livechat.preventReplyToClosedConversation.description'
-                              )
-                            "
-                            :checked="componentField.modelValue"
-                            @update:checked="handleChange"
-                          />
-                        </FormItem>
-                      </FormField>
+                      <!-- Clyr: no "prevent reply to closed conversation" switch; the fork has no Closed status. -->
                     </div>
 
                     <div
@@ -1280,24 +1263,7 @@
                           />
                         </FormItem>
                       </FormField>
-
-                      <FormField
-                        v-slot="{ componentField, handleChange }"
-                        name="config.users.prevent_reply_to_closed_conversation"
-                      >
-                        <FormItem>
-                          <SwitchField
-                            :title="$t('admin.inbox.livechat.preventReplyToClosedConversation')"
-                            :description="
-                              $t(
-                                'admin.inbox.livechat.preventReplyToClosedConversation.description'
-                              )
-                            "
-                            :checked="componentField.modelValue"
-                            @update:checked="handleChange"
-                          />
-                        </FormItem>
-                      </FormField>
+                      <!-- Clyr: no "prevent reply to closed conversation" switch; the fork has no Closed status. -->
                     </div>
                   </div>
                 </Tabs>

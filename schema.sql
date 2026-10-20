@@ -1205,7 +1205,6 @@ INSERT INTO conversation_statuses (name, category) VALUES
 ('Open', 'open'),
 ('Snoozed', 'waiting'),
 ('Resolved', 'resolved'),
-('Closed', 'resolved'),
 ('On you', 'open'),
 ('On customer', 'waiting');
 
