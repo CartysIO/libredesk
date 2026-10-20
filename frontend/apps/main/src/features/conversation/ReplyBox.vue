@@ -187,7 +187,14 @@ import { ref, watch, computed, toRaw, nextTick, onMounted, onUnmounted } from 'v
 import { handleHTTPError } from '@shared-ui/utils/http.js'
 import { getTextFromHTML } from '@shared-ui/utils/string'
 import { EMITTER_EVENTS } from '@main/constants/emitterEvents.js'
-import { MACRO_CONTEXT } from '@main/constants/conversation'
+import {
+  MACRO_CONTEXT,
+  CONVERSATION_BOARD_STATUSES,
+  CONVERSATION_DEFAULT_STATUSES
+} from '@main/constants/conversation'
+
+// Statuses a plain agent reply moves to "On customer" (same rule as the server).
+const ACTIVE_REPLY_STATUSES = [CONVERSATION_DEFAULT_STATUSES.OPEN, CONVERSATION_BOARD_STATUSES.ON_YOU]
 import { WHATSAPP_CHANNEL, isWhatsAppWindowOpen } from '@main/features/conversation/whatsappTemplate'
 import { useUserStore } from '@main/stores/user'
 import { useDraftManager } from '@main/composables/useDraftManager'
@@ -685,6 +692,12 @@ const processSend = async (
           variant: 'destructive',
           description: handleHTTPError(error).message
         })
+        // keep_status stopped the server's "On customer" move for this reply, but the macro's status did
+        // not land either. Do what a plain reply would have done.
+        const current = conversationStore.current?.status
+        if (macroSetsStatus && !isPrivate && !statusToSet && ACTIVE_REPLY_STATUSES.includes(current)) {
+          conversationStore.updateStatus(CONVERSATION_BOARD_STATUSES.ON_CUSTOMER)
+        }
       }
     }
   }
