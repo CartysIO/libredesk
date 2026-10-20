@@ -430,6 +430,37 @@ func TestUnknownSlackUserGetsWarning(t *testing.T) {
 	}
 }
 
+func TestSlackEmailAliasMapsToAgent(t *testing.T) {
+	h := newHarness(t)
+	h.m.cfg.AgentEmailAliases = map[string]string{"stranger@example.com": "eran@clyr.io"}
+	h.contactMessage(t, "help")
+	h.drain(t)
+	ts := h.rootTS(t)
+	h.slackEvent(t, map[string]any{"type": "message", "channel": testChannel, "user": "UOTHER", "text": "on it", "ts": "1700000021.1", "thread_ts": ts})
+	h.drain(t)
+	if len(h.convs.notes) != 1 || h.convs.notes[0].SenderID != h.eran.ID {
+		t.Fatalf("want one note by the aliased agent, got %+v", h.convs.notes)
+	}
+}
+
+func TestParseEmailAliases(t *testing.T) {
+	got, err := ParseEmailAliases(" Omer.Menashe@gmail.com = omer@clyr.io ,, a@x.com=b@x.com ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["omer.menashe@gmail.com"] != "omer@clyr.io" || got["a@x.com"] != "b@x.com" || len(got) != 2 {
+		t.Fatalf("got %v", got)
+	}
+	if empty, err := ParseEmailAliases(""); err != nil || len(empty) != 0 {
+		t.Fatalf("empty input: %v %v", empty, err)
+	}
+	for _, bad := range []string{"omer@clyr.io", "a@x.com=", "=b@x.com", "nope=b@x.com"} {
+		if _, err := ParseEmailAliases(bad); err == nil {
+			t.Fatalf("want an error for %q", bad)
+		}
+	}
+}
+
 func TestSlackFileIsOwnedByAgent(t *testing.T) {
 	h := newHarness(t)
 	h.contactMessage(t, "help")
