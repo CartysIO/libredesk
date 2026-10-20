@@ -162,6 +162,16 @@ describe('computeRecipientsFromMessage', () => {
             expect(result.cc).toEqual([])
         })
 
+        test('promotes the customer the copy was addressed to, not a CC colleague', () => {
+            const message = {
+                type: 'incoming',
+                meta: { from: [inboxEmail], to: ['josh@xl-rpm.com'], cc: ['colleague@xl-rpm.com', inboxEmail] }
+            }
+            const result = computeRecipientsFromMessage(message, inboxEmail, inboxEmail)
+            expect(result.to).toEqual(['josh@xl-rpm.com'])
+            expect(result.cc).toEqual(['colleague@xl-rpm.com'])
+        })
+
         test('falls back to contactEmail when no from', () => {
             const message = {
                 type: 'incoming',
