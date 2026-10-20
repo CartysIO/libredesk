@@ -171,6 +171,35 @@ html[data-app='desk'] .message-bubble.message-bubble--thread {
   padding: 0.75rem 1rem 0.875rem;
 }
 
+// Conversation details as a two-column spec table: label left, value right, one hairline per row.
+html[data-app='desk'] .desk-spec {
+  > * + * {
+    margin-top: 0;
+  }
+
+  > div {
+    display: grid;
+    grid-template-columns: minmax(6.5rem, 40%) minmax(0, 1fr);
+    column-gap: 0.75rem;
+    align-items: baseline;
+    padding: 0.4375rem 0;
+    border-bottom: 1px solid hsl(var(--border) / 0.7);
+
+    > :not(:first-child) {
+      grid-column: 2;
+    }
+  }
+
+  > div:last-child {
+    border-bottom: 0;
+  }
+
+  .sidebar-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+}
+
 // The whose-move swatch: a solid square in a fixed cell. Filled = someone must act, hollow = resolved.
 .code-swatch {
   display: inline-block;

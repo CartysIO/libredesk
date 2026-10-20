@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-3">
+  <div class="desk-spec space-y-3">
     <div v-if="conversation.inbox_name">
       <p class="sidebar-label">{{ $t('globals.terms.inbox', 1) }}</p>
       <div class="flex items-center gap-1.5">
