@@ -79,6 +79,7 @@ type queries struct {
 	GetLinksByIssue *sqlx.Stmt `query:"get-links-by-issue"`
 	UpdateIssue     *sqlx.Stmt `query:"update-issue"`
 	ClaimComment    *sqlx.Stmt `query:"claim-comment"`
+	CommentNoted    *sqlx.Stmt `query:"comment-noted"`
 	SetCommentMsg   *sqlx.Stmt `query:"set-comment-message"`
 	ReleaseComment  *sqlx.Stmt `query:"release-comment"`
 }
@@ -223,6 +224,15 @@ func (m *Manager) addComment(c commentData, author, commentURL string) error {
 		var claimID int
 		err := m.q.ClaimComment.Get(&claimID, c.ID, l.ConversationID)
 		if errors.Is(err, sql.ErrNoRows) {
+			var noted bool
+			if err := m.q.CommentNoted.Get(&noted, c.ID, l.ConversationID); err != nil {
+				return err
+			}
+			if !noted {
+				// Another request holds a fresh claim. Fail so Linear retries; by then the note is there,
+				// or the claim is stale and the retry takes it over.
+				return fmt.Errorf("linear comment %s is being added to conversation %d", c.ID, l.ConversationID)
+			}
 			continue
 		}
 		if err != nil {

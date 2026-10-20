@@ -110,7 +110,7 @@ watch(
       enabled.value = data.data.enabled
       issues.value = data.data.issues || []
     } catch {
-      enabled.value = false
+      if (uuid.value === id) enabled.value = false
     }
   },
   { immediate: true }

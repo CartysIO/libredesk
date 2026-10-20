@@ -93,6 +93,19 @@ describe('ConversationSideBarLinear', () => {
     expect(root.querySelectorAll('[data-cy="linear-issue"]').length).toBe(0)
   })
 
+  it('ignores a failed load of a conversation the agent already left', async () => {
+    let rejectFirst
+    api.getLinearIssues
+      .mockReturnValueOnce(new Promise((_, reject) => (rejectFirst = reject)))
+      .mockResolvedValueOnce({ data: { data: { enabled: true, issues: [issue] } } })
+    await mount()
+    store.value.current = { uuid: 'conv-2' }
+    await flush()
+    rejectFirst(new Error('network'))
+    await flush()
+    expect(root.querySelector('[data-cy="sidebar-linear"]')).not.toBeNull()
+  })
+
   it('hides the add and remove controls without the permission', async () => {
     can.value = false
     api.getLinearIssues.mockResolvedValue({ data: { data: { enabled: true, issues: [issue] } } })

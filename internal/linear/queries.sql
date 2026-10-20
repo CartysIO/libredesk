@@ -29,10 +29,17 @@ UPDATE conversation_linear_issues SET
 WHERE issue_id = $1;
 
 -- name: claim-comment
--- Returns no row when this comment is already in this conversation, which makes webhook retries harmless.
+-- Returns no row when this comment is already in this conversation, or another request is adding it,
+-- which makes webhook retries harmless. A claim with no note after a minute was left by a crash or a
+-- failed release, so it is taken over and the retry adds the note.
 INSERT INTO linear_comment_notes (comment_id, conversation_id) VALUES ($1, $2)
-ON CONFLICT (comment_id, conversation_id) DO NOTHING
+ON CONFLICT (comment_id, conversation_id) DO UPDATE SET created_at = NOW()
+	WHERE linear_comment_notes.message_id IS NULL AND linear_comment_notes.created_at < NOW() - INTERVAL '1 minute'
 RETURNING id;
+
+-- name: comment-noted
+-- True when the comment's note is in the conversation; false while a claim is still pending.
+SELECT message_id IS NOT NULL FROM linear_comment_notes WHERE comment_id = $1 AND conversation_id = $2;
 
 -- name: set-comment-message
 UPDATE linear_comment_notes SET message_id = $2 WHERE id = $1;

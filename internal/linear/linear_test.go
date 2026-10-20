@@ -335,6 +335,31 @@ func TestCommentWebhookAddsNoteOnce(t *testing.T) {
 	}
 }
 
+func TestPendingCommentClaim(t *testing.T) {
+	h := newHarness(t)
+	if _, err := h.m.Link(context.Background(), h.convs[0], "ENG-123", h.agentID); err != nil {
+		t.Fatal(err)
+	}
+	// A claim with no note, as a crash between claim and note leaves it.
+	h.db.MustExec(`INSERT INTO linear_comment_notes (comment_id, conversation_id) VALUES ('c9', $1)`, h.convs[0])
+
+	// While the claim is fresh, the webhook fails so Linear retries, and adds nothing.
+	if err := h.webhook(t, comment("c9", "issue-uuid-1", "hi"), time.Now()); err == nil {
+		t.Fatal("want an error while another request holds the claim")
+	}
+	if len(h.notes.notes) != 0 {
+		t.Fatal("note added under a fresh claim")
+	}
+	// Once the claim is stale, the retry takes it over and adds the note.
+	h.db.MustExec(`UPDATE linear_comment_notes SET created_at = NOW() - INTERVAL '2 minutes' WHERE comment_id = 'c9'`)
+	if err := h.webhook(t, comment("c9", "issue-uuid-1", "hi"), time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if len(h.notes.notes) != 1 {
+		t.Fatalf("want 1 note after takeover, got %d", len(h.notes.notes))
+	}
+}
+
 func TestWebhookRejectsBadSignatureAndStaleTimestamp(t *testing.T) {
 	h := newHarness(t)
 	if _, err := h.m.Link(context.Background(), h.convs[0], "ENG-123", h.agentID); err != nil {
