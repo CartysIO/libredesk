@@ -82,9 +82,9 @@ func ParseEmailAliases(s string) (map[string]string, error) {
 }
 
 // plainEmail reports whether s is one bare address: a single @ with text on both sides, no spaces,
-// separators or brackets.
+// separators, quotes or brackets (an apostrophe, as in o'brien@, is allowed).
 func plainEmail(s string) bool {
-	if strings.ContainsAny(s, "=, <>\"'\t") || strings.Count(s, "@") != 1 {
+	if strings.ContainsAny(s, "=, <>\"\t") || strings.Count(s, "@") != 1 {
 		return false
 	}
 	local, domain, _ := strings.Cut(s, "@")

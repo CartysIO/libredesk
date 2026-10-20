@@ -451,6 +451,9 @@ func TestParseEmailAliases(t *testing.T) {
 	if got["omer.menashe@gmail.com"] != "omer@clyr.io" || got["a@x.com"] != "b@x.com" || len(got) != 2 {
 		t.Fatalf("got %v", got)
 	}
+	if got, err := ParseEmailAliases("o'brien@x.com=agent@clyr.io"); err != nil || got["o'brien@x.com"] != "agent@clyr.io" {
+		t.Fatalf("apostrophe address: %v %v", got, err)
+	}
 	if empty, err := ParseEmailAliases(""); err != nil || len(empty) != 0 {
 		t.Fatalf("empty input: %v %v", empty, err)
 	}
