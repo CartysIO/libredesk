@@ -76,6 +76,13 @@ func TestV2_9_0_RC9_CLYR6RemovesClosedStatus(t *testing.T) {
 		`[{"type":"set_status","value":["`+c+`"]}]`)
 	db.MustExec(`INSERT INTO views (name, visibility, filters) VALUES ('v', 'all', $1)`,
 		`[{"model":"conversations","field":"status_id","operator":"equals","value":"`+c+`"}]`)
+	const chatConfig = `{"brand_name":"Acme","visitors":{"prevent_reply_to_closed_conversation":true,"allow_start_conversation":true},"users":{"prevent_reply_to_closed_conversation":true,"direct_to_conversation":true}}`
+	var chatInbox, otherInbox int
+	db.QueryRow(`INSERT INTO inboxes (name, channel, config) VALUES ('Chat', 'livechat', $1) RETURNING id`, chatConfig).Scan(&chatInbox)
+	db.QueryRow(`INSERT INTO inboxes (name, channel, config) VALUES ('Other', 'email', $1) RETURNING id`, chatConfig).Scan(&otherInbox)
+	if chatInbox == 0 || otherInbox == 0 {
+		t.Fatal("seeding inboxes failed")
+	}
 
 	// Running it twice proves it is idempotent, which matters because a fresh install runs every migration.
 	for range 2 {
@@ -121,5 +128,41 @@ func TestV2_9_0_RC9_CLYR6RemovesClosedStatus(t *testing.T) {
 		if n != 1 {
 			t.Fatalf("%s: got %d rows pointing to Resolved, want 1", q, n)
 		}
+	}
+
+	// The live-chat inbox has both switches off and keeps every other key; a non-livechat inbox is untouched.
+	var same bool
+	want := `{"brand_name":"Acme","visitors":{"prevent_reply_to_closed_conversation":false,"allow_start_conversation":true},"users":{"prevent_reply_to_closed_conversation":false,"direct_to_conversation":true}}`
+	if err := db.Get(&same, `SELECT config = $2::jsonb FROM inboxes WHERE id = $1`, chatInbox, want); err != nil {
+		t.Fatal(err)
+	}
+	if !same {
+		t.Fatal("livechat inbox config was not changed to the expected value")
+	}
+	if err := db.Get(&same, `SELECT config = $2::jsonb FROM inboxes WHERE id = $1`, otherInbox, chatConfig); err != nil {
+		t.Fatal(err)
+	}
+	if !same {
+		t.Fatal("non-livechat inbox config changed")
+	}
+}
+
+// The live-chat switches are turned off even when the Closed status is already gone.
+func TestV2_9_0_RC9_CLYR6TurnsOffClosedReplySwitchesWithoutClosed(t *testing.T) {
+	db := testutil.NewDB(t, "migration_clyr_closed_reply_switches")
+	var inbox int
+	db.QueryRow(`INSERT INTO inboxes (name, channel, config) VALUES ('Chat', 'livechat', '{"visitors":{"prevent_reply_to_closed_conversation":true}}') RETURNING id`).Scan(&inbox)
+	if inbox == 0 {
+		t.Fatal("seeding failed")
+	}
+	if err := V2_9_0_RC9_CLYR6(db, nil, nil); err != nil {
+		t.Fatalf("running migration: %v", err)
+	}
+	var v string
+	if err := db.Get(&v, `SELECT config->'visitors'->>'prevent_reply_to_closed_conversation' FROM inboxes WHERE id = $1`, inbox); err != nil {
+		t.Fatal(err)
+	}
+	if v != "false" {
+		t.Fatalf("visitors switch = %q, want false", v)
 	}
 }

@@ -15,13 +15,24 @@ import (
 // V2_9_0_RC9_CLYR6 removes the Closed status (Clyr fork). Resolved does the same job and also sends
 // CSAT and tells the AI agent, so Closed conversations move to Resolved, every stored reference to
 // Closed (automation rules, macros, views) points to Resolved, and the Closed row is deleted.
-// It does nothing when there is no Closed status, which is the case on a fresh install.
+// It also turns off the live-chat "prevent reply to closed conversation" settings. It is idempotent,
+// and on a fresh install (no Closed status, no inboxes) it changes nothing.
 func V2_9_0_RC9_CLYR6(db *sqlx.DB, fs stuffbin.FileSystem, ko *koanf.Koanf) error {
 	tx, err := db.Beginx()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+
+	// The UI no longer shows the "prevent reply to closed conversation" switches, so turn them off.
+	// Otherwise a status an admin later names "Closed" would block chat replies with no way to undo it.
+	for _, audience := range []string{"visitors", "users"} {
+		if _, err := tx.Exec(`UPDATE inboxes
+			SET config = jsonb_set(config, ARRAY[$1::text, 'prevent_reply_to_closed_conversation'], 'false'::jsonb)
+			WHERE channel = 'livechat' AND config->($1::text)->'prevent_reply_to_closed_conversation' = 'true'::jsonb`, audience); err != nil {
+			return err
+		}
+	}
 
 	var closedID, resolvedID sql.NullInt64
 	if err := tx.QueryRow(`SELECT
@@ -30,7 +41,7 @@ func V2_9_0_RC9_CLYR6(db *sqlx.DB, fs stuffbin.FileSystem, ko *koanf.Koanf) erro
 		return err
 	}
 	if !closedID.Valid {
-		return nil
+		return tx.Commit()
 	}
 	if !resolvedID.Valid {
 		return fmt.Errorf("cannot remove the Closed status: there is no Resolved status to move its conversations to")
