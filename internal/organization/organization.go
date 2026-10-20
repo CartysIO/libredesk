@@ -60,6 +60,8 @@ type queries struct {
 	RemoveContactOrganization    *sqlx.Stmt `query:"remove-contact-organization"`
 	ReassignDefaultOrganization  *sqlx.Stmt `query:"reassign-default-organization"`
 	SetConversationOrganization  *sqlx.Stmt `query:"set-conversation-organization"`
+	SetOrganizationFields        *sqlx.Stmt `query:"set-organization-fields"`
+	AssignOrganizationByDomain   *sqlx.Stmt `query:"assign-organization-by-domain"`
 }
 
 // New creates and returns a new Manager.

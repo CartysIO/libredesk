@@ -15,10 +15,12 @@ import (
 	"github.com/zerodha/fastglue"
 )
 
-// organizationReq is the body for creating or updating an organization.
+// organizationReq is the body for creating or updating an organization. Omitted domains or custom_attributes
+// are left unchanged; given ones replace the current ones.
 type organizationReq struct {
 	Name       string `json:"name"`
 	ExternalID string `json:"external_id"`
+	omodels.Fields
 }
 
 // contactOrganizationReq is the body for adding a contact to an organization or making it the default.
@@ -41,10 +43,13 @@ type orgSyncReq struct {
 	Organizations []orgSyncOrganization `json:"organizations"`
 }
 
+// orgSyncOrganization is one organization in a sync. Its domains are added to the current ones and its
+// custom_attributes merged into them; a sync never removes either.
 type orgSyncOrganization struct {
 	ExternalID string           `json:"external_id"`
 	Name       string           `json:"name"`
 	Contacts   []orgSyncContact `json:"contacts"`
+	omodels.Fields
 }
 
 type orgSyncContact struct {
@@ -90,10 +95,20 @@ func handleSyncOrganizations(r *fastglue.Request) error {
 
 	resp := orgSyncResp{Errors: []orgSyncError{}}
 	for _, o := range req.Organizations {
+		if _, _, err := app.organization.ValidateFields(o.Fields); err != nil {
+			resp.Errors = append(resp.Errors, orgSyncError{ExternalID: o.ExternalID, Error: err.Error()})
+			continue
+		}
 		org, err := app.organization.UpsertByExternalID(o.ExternalID, o.Name)
 		if err != nil {
 			resp.Errors = append(resp.Errors, orgSyncError{ExternalID: o.ExternalID, Error: err.Error()})
 			continue
+		}
+		if o.Domains != nil || o.CustomAttributes != nil {
+			if _, err := app.organization.SetFields(org.ID, o.Fields, true); err != nil {
+				resp.Errors = append(resp.Errors, orgSyncError{ExternalID: o.ExternalID, Error: err.Error()})
+				continue
+			}
 		}
 		resp.Organizations++
 		for _, c := range o.Contacts {
@@ -194,8 +209,14 @@ func handleCreateOrganization(r *fastglue.Request) error {
 	if err := r.Decode(&req, "json"); err != nil {
 		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, app.i18n.T("errors.parsingRequest"), nil, envelope.InputError)
 	}
+	if _, _, err := app.organization.ValidateFields(req.Fields); err != nil {
+		return sendErrorEnvelope(r, err)
+	}
 	org, err := app.organization.Create(req.Name, req.ExternalID)
 	if err != nil {
+		return sendErrorEnvelope(r, err)
+	}
+	if org, err = setOrganizationFields(app, org, req.Fields); err != nil {
 		return sendErrorEnvelope(r, err)
 	}
 	return r.SendEnvelope(org)
@@ -214,11 +235,25 @@ func handleUpdateOrganization(r *fastglue.Request) error {
 	if err := r.Decode(&req, "json"); err != nil {
 		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, app.i18n.T("errors.parsingRequest"), nil, envelope.InputError)
 	}
+	if _, _, err := app.organization.ValidateFields(req.Fields); err != nil {
+		return sendErrorEnvelope(r, err)
+	}
 	org, err := app.organization.Update(id, req.Name, req.ExternalID)
 	if err != nil {
 		return sendErrorEnvelope(r, err)
 	}
+	if org, err = setOrganizationFields(app, org, req.Fields); err != nil {
+		return sendErrorEnvelope(r, err)
+	}
 	return r.SendEnvelope(org)
+}
+
+// setOrganizationFields replaces the domains and custom attributes that the request gives.
+func setOrganizationFields(app *App, org omodels.Organization, f omodels.Fields) (omodels.Organization, error) {
+	if f.Domains == nil && f.CustomAttributes == nil {
+		return org, nil
+	}
+	return app.organization.SetFields(org.ID, f, false)
 }
 
 // handleDeleteOrganization deletes an organization.

@@ -269,6 +269,7 @@ SELECT
    c.organization_id,
    c_org.name as organization_name,
    c_org.external_id as organization_external_id,
+   COALESCE(c_org.custom_attributes, '{}'::jsonb) as organization_custom_attributes,
    COALESCE((SELECT json_agg(json_build_object('id', o.id, 'name', o.name, 'external_id', o.external_id, 'is_default', o.id = ct.organization_id) ORDER BY o.id = ct.organization_id DESC, o.name, o.id)
       FROM contact_organizations co JOIN organizations o ON o.id = co.organization_id WHERE co.contact_id = ct.id), '[]'::json) as "contact.organizations",
    (SELECT json_agg(json_build_object('channel', cci.channel, 'identifier', cci.identifier))

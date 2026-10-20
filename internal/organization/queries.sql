@@ -5,7 +5,7 @@ WHERE ($1 = '' OR o.name ILIKE '%' || $1 || '%' OR o.external_id = $1);
 
 -- name: get-organizations
 -- $1 = search text on name or external_id ('' for all), $2 = limit, $3 = offset.
-SELECT o.id, o.created_at, o.updated_at, o.name, o.external_id,
+SELECT o.id, o.created_at, o.updated_at, o.name, o.external_id, o.custom_attributes, o.domains,
     (SELECT COUNT(*) FROM contact_organizations co JOIN users u ON u.id = co.contact_id WHERE co.organization_id = o.id AND u.deleted_at IS NULL) AS contact_count
 FROM organizations o
 WHERE ($1 = '' OR o.name ILIKE '%' || $1 || '%' OR o.external_id = $1)
@@ -13,22 +13,22 @@ ORDER BY o.name, o.id
 LIMIT $2 OFFSET $3;
 
 -- name: get-organization
-SELECT o.id, o.created_at, o.updated_at, o.name, o.external_id,
+SELECT o.id, o.created_at, o.updated_at, o.name, o.external_id, o.custom_attributes, o.domains,
     (SELECT COUNT(*) FROM contact_organizations co JOIN users u ON u.id = co.contact_id WHERE co.organization_id = o.id AND u.deleted_at IS NULL) AS contact_count
 FROM organizations o WHERE o.id = $1;
 
 -- name: get-organization-by-external-id
-SELECT o.id, o.created_at, o.updated_at, o.name, o.external_id,
+SELECT o.id, o.created_at, o.updated_at, o.name, o.external_id, o.custom_attributes, o.domains,
     (SELECT COUNT(*) FROM contact_organizations co JOIN users u ON u.id = co.contact_id WHERE co.organization_id = o.id AND u.deleted_at IS NULL) AS contact_count
 FROM organizations o WHERE o.external_id = $1;
 
 -- name: insert-organization
 INSERT INTO organizations (name, external_id) VALUES ($1, $2)
-RETURNING id, created_at, updated_at, name, external_id;
+RETURNING id, created_at, updated_at, name, external_id, custom_attributes, domains;
 
 -- name: update-organization
 UPDATE organizations SET name = $2, external_id = $3, updated_at = NOW() WHERE id = $1
-RETURNING id, created_at, updated_at, name, external_id;
+RETURNING id, created_at, updated_at, name, external_id, custom_attributes, domains;
 
 -- name: upsert-organization-by-external-id
 -- Creates the organization or renames it. An empty name keeps the current name.
@@ -36,7 +36,52 @@ INSERT INTO organizations (name, external_id) VALUES (COALESCE(NULLIF($2, ''), $
 ON CONFLICT (external_id) WHERE external_id IS NOT NULL DO UPDATE
 SET name = COALESCE(NULLIF($2, ''), organizations.name),
     updated_at = CASE WHEN NULLIF($2, '') IS NOT NULL AND $2 IS DISTINCT FROM organizations.name THEN NOW() ELSE organizations.updated_at END
-RETURNING id, created_at, updated_at, name, external_id;
+RETURNING id, created_at, updated_at, name, external_id, custom_attributes, domains;
+
+-- name: set-organization-fields
+-- $2 = domains, $3 = custom attributes; NULL keeps the current value.
+-- $4 = merge: add the domains and merge the attributes into the current ones, instead of replacing them.
+UPDATE organizations SET
+    domains = CASE
+        WHEN $2::TEXT[] IS NULL THEN domains
+        WHEN $4::BOOLEAN THEN ARRAY(SELECT DISTINCT d FROM unnest(domains || $2::TEXT[]) d ORDER BY d)
+        ELSE $2::TEXT[] END,
+    custom_attributes = CASE
+        WHEN $3::JSONB IS NULL THEN custom_attributes
+        WHEN $4::BOOLEAN THEN custom_attributes || $3::JSONB
+        ELSE $3::JSONB END,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id;
+
+-- name: assign-organization-by-domain
+-- Adds a contact that has no organization to the one organization that has domain $2, and makes it the
+-- contact's default. Nothing happens when no organization or more than one has the domain.
+-- Conversations of the contact that have no organization get it too.
+WITH org AS (
+    SELECT id FROM organizations WHERE domains @> ARRAY[$2::TEXT] LIMIT 2
+), pick AS (
+    SELECT id FROM org WHERE (SELECT COUNT(*) FROM org) = 1
+), contact AS (
+    SELECT u.id FROM users u
+    WHERE u.id = $1 AND u.type IN ('contact', 'visitor') AND u.deleted_at IS NULL AND u.organization_id IS NULL
+      AND NOT EXISTS (SELECT 1 FROM contact_organizations co WHERE co.contact_id = u.id)
+), member AS (
+    INSERT INTO contact_organizations (contact_id, organization_id)
+    SELECT contact.id, pick.id FROM contact, pick
+    ON CONFLICT DO NOTHING
+    RETURNING contact_id, organization_id
+), def AS (
+    UPDATE users SET organization_id = member.organization_id, updated_at = NOW()
+    FROM member WHERE users.id = member.contact_id
+    RETURNING users.id
+), convs AS (
+    UPDATE conversations SET organization_id = member.organization_id
+    FROM member WHERE conversations.contact_id = member.contact_id AND conversations.organization_id IS NULL
+    RETURNING conversations.uuid
+)
+SELECT COALESCE((SELECT organization_id FROM member), 0) AS organization_id,
+       COALESCE((SELECT array_agg(uuid::TEXT) FROM convs), '{}') AS filed;
 
 -- name: delete-organization
 DELETE FROM organizations WHERE id = $1;

@@ -1086,6 +1086,14 @@ func (m *Manager) ProcessIncomingMessage(in models.IncomingMessage) (models.Mess
 		in.Contact.ID = senderID
 	}
 
+	// A contact with no organization joins the organization of its email domain, so a new conversation
+	// is filed under it (Clyr fork). A failure is logged by the store and does not stop the message.
+	if m.organizationStore != nil && in.Contact.Email.Valid {
+		if orgID, _, err := m.organizationStore.AssignByEmailDomain(senderID, in.Contact.Email.String); err == nil && orgID > 0 {
+			m.lo.Info("contact joined organization by email domain", "contact_id", senderID, "organization_id", orgID)
+		}
+	}
+
 	// Match conversation if not already matched by plus-addressing.
 	var isNewConversation bool
 	if conversationID == 0 {

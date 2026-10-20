@@ -44,12 +44,35 @@
             <IdCardIcon size="14" class="flex-shrink-0" />
             {{ organization.external_id }}
           </div>
+          <div
+            v-if="organization.domains?.length"
+            class="flex items-center gap-1.5 text-xs text-muted-foreground"
+            data-cy="organization-domains"
+          >
+            <GlobeIcon size="14" class="flex-shrink-0" />
+            {{ organization.domains.join(', ') }}
+          </div>
           <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
             <CalendarIcon size="14" class="flex-shrink-0" />
             {{ $t('globals.terms.createdOn') }}
             {{ format(new Date(organization.created_at), 'PPP') }}
           </div>
         </div>
+
+        <!-- Custom attributes -->
+        <section
+          v-if="customAttributeStore.organizationAttributeOptions.length > 0"
+          class="w-full max-w-md space-y-3"
+          data-cy="organization-attributes"
+        >
+          <h3 class="text-base font-semibold">{{ t('organization.attributes') }}</h3>
+          <CustomAttributes
+            :loading="savingAttributes || !canWrite"
+            :attributes="customAttributeStore.organizationAttributeOptions"
+            :customAttributes="organization.custom_attributes || {}"
+            @update:setattributes="updateCustomAttributes"
+          />
+        </section>
 
         <!-- Contacts -->
         <section class="w-full space-y-3" data-cy="organization-contacts">
@@ -182,6 +205,7 @@ import { format } from 'date-fns'
 import {
   Building2,
   CalendarIcon,
+  GlobeIcon,
   IdCardIcon,
   MoreVerticalIcon,
   PencilIcon,
@@ -213,6 +237,8 @@ import { handleHTTPError } from '@shared-ui/utils/http.js'
 import { getRelativeTime } from '@shared-ui/utils/datetime.js'
 import ContactDetail from '@/layouts/contact/ContactDetail.vue'
 import OrganizationFormDialog from '@/features/organization/OrganizationFormDialog.vue'
+import CustomAttributes from '@/features/conversation/sidebar/CustomAttributes.vue'
+import { useCustomAttributeStore } from '@/stores/customAttributes'
 import { organizationConversationFilters } from '@/features/organization/filters.js'
 import { useUserStore } from '@/stores/user'
 import { useEmitter } from '@/composables/useEmitter'
@@ -227,8 +253,11 @@ const route = useRoute()
 const router = useRouter()
 const emitter = useEmitter()
 const userStore = useUserStore()
+const customAttributeStore = useCustomAttributeStore()
+customAttributeStore.fetchCustomAttributes()
 
 const organization = ref(null)
+const savingAttributes = ref(false)
 const loading = ref(false)
 const contacts = ref([])
 const contactsPage = ref(1)
@@ -312,6 +341,28 @@ async function fetchConversations(page = 1) {
 
 const onSaved = (org) => {
   organization.value = { ...organization.value, ...org }
+}
+
+// updateCustomAttributes replaces the organization's attributes. The update API needs the name and external ID
+// too; domains are left out, so they stay.
+async function updateCustomAttributes(attributes) {
+  const org = organization.value
+  savingAttributes.value = true
+  try {
+    const { data } = await api.updateOrganization(org.id, {
+      name: org.name,
+      external_id: org.external_id || '',
+      custom_attributes: attributes
+    })
+    onSaved(data.data)
+    emitter.emit(EMITTER_EVENTS.SHOW_TOAST, {
+      description: t('globals.messages.savedSuccessfully')
+    })
+  } catch (err) {
+    showError(err)
+  } finally {
+    savingAttributes.value = false
+  }
 }
 
 async function confirmDelete() {

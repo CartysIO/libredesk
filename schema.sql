@@ -184,10 +184,15 @@ CREATE TABLE organizations (
 	"name" TEXT NOT NULL,
 	-- ID of the organization in the customer's own system, set by the widget JWT.
 	external_id TEXT NULL,
+	-- Values of the custom attributes that apply to organizations.
+	custom_attributes JSONB DEFAULT '{}'::jsonb NOT NULL,
+	-- Lowercase email domains. An email contact with no organization joins the one organization that has its domain.
+	domains TEXT[] DEFAULT '{}'::TEXT[] NOT NULL,
 	CONSTRAINT constraint_organizations_on_name CHECK (length("name") <= 255),
 	CONSTRAINT constraint_organizations_on_external_id CHECK (length(external_id) <= 128)
 );
 CREATE UNIQUE INDEX index_unique_organizations_on_external_id ON organizations (external_id) WHERE external_id IS NOT NULL;
+CREATE INDEX index_organizations_on_domains ON organizations USING GIN (domains);
 CREATE INDEX index_tgrm_organizations_on_name ON organizations USING GIN ("name" gin_trgm_ops);
 
 DROP TABLE IF EXISTS users CASCADE;

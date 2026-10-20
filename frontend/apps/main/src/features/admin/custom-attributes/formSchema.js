@@ -1,7 +1,7 @@
 import * as z from 'zod'
 export const createFormSchema = (t) => z.object({
     id: z.number().optional(),
-    applies_to: z.enum(['contact', 'conversation'], {
+    applies_to: z.enum(['contact', 'conversation', 'organization'], {
         required_error: t('globals.messages.required'),
     }),
     name: z

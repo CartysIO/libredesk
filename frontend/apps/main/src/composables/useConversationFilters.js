@@ -3,7 +3,7 @@ import { useConversationStore } from '@/stores/conversation'
 import { useInboxStore } from '@/stores/inbox'
 import { useSlaStore } from '@/stores/sla'
 import { useCustomAttributeStore } from '@/stores/customAttributes'
-import { FIELD_TYPE, FIELD_OPERATORS } from '@/constants/filterConfig'
+import { FIELD_TYPE, FIELD_OPERATORS, OPERATOR } from '@/constants/filterConfig'
 import { useI18n } from 'vue-i18n'
 
 export function useConversationFilters () {
@@ -161,6 +161,36 @@ export function useConversationFilters () {
             }, {})
     })
 
+    // Organization custom attributes, keyed like contact ones (Clyr fork).
+    const organizationCustomAttributes = computed(() => {
+        return customAttributeStore.organizationAttributeOptions
+            .reduce((acc, attribute) => {
+                acc[attribute.key] = {
+                    label: attribute.label,
+                    type: customAttributeDataTypeToFieldType[attribute.data_type] || FIELD_TYPE.TEXT,
+                    operators: customAttributeDataTypeToFieldOperators[attribute.data_type] || FIELD_OPERATORS.TEXT,
+                    allowCaseSensitive: ['text', 'link'].includes(attribute.data_type),
+                    options: (attribute.values || []).map(value => ({ label: value, value })),
+                }
+                return acc
+            }, {})
+    })
+
+    // Automation conditions added by the Clyr fork. "contains" on organization means "is any of".
+    const clyrAutomationFields = computed(() => ({
+        organization: {
+            label: t('globals.terms.organization'),
+            type: FIELD_TYPE.SELECT,
+            operators: [OPERATOR.EQUALS, OPERATOR.NOT_EQUALS, OPERATOR.CONTAINS, OPERATOR.NOT_CONTAINS, OPERATOR.SET, OPERATOR.NOT_SET],
+            entity: 'organization'
+        },
+        outside_business_hours: {
+            label: t('admin.automation.outsideBusinessHours'),
+            type: FIELD_TYPE.BOOLEAN,
+            operators: [OPERATOR.EQUALS]
+        }
+    }))
+
     const newConversationFilters = computed(() => ({
         contact_email: {
             label: t('globals.terms.email'),
@@ -213,7 +243,8 @@ export function useConversationFilters () {
             type: FIELD_TYPE.SELECT,
             operators: FIELD_OPERATORS.SELECT,
             options: iStore.options
-        }
+        },
+        ...clyrAutomationFields.value
     }))
 
     const conversationFilters = computed(() => ({
@@ -272,6 +303,7 @@ export function useConversationFilters () {
             operators: FIELD_OPERATORS.SELECT,
             options: iStore.options
         },
+        ...clyrAutomationFields.value,
         previous_status: {
             label: t('admin.automation.previousStatus'),
             type: FIELD_TYPE.SELECT,
@@ -408,5 +440,6 @@ export function useConversationFilters () {
         conversationActions,
         macroActions,
         contactCustomAttributes,
+        organizationCustomAttributes,
     }
 }

@@ -59,6 +59,10 @@ const (
 	ConversationInbox                  = "inbox"
 	ConversationIncomingTo             = "to"
 	ContactEmail                       = "contact_email"
+	// ConversationOrganization is the conversation's organization ID (Clyr fork). "contains" means "is any of".
+	ConversationOrganization = "organization"
+	// ConversationOutsideBusinessHours is "true" when the rule runs outside the default business hours (Clyr fork).
+	ConversationOutsideBusinessHours = "outside_business_hours"
 
 	ConversationPreviousStatus       = "previous_status"
 	ConversationPreviousPriority     = "previous_priority"
@@ -84,6 +88,8 @@ const (
 
 	FieldTypeContactCustomAttribute = "contact_custom_attribute"
 	FieldTypeConversationField      = "conversation"
+	// FieldTypeOrganizationCustomAttribute is a custom attribute of the conversation's organization (Clyr fork).
+	FieldTypeOrganizationCustomAttribute = "organization_custom_attribute"
 )
 
 // ActionPermissions maps actions to permissions
