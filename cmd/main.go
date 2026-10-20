@@ -46,6 +46,7 @@ import (
 	"github.com/abhinavxd/libredesk/internal/helpcenter"
 	"github.com/abhinavxd/libredesk/internal/importer"
 	"github.com/abhinavxd/libredesk/internal/inbox"
+	"github.com/abhinavxd/libredesk/internal/linear"
 	"github.com/abhinavxd/libredesk/internal/media"
 	"github.com/abhinavxd/libredesk/internal/oidc"
 	"github.com/abhinavxd/libredesk/internal/organization"
@@ -113,6 +114,7 @@ type App struct {
 	oidc               *oidc.Manager
 	clerk              *clerk.Client
 	slackBridge        *slackbridge.Manager
+	linear             *linear.Manager
 	media              *media.Manager
 	setting            *setting.Manager
 	role               *role.Manager
@@ -344,6 +346,7 @@ func main() {
 		oidc:             oidc,
 		clerk:            clerkClient,
 		slackBridge:      slackBridge,
+		linear:           initLinear(db, conversation, systemUser.ID),
 		i18n:             i18n,
 		auth:             auth,
 		media:            media,

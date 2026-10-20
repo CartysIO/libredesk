@@ -178,6 +178,9 @@
             <PreviousConversations />
           </AccordionContent>
         </AccordionItem>
+
+        <!-- Linear issues (Clyr fork): its own accordion item, hidden when Linear is not set up. -->
+        <ConversationSideBarLinear />
       </Accordion>
     </TabsContent>
 
@@ -217,6 +220,7 @@ import { useCustomAttributeStore } from '@/stores/customAttributes'
 import ContactNotes from '@/features/contact/ContactNotes.vue'
 import PreviousConversations from '@/features/conversation/sidebar/PreviousConversations.vue'
 import ConversationSideBarPageVisits from '@/features/conversation/sidebar/ConversationSideBarPageVisits.vue'
+import ConversationSideBarLinear from '@/features/conversation/sidebar/ConversationSideBarLinear.vue'
 import SelectComboBox from '@main/components/combobox/SelectCombobox.vue'
 import SelectAgentCombobox from '@main/components/combobox/SelectAgentCombobox.vue'
 import SelectTeamCombobox from '@main/components/combobox/SelectTeamCombobox.vue'

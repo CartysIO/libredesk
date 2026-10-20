@@ -214,3 +214,11 @@ ai_agent_email = ""
 # "slack-email=agent-email" pairs, comma separated.
 agent_email_aliases = ""
 queue_size = 1000
+
+# Linear (Clyr fork): agents link Linear issues to a conversation, and new comments on a linked
+# issue are added to it as private notes. Off unless api_key and webhook_secret are set.
+# In Linear, add a webhook to https://<your-domain>/webhooks/linear for the Issues and Comments
+# data change events, and copy its signing secret into webhook_secret.
+[linear]
+api_key = ""
+webhook_secret = ""
