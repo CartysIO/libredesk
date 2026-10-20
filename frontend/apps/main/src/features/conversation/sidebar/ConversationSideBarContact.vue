@@ -2,10 +2,10 @@
   <div class="min-w-0 space-y-2 text-sm">
     <div class="flex justify-between items-start">
       <div class="relative shrink-0">
-        <Avatar class="size-14">
+        <Avatar class="size-12">
           <AvatarImage :src="conversation?.contact?.avatar_url || ''" />
           <AvatarFallback>
-            {{ conversation?.contact?.first_name?.toUpperCase().substring(0, 2) }}
+            {{ initials(conversation?.contact?.first_name, conversation?.contact?.last_name) }}
           </AvatarFallback>
         </Avatar>
         <StatusDot
@@ -139,6 +139,7 @@ import { ViewVerticalIcon } from '@radix-icons/vue'
 import { Button } from '@shared-ui/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@shared-ui/components/ui/avatar'
 import StatusDot from '@shared-ui/components/StatusDot.vue'
+import { initials } from '@main/utils/initials'
 import CopyButton from '@/components/button/CopyButton.vue'
 import {
   Mail,

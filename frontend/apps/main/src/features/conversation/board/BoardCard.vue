@@ -4,7 +4,7 @@
     tabindex="0"
     draggable="true"
     :data-uuid="conversation.uuid"
-    class="rounded-md border bg-card text-card-foreground p-3 space-y-1 cursor-pointer select-none shadow-sm hover:bg-accent/40 transition-colors"
+    class="rounded-md border bg-card text-card-foreground px-3 py-2.5 space-y-1 cursor-pointer select-none hover:border-input hover:bg-accent/40 transition-colors"
     :class="{ 'opacity-50': isDragging, 'ring-2 ring-primary bg-accent/60': active }"
     :aria-current="active ? 'true' : undefined"
     @click="$emit('open', conversation)"
@@ -12,11 +12,10 @@
     @dragstart="onDragStart"
     @dragend="$emit('dragend')"
   >
-    <div class="flex items-baseline justify-between gap-2">
+    <div class="flex items-center gap-2">
+      <StatusSwatch :status="conversation.status" />
+      <span class="text-xs font-bold tabular-nums shrink-0">#{{ conversation.reference_number }}</span>
       <h3 class="text-sm font-semibold truncate min-w-0">{{ title }}</h3>
-      <span class="text-xs text-muted-foreground tabular-nums shrink-0">
-        #{{ conversation.reference_number }}
-      </span>
     </div>
     <p v-if="conversation.organization_name" class="text-xs text-muted-foreground truncate">
       {{ contactName }}
@@ -39,7 +38,7 @@
       <span class="flex-1" />
       <span
         v-if="isUnread"
-        class="w-2 h-2 rounded-full bg-destructive shrink-0"
+        class="w-2 h-2 rounded-full bg-foreground shrink-0"
         :aria-label="t('kanban.unread')"
       />
       <component
@@ -58,6 +57,7 @@ import { useI18n } from 'vue-i18n'
 import { Mail } from 'lucide-vue-next'
 import { getRelativeTime } from '@shared-ui/utils/datetime.js'
 import { Avatar, AvatarFallback, AvatarImage } from '@shared-ui/components/ui/avatar'
+import StatusSwatch from '@main/components/brand/StatusSwatch.vue'
 import { CHANNEL_ICONS } from '@main/constants/channelIcons.js'
 import { useUsersStore } from '@main/stores/users'
 

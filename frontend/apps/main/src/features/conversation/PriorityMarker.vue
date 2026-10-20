@@ -21,9 +21,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@shared-ui/components/u
 import { useI18n } from 'vue-i18n'
 
 const PRIORITY_MARKERS = {
+  // Clyr desk: the bar count carries the level; colour is kept for the whose-move code.
   low: { level: 1, class: 'text-muted-foreground' },
-  medium: { level: 2, class: 'text-warning-600' },
-  high: { level: 3, class: 'text-destructive' }
+  medium: { level: 2, class: 'text-foreground' },
+  high: { level: 3, class: 'text-foreground' }
 }
 const UNKNOWN_MARKER = { level: 0, class: 'text-muted-foreground' }
 

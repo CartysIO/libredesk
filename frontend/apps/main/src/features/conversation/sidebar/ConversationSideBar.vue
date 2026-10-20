@@ -230,7 +230,8 @@ const customAttributeStore = useCustomAttributeStore()
 const emitter = useEmitter()
 const conversationStore = useConversationStore()
 const userStore = useUserStore()
-const accordionState = useStorage('conversation-sidebar-accordion', [])
+// Clyr desk: Information (the spec table) is open on first use.
+const accordionState = useStorage('conversation-sidebar-accordion', ['information'])
 const activeTab = useStorage('conversation-sidebar-tab', 'details')
 const copilotPointerOpened = ref(false)
 const { t } = useI18n()
@@ -457,16 +458,17 @@ const updateContactCustomAttributes = async (attributes) => {
   }
 }
 
+/* Clyr desk: sections on hairline rules with small-caps labels, not grey rounded blocks. */
 :deep(.accordion-item) {
-  @apply border-b border-border last:border-b-0;
+  @apply border-0 border-t border-border/70;
 }
 
 :deep(.accordion-trigger) {
-  @apply rounded-none px-4 py-3 text-sm font-medium can-hover:hover:bg-accent/40 hover:no-underline;
+  @apply px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground hover:no-underline;
 }
 
 :deep(.accordion-content) {
-  @apply p-4;
+  @apply px-4 pb-4 pt-0;
 }
 
 :deep(.accordion-content--actions) {

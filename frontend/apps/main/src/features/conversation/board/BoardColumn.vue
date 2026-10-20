@@ -1,15 +1,15 @@
 <template>
   <section
-    class="flex flex-col h-full w-72 shrink-0 rounded-lg border bg-muted/30 transition-colors"
-    :class="{ 'ring-2 ring-primary/50 bg-accent/40': isOver }"
+    class="flex flex-col h-full w-72 shrink-0 border-r border-border/70 transition-colors"
+    :class="{ 'bg-accent/50': isOver }"
     :aria-label="t(column.labelKey)"
     @dragover.prevent="onDragOver"
     @dragleave="onDragLeave"
     @drop.prevent="onDrop"
   >
     <header class="flex items-center gap-2 px-3 py-2 shrink-0">
-      <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-sm font-medium" :class="[column.bgClass, column.textClass]">
-        <component :is="icon" class="w-4 h-4" />
+      <span class="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+        <StatusSwatch :status="column.status" />
         {{ t(column.labelKey) }}
       </span>
       <span class="text-sm text-muted-foreground tabular-nums">{{ state.total }}</span>
@@ -51,14 +51,14 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { CircleDot, UserRound, Hourglass, CirclePause, CircleCheck, Loader2 } from 'lucide-vue-next'
+import { Loader2 } from 'lucide-vue-next'
 import { Skeleton } from '@shared-ui/components/ui/skeleton'
 import BoardCard from './BoardCard.vue'
 import BoardCardMenu from './BoardCardMenu.vue'
+import StatusSwatch from '@main/components/brand/StatusSwatch.vue'
 
-const ICONS = { CircleDot, UserRound, Hourglass, CirclePause, CircleCheck }
 const NEAR_BOTTOM_PX = 240
 
 const props = defineProps({
@@ -72,7 +72,6 @@ const emit = defineEmits(['open', 'dragstart', 'dragend', 'drop', 'load-more', '
 const { t } = useI18n()
 const scroller = ref(null)
 const isOver = ref(false)
-const icon = computed(() => ICONS[props.column.icon] || CircleDot)
 
 const onScroll = () => {
   const el = scroller.value

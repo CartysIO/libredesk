@@ -15,17 +15,10 @@
         </dd>
       </template>
 
-      <template v-if="conversation.subject">
-        <dt class="sidebar-label">{{ $t('globals.terms.subject') }}</dt>
-        <dd :class="INFO_VALUE_CLASS">{{ conversation.subject }}</dd>
-      </template>
-
-      <dt class="sidebar-label">{{ $t('globals.terms.referenceNumber') }}</dt>
-      <dd :class="INFO_VALUE_CLASS">{{ conversation.reference_number }}</dd>
-
+      <!-- Clyr desk: the ticket header shows the subject and reference number, so they are not repeated here. -->
       <dt class="sidebar-label">{{ $t('globals.terms.initiatedAt') }}</dt>
       <dd :class="INFO_VALUE_CLASS">
-        {{ conversation.created_at ? format(conversation.created_at, 'PPpp') : '-' }}
+        {{ conversation.created_at ? format(conversation.created_at, 'PP p') : '-' }}
       </dd>
 
       <dt class="sidebar-label flex flex-wrap items-center gap-1.5">
@@ -38,7 +31,7 @@
         />
       </dt>
       <dd :class="INFO_VALUE_CLASS">
-        {{ conversation.first_reply_at ? format(conversation.first_reply_at, 'PPpp') : '-' }}
+        {{ conversation.first_reply_at ? format(conversation.first_reply_at, 'PP p') : '-' }}
       </dd>
 
       <dt class="sidebar-label flex flex-wrap items-center gap-1.5">
@@ -51,7 +44,7 @@
         />
       </dt>
       <dd :class="INFO_VALUE_CLASS">
-        {{ conversation.resolved_at ? format(conversation.resolved_at, 'PPpp') : '-' }}
+        {{ conversation.resolved_at ? format(conversation.resolved_at, 'PP p') : '-' }}
       </dd>
 
       <dt class="sidebar-label flex flex-wrap items-center gap-1.5">
@@ -64,12 +57,12 @@
         />
       </dt>
       <dd :class="INFO_VALUE_CLASS">
-        {{ conversation.last_reply_at ? format(conversation.last_reply_at, 'PPpp') : '-' }}
+        {{ conversation.last_reply_at ? format(conversation.last_reply_at, 'PP p') : '-' }}
       </dd>
 
       <template v-if="conversation.closed_at">
         <dt class="sidebar-label">{{ $t('globals.terms.closedAt') }}</dt>
-        <dd :class="INFO_VALUE_CLASS">{{ format(conversation.closed_at, 'PPpp') }}</dd>
+        <dd :class="INFO_VALUE_CLASS">{{ format(conversation.closed_at, 'PP p') }}</dd>
       </template>
 
       <template v-if="conversation.sla_policy_name">
@@ -79,6 +72,7 @@
     </dl>
 
     <CustomAttributes
+      class="desk-spec-full"
       v-if="customAttributeStore.conversationAttributeOptions.length > 0"
       :loading="conversationStore.conversation.loading"
       :attributes="customAttributeStore.conversationAttributeOptions"

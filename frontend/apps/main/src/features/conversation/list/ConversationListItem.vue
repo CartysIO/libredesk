@@ -4,30 +4,22 @@
       <router-link
         :to="conversationRoute"
         :aria-current="isCurrent ? 'page' : undefined"
-        class="group relative block cursor-pointer px-3 py-3 transition-colors duration-150 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        class="group relative block cursor-pointer border-b border-border/70 px-3 py-2 transition-colors duration-150 ease-in-out focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         :class="{
-          'bg-accent before:absolute before:inset-y-3 before:left-0 before:w-0.5 before:rounded-r before:bg-primary': isCurrent,
+          'bg-accent': isCurrent,
           'bg-primary/5 can-hover:hover:bg-primary/10': isItemSelected && !isCurrent,
-          'can-hover:hover:bg-accent/40': !isCurrent && !isItemSelected
+          'can-hover:hover:bg-accent/50': !isCurrent && !isItemSelected
         }"
       >
-        <div class="flex items-start gap-2">
-          <div class="relative flex-shrink-0 w-10 h-10">
-            <div
+        <div class="flex items-start gap-2.5">
+          <!-- Whose-move swatch; the bulk checkbox takes its cell on hover or while selecting. -->
+          <div class="relative flex h-5 w-4 flex-shrink-0 items-center justify-center">
+            <StatusSwatch
               class="transition-opacity"
               :class="avatarOpacityClass"
+              :status="conversation.status"
               :aria-hidden="showCheckbox"
-            >
-              <Avatar class="w-10 h-10 rounded-full">
-                <AvatarImage
-                  :src="conversation.contact.avatar_url || ''"
-                  class="object-cover"
-                />
-                <AvatarFallback>
-                  {{ conversation.contact.first_name.substring(0, 2).toUpperCase() }}
-                </AvatarFallback>
-              </Avatar>
-            </div>
+            />
             <div
               v-if="canBulkAct"
               class="absolute inset-0 items-center justify-center"
@@ -37,13 +29,13 @@
               <Checkbox
                 :checked="isItemSelected"
                 :aria-label="t('conversation.bulkActions.selectConversation')"
-                class="w-5 h-5"
+                class="w-4 h-4"
               />
             </div>
           </div>
 
           <!-- Content container -->
-          <div class="flex-1 min-w-0 space-y-1.5">
+          <div class="flex-1 min-w-0 space-y-0.5">
             <!-- Name + Subject group -->
             <div class="space-y-0.5">
               <!-- Contact name + channel + time -->
@@ -51,8 +43,8 @@
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <h3
-                      class="ui-subheading truncate min-w-0"
-                      :class="isUnread ? 'font-semibold' : 'font-medium'"
+                      class="text-sm truncate min-w-0 text-foreground"
+                      :class="isUnread ? 'font-bold' : 'font-semibold'"
                     >
                       {{ contactFullName }}
                     </h3>
@@ -119,7 +111,7 @@
               <!-- Subject -->
               <p
                 v-if="showSubject && conversation.subject"
-                class="text-xs text-muted-foreground truncate"
+                class="text-sm text-foreground truncate"
               >
                 {{ conversation.subject }}
               </p>
@@ -165,7 +157,7 @@
                 </Tooltip>
                 <div
                   v-if="isUnread"
-                  class="flex items-center justify-center w-5 h-5 bg-primary text-primary-foreground text-xs font-medium rounded-full flex-shrink-0"
+                  class="flex items-center justify-center min-w-5 h-5 px-1 bg-foreground text-background text-xs font-semibold tabular-nums rounded-full flex-shrink-0"
                 >
                   {{ conversation.unread_message_count > 9 ? '9+' : conversation.unread_message_count }}
                 </div>
@@ -198,7 +190,7 @@ import { useRoute } from 'vue-router'
 import { getRelativeTime, formatFullTimestamp } from '@shared-ui/utils/datetime.js'
 import { Hourglass, Mail, Reply, MailOpen, SquareCheck, UserRoundCheck, Users } from 'lucide-vue-next'
 import { CHANNEL_ICONS } from '@main/constants/channelIcons.js'
-import { Avatar, AvatarFallback, AvatarImage } from '@shared-ui/components/ui/avatar'
+import StatusSwatch from '@main/components/brand/StatusSwatch.vue'
 import {
   ContextMenu,
   ContextMenuContent,

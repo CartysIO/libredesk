@@ -593,8 +593,12 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* Clyr desk: the column sits flush against the 3rem rail (plus its 1px rule), no floating card. */
 :deep(.sidebar-secondary) {
-  @apply absolute inset-y-0 h-full overflow-hidden rounded-xl border border-sidebar-border;
+  @apply ml-[calc(3rem+1px)] overflow-hidden border-r border-sidebar-border;
+  top: 0 !important;
+  bottom: 0 !important;
+  height: auto !important;
 }
 
 :deep(.group\/sidebar-wrapper) {

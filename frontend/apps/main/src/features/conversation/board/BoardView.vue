@@ -2,7 +2,7 @@
   <div ref="root" class="relative h-full flex flex-col overflow-hidden">
     <div class="flex items-center gap-4 px-2 h-12 border-b shrink-0">
       <SidebarTrigger class="cursor-pointer" />
-      <span class="text-xl font-semibold truncate">{{ title }}</span>
+      <span class="desk-title text-xl font-semibold truncate">{{ title }}</span>
       <div class="ml-auto">
         <ConversationViewToggle />
       </div>
@@ -10,10 +10,10 @@
 
     <div
       ref="scroller"
-      class="flex-1 min-h-0 overflow-x-auto overflow-y-hidden p-3"
+      class="flex-1 min-h-0 overflow-x-auto overflow-y-hidden"
       :style="openUUID && !expanded ? { paddingRight: `${occupied + 12}px` } : undefined"
     >
-      <div class="flex gap-3 h-full min-w-max">
+      <div class="flex h-full min-w-max">
         <BoardColumn
           v-for="column in CONVERSATION_BOARD_COLUMNS"
           :key="column.key"
