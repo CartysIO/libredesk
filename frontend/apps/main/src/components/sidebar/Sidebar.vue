@@ -594,10 +594,11 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* Clyr desk: the column sits flush against the 3rem rail (plus its 1px rule), no floating card. */
 :deep(.sidebar-secondary) {
-  @apply border border-sidebar-border ml-[3.2rem] rounded-lg overflow-hidden;
-  top: 0.40rem !important;
-  bottom: 0.35rem !important;
+  @apply ml-[calc(3rem+1px)] overflow-hidden border-r border-sidebar-border;
+  top: 0 !important;
+  bottom: 0 !important;
   height: auto !important;
 }
 

@@ -1,0 +1,284 @@
+// Clyr Support desk theme (fork only).
+// Scoped to the agent app through html[data-app='desk'] (set in apps/main/index.html), so the chat
+// widget and the help center keep the upstream tokens from shared-ui/assets/styles/main.scss.
+// Every value is an HSL channel triple, like the upstream tokens. See frontend/DESIGN.md.
+
+html[data-app='desk'] {
+  --background: 150 20% 99%;
+  --foreground: 160 35% 9%;
+  --foreground-lighter: 158 10% 38%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 160 35% 9%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 160 35% 9%;
+
+  // Deep Clyr green carries actions; the brand green (#62C47A) is too light for white text.
+  --primary: 153 58% 24%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 150 14% 95.5%;
+  --secondary-foreground: 160 35% 9%;
+
+  --muted: 150 14% 95.5%;
+  --muted-foreground: 160 9% 36%;
+
+  --accent: 150 18% 93.5%;
+  --accent-foreground: 160 35% 9%;
+
+  --destructive: 4 68% 45%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 147 60% 30%;
+  --success-foreground: 0 0% 100%;
+
+  --border: 150 12% 89%;
+  --input: 150 10% 82%;
+  --ring: 137 45% 46%;
+  --radius: 0.375rem;
+  --private: 42 92% 93%;
+  // The gutter between panes is the hairline colour, so panes meet on a 1px rule.
+  --canvas: 150 12% 89%;
+
+  // Clyr brand green, #62C47A.
+  --brand: 135 45% 58%;
+
+  // Whose move it is. One code, used on list rows, board cards and the ticket header.
+  --code-new: 137 50% 36%;
+  --code-you: 11 80% 50%;
+  --code-customer: 217 72% 50%;
+  --code-hold: 215 14% 50%;
+  --code-done: 155 8% 62%;
+
+  // Secondary navigation column (inbox, views): a tinted ground next to the white work panes.
+  --sidebar-background: 150 16% 97%;
+  --sidebar-foreground: 160 35% 9%;
+  --sidebar-primary: 153 58% 24%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 150 18% 92%;
+  --sidebar-accent-foreground: 160 35% 9%;
+  --sidebar-border: 150 12% 89%;
+  --sidebar-ring: 137 45% 46%;
+
+  --desk-font: 'Urbanist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+html[data-app='desk'].dark {
+  --background: 160 18% 7.5%;
+  --foreground: 140 12% 92%;
+  --foreground-lighter: 145 6% 62%;
+
+  --card: 160 15% 10%;
+  --card-foreground: 140 12% 92%;
+
+  --popover: 160 14% 12%;
+  --popover-foreground: 140 12% 92%;
+
+  --primary: 136 45% 58%;
+  --primary-foreground: 156 54% 9%;
+
+  --secondary: 160 12% 13%;
+  --secondary-foreground: 140 12% 92%;
+
+  --muted: 160 12% 13%;
+  --muted-foreground: 145 7% 68%;
+
+  --accent: 160 12% 15.5%;
+  --accent-foreground: 140 12% 92%;
+
+  --destructive: 6 85% 70%;
+  --destructive-foreground: 6 50% 8%;
+
+  --success: 140 50% 58%;
+  --success-foreground: 150 50% 8%;
+
+  --border: 160 10% 17%;
+  --input: 160 10% 21%;
+  --ring: 137 40% 40%;
+  --private: 38 35% 17%;
+  --canvas: 160 10% 17%;
+
+  --code-new: 137 48% 56%;
+  --code-you: 12 85% 64%;
+  --code-customer: 217 85% 68%;
+  --code-hold: 215 12% 62%;
+  --code-done: 150 6% 46%;
+
+  --sidebar-background: 160 16% 9%;
+  --sidebar-foreground: 140 12% 92%;
+  --sidebar-primary: 136 45% 58%;
+  --sidebar-primary-foreground: 156 54% 9%;
+  --sidebar-accent: 160 12% 15.5%;
+  --sidebar-accent-foreground: 140 12% 92%;
+  --sidebar-border: 160 10% 17%;
+  --sidebar-ring: 137 40% 40%;
+}
+
+// The icon rail: Clyr green in both themes. Its own sidebar tokens cascade to the shadcn sidebar inside it.
+html[data-app='desk'] .desk-rail {
+  --sidebar-background: 155 54% 12%;
+  --sidebar-foreground: 140 25% 92%;
+  --sidebar-primary: 135 45% 58%;
+  --sidebar-primary-foreground: 155 54% 10%;
+  --sidebar-accent: 153 42% 20%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 155 54% 12%;
+  --sidebar-ring: 135 45% 58%;
+  --foreground-lighter: 145 20% 74%;
+  --muted-foreground: 145 20% 74%;
+  --foreground: 140 25% 96%;
+  --accent: 153 42% 20%;
+  --accent-foreground: 0 0% 100%;
+  // Avatar fallbacks and badges inside the rail sit on green, not on a white chip.
+  --muted: 153 42% 20%;
+  --secondary: 153 42% 20%;
+  --background: 155 54% 12%;
+  --card: 153 42% 20%;
+}
+
+html[data-app='desk'].dark .desk-rail {
+  --sidebar-background: 156 52% 9%;
+  --sidebar-accent: 153 40% 16%;
+  --sidebar-border: 156 52% 9%;
+  --accent: 153 40% 16%;
+}
+
+html[data-app='desk'],
+html[data-app='desk'] body {
+  font-family: var(--desk-font);
+  --vis-font-family: var(--desk-font);
+}
+
+// Type scale: 12 (meta), 14 (body), 16 (titles). Upstream's 20px panel titles step down to 16 here;
+// rank comes from weight and case, not size.
+html[data-app='desk'] {
+  .sidebar-secondary .text-xl,
+  .desk-title.text-xl {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+
+  // Composer placeholder at the muted text colour (4.5:1), not the editor's #adb5bd.
+  .tiptap p.is-editor-empty:first-child::before {
+    color: hsl(var(--muted-foreground));
+  }
+}
+
+html[data-app='desk'] .font-sans {
+  font-family: var(--desk-font);
+}
+
+// Browser surfaces carry the palette too.
+html[data-app='desk'] {
+  accent-color: hsl(var(--primary));
+  caret-color: hsl(var(--primary));
+
+  ::selection {
+    background: hsl(var(--brand) / 0.35);
+    color: hsl(var(--foreground));
+  }
+}
+
+// Email thread block (MessageBubble thread mode): full width on a hairline rule, not a floating bubble.
+html[data-app='desk'] .message-bubble.message-bubble--thread {
+  width: 100%;
+  min-width: 0;
+  border-width: 0 0 1px 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0.75rem 1rem 0.875rem;
+
+  // Email bodies read at the desk's body size, not the 16px browser default. Inline email styles still win.
+  .native-html {
+    font-size: 0.875rem;
+    line-height: 1.55;
+  }
+
+  .email-light-canvas {
+    border-radius: calc(var(--radius) - 2px);
+  }
+}
+
+// In a thread, "Show quoted text" also folds the sender's signature and the whole Gmail quote block,
+// including its "On ... wrote:" line. vue-letter prefixes classes and ids with "msg_XYZ_", hence the
+// suffix matching (see .hide-quoted-text in shared-ui main.scss).
+html[data-app='desk'] .message-bubble--thread.hide-quoted-text {
+  [class*='_gmail_signature'],
+  [data-smartmail='gmail_signature'],
+  [id$='_Signature'],
+  [class*='_gmail_quote'] {
+    display: none;
+  }
+}
+
+// Conversation details as a two-column spec table: label left, value right, one hairline per row.
+// One label column for every row (subgrid), so values line up. Subject and reference number already
+// head the ticket, so the desk does not repeat them here.
+html[data-app='desk'] .desk-spec {
+  display: grid;
+  // The label track grows to the widest label but never past 8rem; longer labels wrap.
+  grid-template-columns: fit-content(8rem) minmax(0, 1fr);
+  column-gap: 0.75rem;
+
+  > * + * {
+    margin-top: 0;
+  }
+
+  .desk-redundant {
+    display: none;
+  }
+
+  // Custom attributes keep their own stacked layout across the full width.
+  > .desk-spec-full {
+    grid-column: 1 / -1;
+    padding: 0.4375rem 0;
+    border-bottom: 1px solid hsl(var(--border) / 0.7);
+  }
+
+  > div:not(.desk-spec-full, .desk-redundant) {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: subgrid;
+    column-gap: 0.75rem;
+    align-items: baseline;
+    padding: 0.4375rem 0;
+    border-bottom: 1px solid hsl(var(--border) / 0.7);
+
+    > :not(:first-child) {
+      grid-column: 2;
+    }
+  }
+
+  > div:last-child {
+    border-bottom: 0;
+  }
+
+  .sidebar-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  // Values wrap at word boundaries; an unbroken string (a long email, URL or inbox name) may break
+  // mid-word, and 'anywhere' lets it shrink the column instead of overflowing it.
+  .break-all,
+  .sidebar-value {
+    word-break: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+// The whose-move swatch: a solid square in a fixed cell. Filled = someone must act, hollow = resolved.
+.code-swatch {
+  display: inline-block;
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.code-swatch[data-hollow='true'] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px currentColor;
+}

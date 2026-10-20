@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="flex items-center space-x-4 px-2 h-12 border-b shrink-0">
       <SidebarTrigger class="cursor-pointer" />
-      <span class="text-xl font-semibold truncate">{{ title }}</span>
+      <span class="desk-title text-xl font-semibold truncate">{{ title }}</span>
       <ConversationViewToggle class="ml-auto" />
     </div>
 

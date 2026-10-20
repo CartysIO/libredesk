@@ -35,52 +35,54 @@ export const CONVERSATION_ACTIVE_STATUS_NAMES = [
 ]
 
 // Board columns in display order. `status` is the conversation status name each column lists.
-// Class strings are written out in full so Tailwind keeps them.
+// Class strings are written out in full so Tailwind keeps them. The colours are the desk's whose-move code
+// (apps/main/src/assets/desk-theme.scss); `hollow` marks a column where nobody has to act.
 export const CONVERSATION_BOARD_COLUMNS = [
   {
     key: 'new',
     status: CONVERSATION_DEFAULT_STATUSES.OPEN,
     labelKey: 'kanban.columns.new',
     icon: 'CircleDot',
-    textClass: 'text-yellow-600 dark:text-yellow-400',
-    bgClass: 'bg-yellow-500/10',
-    dotClass: 'bg-yellow-500'
+    textClass: 'text-code-new',
+    bgClass: 'bg-code-new/10',
+    dotClass: 'bg-code-new'
   },
   {
     key: 'onYou',
     status: CONVERSATION_BOARD_STATUSES.ON_YOU,
     labelKey: 'kanban.columns.onYou',
     icon: 'UserRound',
-    textClass: 'text-orange-600 dark:text-orange-400',
-    bgClass: 'bg-orange-500/10',
-    dotClass: 'bg-orange-500'
+    textClass: 'text-code-you',
+    bgClass: 'bg-code-you/10',
+    dotClass: 'bg-code-you'
   },
   {
     key: 'onCustomer',
     status: CONVERSATION_BOARD_STATUSES.ON_CUSTOMER,
     labelKey: 'kanban.columns.onCustomer',
     icon: 'Hourglass',
-    textClass: 'text-blue-600 dark:text-blue-400',
-    bgClass: 'bg-blue-500/10',
-    dotClass: 'bg-blue-500'
+    textClass: 'text-code-customer',
+    bgClass: 'bg-code-customer/10',
+    dotClass: 'bg-code-customer'
   },
   {
     key: 'onHold',
     status: CONVERSATION_DEFAULT_STATUSES.SNOOZED,
     labelKey: 'kanban.columns.onHold',
     icon: 'CirclePause',
-    textClass: 'text-purple-600 dark:text-purple-400',
-    bgClass: 'bg-purple-500/10',
-    dotClass: 'bg-purple-500'
+    textClass: 'text-code-hold',
+    bgClass: 'bg-code-hold/10',
+    dotClass: 'bg-code-hold'
   },
   {
     key: 'resolved',
     status: CONVERSATION_DEFAULT_STATUSES.RESOLVED,
     labelKey: 'kanban.columns.resolved',
     icon: 'CircleCheck',
-    textClass: 'text-green-600 dark:text-green-400',
-    bgClass: 'bg-green-500/10',
-    dotClass: 'bg-green-500'
+    textClass: 'text-code-done',
+    bgClass: 'bg-code-done/10',
+    dotClass: 'bg-code-done',
+    hollow: true
   }
 ]
 
