@@ -321,6 +321,7 @@ func initConversations(
 		IncomingMessageQueueSize: ko.MustInt("message.incoming_queue_size"),
 		ContinuityConfig:         continuityConfig,
 		SubjectRefFormat:         ko.String("conversation.subject_ref_format"),
+		AssignOnFirstReply:       ko.Bool("app.assign_on_first_reply"),
 	})
 	if err != nil {
 		log.Fatalf("error initializing conversation manager: %v", err)
