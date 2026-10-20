@@ -60,7 +60,7 @@
     </div>
 
     <div class="flex-1 min-h-0">
-      <ConversationDetailView :uuid="uuid" />
+      <ConversationDetailView :uuid="uuid" hide-stale />
     </div>
   </aside>
 </template>
