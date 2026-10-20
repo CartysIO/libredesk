@@ -330,6 +330,8 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
 
   // Optimistic move. Reverts and shows a toast when the server refuses.
   async function moveCard(uuid, toStatus, snoozedUntil = '') {
+    // One move per card at a time, so a failed move always rolls back to the column the server still has.
+    if (pendingMoves.has(uuid)) return false
     const move = applyBoardMove(columns, uuid, toStatus)
     if (!move) return false
     pendingMoves.set(uuid, move)
