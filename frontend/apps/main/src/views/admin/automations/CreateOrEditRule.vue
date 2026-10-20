@@ -419,6 +419,14 @@ const getRulesValidationError = () => {
       continue
     }
 
+    // AI classify needs only the attribute key; instructions and descriptions are optional.
+    if (action.type === 'ai_classify_attribute') {
+      if (!action.value?.[0]) {
+        return t('admin.automation.validation.setActionValue')
+      }
+      continue
+    }
+
     // Empty array, no value selected.
     if (action.value.length === 0) {
       return t('admin.automation.validation.setActionValue')

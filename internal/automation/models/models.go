@@ -25,6 +25,8 @@ const (
 	ActionNotify          = "notify"
 	ActionSnooze          = "snooze"
 	ActionTriggerWebhook  = "trigger_webhook"
+	// ActionAIClassifyAttribute value: [conversation custom attribute key, optional instructions].
+	ActionAIClassifyAttribute = "ai_classify_attribute"
 
 	OperatorAnd = "AND"
 	OperatorOR  = "OR"

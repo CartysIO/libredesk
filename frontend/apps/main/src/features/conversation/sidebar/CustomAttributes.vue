@@ -35,11 +35,11 @@
             variant="link"
             :disabled="loading"
             class="sidebar-value h-auto min-h-6 min-w-6 max-w-full justify-end justify-self-end rounded-sm whitespace-normal px-0 py-0.5 text-right font-normal decoration-muted-foreground/40 decoration-dotted underline-offset-4 can-hover:hover:decoration-foreground"
-            :class="{ 'text-muted-foreground': customAttributes?.[attribute.key] == null }"
+            :class="{ 'text-muted-foreground': !hasValue(customAttributes?.[attribute.key]) }"
             :aria-label="`${t('globals.messages.edit')}: ${attribute.name}`"
           >
             <span class="line-clamp-2 min-w-0 [overflow-wrap:anywhere]">{{
-              customAttributes?.[attribute.key] ?? t('globals.messages.set')
+              displayValue(customAttributes?.[attribute.key])
             }}</span>
           </Button>
         </PopoverTrigger>
@@ -66,6 +66,13 @@
                 </SelectItem>
               </SelectContent>
             </Select>
+            <SelectTag
+              v-else-if="attribute.data_type === 'multi_select'"
+              :id="`${editorId}-${attribute.key}`"
+              v-model="editingValue"
+              :items="attribute.values.map((v) => ({ label: v, value: v }))"
+              :placeholder="t('placeholders.selectValue')"
+            />
             <Input
               v-else
               :id="`${editorId}-${attribute.key}`"
@@ -86,7 +93,7 @@
             </p>
             <div class="flex items-center justify-between gap-2">
               <Button
-                v-if="customAttributes?.[attribute.key] != null"
+                v-if="hasValue(customAttributes?.[attribute.key])"
                 type="button"
                 variant="ghost"
                 size="sm"
@@ -119,7 +126,8 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue
+  SelectValue,
+  SelectTag
 } from '@shared-ui/components/ui/select'
 import { Button } from '@shared-ui/components/ui/button'
 import { Label } from '@shared-ui/components/ui/label'
@@ -153,7 +161,17 @@ const startEditing = (attribute) => {
   errorMessage.value = ''
   editingAttributeKey.value = attribute.key
   const currentValue = props.customAttributes?.[attribute.key]
-  editingValue.value = attribute.data_type === 'checkbox' ? !!currentValue : (currentValue ?? null)
+  if (attribute.data_type === 'checkbox') editingValue.value = !!currentValue
+  else if (attribute.data_type === 'multi_select')
+    editingValue.value = Array.isArray(currentValue) ? [...currentValue] : []
+  else editingValue.value = currentValue ?? null
+}
+
+// Multi-select values are arrays; an empty array shows as unset.
+const hasValue = (value) => (Array.isArray(value) ? value.length > 0 : value != null)
+const displayValue = (value) => {
+  if (Array.isArray(value)) return value.length ? value.join(', ') : t('globals.messages.set')
+  return value ?? t('globals.messages.set')
 }
 
 const cancelEditing = () => {
@@ -204,6 +222,12 @@ const getValidationSchema = (attribute) => {
           message: t('validation.invalidValue')
         })
         .nullable()
+    case 'multi_select':
+      return z
+        .array(z.string())
+        .refine((vals) => vals.every((val) => attribute.values.includes(val)), {
+          message: t('validation.invalidValue')
+        })
     default:
       return z.any()
   }

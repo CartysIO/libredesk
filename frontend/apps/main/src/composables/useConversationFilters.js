@@ -358,6 +358,10 @@ export function useConversationFilters () {
         trigger_webhook: {
             label: t('actions.triggerWebhook'),
             type: FIELD_TYPE.WEBHOOK
+        },
+        ai_classify_attribute: {
+            label: t('actions.aiClassifyAttribute'),
+            type: FIELD_TYPE.AI_CLASSIFY
         }
     }))
 
