@@ -386,6 +386,12 @@ func (m *Manager) ReloadInbox(ctx context.Context, id int, initFn initFn) error 
 	return nil
 }
 
+// keepStoredSecret reports whether an updated secret field keeps its stored value: it is empty, or it is the
+// mask that ClearPasswords returns, so a client that reads an inbox and saves it back does not overwrite a secret.
+func keepStoredSecret(v string) bool {
+	return v == "" || strings.Contains(v, stringutil.PasswordDummy)
+}
+
 // Update updates an inbox in the DB.
 func (m *Manager) Update(id int, inbox imodels.Inbox) (imodels.Inbox, error) {
 	tx, err := m.db.Beginx()
@@ -458,27 +464,27 @@ func (m *Manager) Update(id int, inbox imodels.Inbox) (imodels.Inbox, error) {
 			return imodels.Inbox{}, envelope.NewError(envelope.InputError, m.i18n.T("inbox.emptySMTP"), nil)
 		}
 
-		// Preserve existing IMAP passwords if update has empty password
+		// Preserve existing IMAP passwords if update has empty or masked password
 		for i := range updateCfg.IMAP {
-			if updateCfg.IMAP[i]["password"] == "" && i < len(currentCfg.IMAP) {
+			if pw, _ := updateCfg.IMAP[i]["password"].(string); keepStoredSecret(pw) && i < len(currentCfg.IMAP) {
 				updateCfg.IMAP[i]["password"] = currentCfg.IMAP[i]["password"]
 			}
 		}
 
-		// Preserve existing SMTP passwords if update has empty password
+		// Preserve existing SMTP passwords if update has empty or masked password
 		for i := range updateCfg.SMTP {
-			if updateCfg.SMTP[i]["password"] == "" && i < len(currentCfg.SMTP) {
+			if pw, _ := updateCfg.SMTP[i]["password"].(string); keepStoredSecret(pw) && i < len(currentCfg.SMTP) {
 				updateCfg.SMTP[i]["password"] = currentCfg.SMTP[i]["password"]
 			}
 		}
 
-		// Preserve existing OAuth fields if update has empty
+		// Preserve existing OAuth fields if update has empty or masked values
 		if currentCfg.OAuth != nil {
 			if updateCfg.OAuth == nil {
 				updateCfg.OAuth = make(map[string]string)
 			}
 			for k, v := range currentCfg.OAuth {
-				if updateCfg.OAuth[k] == "" {
+				if keepStoredSecret(updateCfg.OAuth[k]) {
 					updateCfg.OAuth[k] = v
 				}
 			}
