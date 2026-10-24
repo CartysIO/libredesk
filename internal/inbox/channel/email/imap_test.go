@@ -301,12 +301,20 @@ func TestContactAddress(t *testing.T) {
 }
 
 func TestContactNameSkipsOwnedAddress(t *testing.T) {
-	e := &Email{receiveAddresses: map[string]struct{}{"support@example.com": {}}}
-	// Another tool's copy from the inbox address must not rename the shared contact.
-	first, last := e.contactName(imap.Address{Name: "Backend Key", Mailbox: "support", Host: "example.com"})
-	require.Equal(t, "", first)
-	require.Equal(t, "", last)
-	first, last = e.contactName(imap.Address{Name: "Josh Rosen", Mailbox: "josh", Host: "xl-rpm.com"})
+	e := &Email{receiveAddresses: map[string]struct{}{"support@example.com": {}, "help@example.com": {}}}
+	// Another tool's copy from an inbox address (primary or alias, any case, with or without a
+	// display name) must not rename the shared contact.
+	for _, owned := range []imap.Address{
+		{Name: "Backend Key", Mailbox: "support", Host: "example.com"},
+		{Name: "Backend Key", Mailbox: "Support", Host: "EXAMPLE.com"},
+		{Name: "Pylon", Mailbox: "help", Host: "example.com"},
+		{Mailbox: "support", Host: "example.com"},
+	} {
+		first, last := e.contactName(owned)
+		require.Equal(t, "", first, owned.Addr())
+		require.Equal(t, "", last, owned.Addr())
+	}
+	first, last := e.contactName(imap.Address{Name: "Josh Rosen", Mailbox: "josh", Host: "xl-rpm.com"})
 	require.Equal(t, "Josh", first)
 	require.Equal(t, "Rosen", last)
 }
