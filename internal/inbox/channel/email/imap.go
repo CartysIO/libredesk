@@ -401,7 +401,7 @@ func (e *Email) processEnvelope(ctx context.Context, client *imapclient.Client, 
 	e.lo.Debug("processing new incoming message", "message_id", messageID, "subject", env.Subject, "from", fromAddress, "inbox_id", inboxID)
 
 	// Make contact.
-	firstName, lastName := getContactName(contactAddr)
+	firstName, lastName := e.contactName(contactAddr)
 	contact := models.IncomingContact{
 		FirstName: firstName,
 		LastName:  lastName,
@@ -634,6 +634,16 @@ func (e *Email) contactAddress(env *imap.Envelope) imap.Address {
 		}
 	}
 	return from
+}
+
+// contactName is the name an incoming email gives its contact. Mail from an address this inbox owns
+// (a copy of a reply another tool sent, such as Pylon) carries that tool's sender name, for example
+// "Backend Key", so it returns no name and the stored contact keeps the name it has.
+func (e *Email) contactName(addr imap.Address) (string, string) {
+	if e.ReceivesAddress(addr.Addr()) {
+		return "", ""
+	}
+	return getContactName(addr)
 }
 
 // getContactName extracts the contact's first and last name from the IMAP address.
