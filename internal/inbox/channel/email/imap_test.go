@@ -308,7 +308,7 @@ func TestGetContactNameCapitalizesLowercase(t *testing.T) {
 		{"Mary-Jane McDonald", "Mary-Jane", "McDonald"},
 		{"IBM", "IBM", ""},
 		{"élodie", "Élodie", ""},
-		{"", "josh", ""},
+		{"", "Josh", ""},
 	}
 	for _, c := range cases {
 		first, last := getContactName(imap.Address{Name: c.name, Mailbox: "josh", Host: "xl-rpm.com"})
