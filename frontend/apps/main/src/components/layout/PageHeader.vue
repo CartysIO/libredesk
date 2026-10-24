@@ -1,10 +1,10 @@
 <template>
-  <div v-if="!isHidden">
-    <div class="flex items-center space-x-4 h-12 px-2">
+  <div v-if="!isHidden" class="shrink-0">
+    <div class="flex h-14 shrink-0 items-center gap-3 px-3">
       <SidebarTrigger class="cursor-pointer" />
-      <span class="desk-title text-xl font-semibold">
+      <h1 class="desk-title text-xl font-semibold min-w-0 truncate">
         {{ title }}
-      </span>
+      </h1>
     </div>
     <Separator />
   </div>

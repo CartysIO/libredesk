@@ -49,7 +49,7 @@ var migList = []migFunc{
 	{"v2.8.0", migrations.V2_8_0},
 	{"v2.9.0-rc.8", migrations.V2_9_0_RC8},
 	{"v2.9.0-rc.9", migrations.V2_9_0_RC9},
-	// Clyr fork migrations use a prerelease suffix of the latest upstream version.
+	// Clyr fork migrations use a prerelease suffix of the upstream version they followed. The list must stay sorted.
 	{"v2.9.0-rc.9.clyr.1", migrations.V2_9_0_RC9_CLYR1},
 	{"v2.9.0-rc.9.clyr.2", migrations.V2_9_0_RC9_CLYR2},
 	{"v2.9.0-rc.9.clyr.3", migrations.V2_9_0_RC9_CLYR3},
@@ -58,6 +58,7 @@ var migList = []migFunc{
 	{"v2.9.0-rc.9.clyr.6", migrations.V2_9_0_RC9_CLYR6},
 	{"v2.9.0-rc.9.clyr.7", migrations.V2_9_0_RC9_CLYR7},
 	{"v2.9.0-rc.9.clyr.8", migrations.V2_9_0_RC9_CLYR8},
+	{"v2.9.0-rc.10", migrations.V2_9_0_RC10},
 }
 
 // upgrade upgrades the database to the current version by running SQL migration files
@@ -147,9 +148,9 @@ func getLastMigrationVersion(db *sqlx.DB) (string, error) {
 // recordMigrationVersion inserts the given version (of DB migration) into the
 // `migrations` array in the settings table.
 func recordMigrationVersion(ver string, db *sqlx.DB) error {
-	_, err := db.Exec(fmt.Sprintf(`INSERT INTO settings (key, value)
-	VALUES('migrations', '["%s"]'::JSONB)
-	ON CONFLICT (key) DO UPDATE SET value = settings.value || EXCLUDED.value`, ver))
+	_, err := db.Exec(`INSERT INTO settings (key, value)
+	VALUES('migrations', JSONB_BUILD_ARRAY($1::TEXT))
+	ON CONFLICT (key) DO UPDATE SET value = settings.value || EXCLUDED.value`, ver)
 	return err
 }
 

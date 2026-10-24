@@ -2,8 +2,10 @@ package notifier
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/abhinavxd/libredesk/internal/notification/models"
 	"github.com/abhinavxd/libredesk/internal/testutil"
@@ -100,6 +102,35 @@ func TestReplyReadFollowsLastSeen(t *testing.T) {
 	}
 }
 
+func TestCreateTrimsLongBody(t *testing.T) {
+	f := newReplyFixture(t, "create_trims_long_body")
+	n, err := f.manager.Create(f.userID, models.NotificationTypeNewReply, "Reply", null.StringFrom(strings.Repeat("é", 3000)), null.IntFrom(f.convID), null.IntFrom(f.messageIDs[0]), null.Int{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := utf8.RuneCountInString(n.Body.String); got != notificationBodyRunes+1 {
+		t.Fatalf("body runes=%d want %d", got, notificationBodyRunes+1)
+	}
+}
+
+func TestReplyDeliveryRequiresParticipantRow(t *testing.T) {
+	f := newReplyFixture(t, "reply_delivery_participant")
+	f.db.MustExec(`UPDATE conversations SET assigned_user_id = NULL WHERE id = $1`, f.convID)
+	f.db.MustExec(`INSERT INTO conversation_messages (conversation_id, sender_id, sender_type, type, status, private) VALUES ($1, $2, 'agent', 'outgoing', 'sent', false)`, f.convID, f.userID)
+	ref := models.NotificationReference{Type: models.NotificationTypeNewReplyParticipating, ConversationID: null.IntFrom(f.convID), MessageID: null.IntFrom(f.messageIDs[1])}
+	for _, participating := range []bool{false, true} {
+		if participating {
+			f.db.MustExec(`INSERT INTO conversation_participants (conversation_id, user_id) VALUES ($1, $2)`, f.convID, f.userID)
+		}
+		for _, channel := range []models.NotificationChannel{models.NotificationChannelEmail, models.NotificationChannelPush} {
+			got, err := f.checker.ShouldDeliver(f.userID, ref, channel)
+			if err != nil || got != participating {
+				t.Fatalf("participant=%v channel=%s deliver=%v err=%v", participating, channel, got, err)
+			}
+		}
+	}
+}
+
 func TestReplyDeliveryRechecksEligibility(t *testing.T) {
 	f := newReplyFixture(t, "reply_delivery_eligibility")
 	ref := models.NotificationReference{Type: models.NotificationTypeNewReply, ConversationID: null.IntFrom(f.convID), MessageID: null.IntFrom(f.messageIDs[1])}
@@ -123,6 +154,12 @@ func TestReplyDeliveryRechecksEligibility(t *testing.T) {
 	check(false)
 	f.db.MustExec(`INSERT INTO conversation_participants (conversation_id, user_id) VALUES ($1, $2)`, f.convID, f.userID)
 	ref.Type = models.NotificationTypeNewReplyParticipating
+	check(false)
+	f.db.MustExec(`INSERT INTO conversation_messages (conversation_id, sender_id, sender_type, type, status, private, meta) VALUES ($1, $2, 'agent', 'activity', 'sent', true, '{"activity_type":"tag_added"}')`, f.convID, f.userID)
+	check(false)
+	f.db.MustExec(`INSERT INTO conversation_messages (conversation_id, sender_id, sender_type, type, status, private) VALUES ($1, $2, 'agent', 'outgoing', 'sent', true)`, f.convID, f.userID)
+	check(false)
+	f.db.MustExec(`INSERT INTO conversation_messages (conversation_id, sender_id, sender_type, type, status, private) VALUES ($1, $2, 'agent', 'outgoing', 'sent', false)`, f.convID, f.userID)
 	check(true)
 	f.checker.prefs = fakePreferences{}
 	check(false)

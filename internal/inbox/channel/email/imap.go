@@ -651,7 +651,7 @@ func (e *Email) contactName(addr imap.Address) (string, string) {
 func getContactName(imapAddr imap.Address) (string, string) {
 	first, last := stringutil.SplitName(imapAddr.Name)
 	if first == "" {
-		return imapAddr.Mailbox, ""
+		return stringutil.CapitalizeFirst(imapAddr.Mailbox), ""
 	}
 	return capitalizeLowercase(first), capitalizeLowercase(last)
 }

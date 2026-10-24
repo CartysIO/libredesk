@@ -2,6 +2,7 @@ import { useConversationStore } from './stores/conversation'
 import { useConversationBoardStore } from './stores/conversationBoard'
 import { useNotificationStore } from './stores/notification'
 import { useUsersStore } from './stores/users'
+import { useUserStore } from './stores/user'
 import { useConnectionStore } from './stores/connection'
 import { WS_EVENT, WS_EPHEMERAL_TYPES } from './constants/websocket'
 import { playNotificationSound } from '@shared-ui/composables/useNotificationSound'
@@ -22,6 +23,7 @@ export class WebSocketClient {
     this.boardStore = useConversationBoardStore()
     this.notificationStore = useNotificationStore()
     this.usersStore = useUsersStore()
+    this.userStore = useUserStore()
     this.connectionStore = useConnectionStore()
     this.messageQueue = []
     this.maxQueueSize = 50
@@ -91,6 +93,9 @@ export class WebSocketClient {
           const uuid = data.data.conversation_uuid
           const isOpen = this.convStore.conversation.data?.uuid === uuid
           const isFromContact = data.data.sender_type === 'contact'
+          const isOwnMessage = data.data.sender_type === 'agent' &&
+            Number(data.data.sender_id) > 0 &&
+            Number(data.data.sender_id) === Number(this.userStore.userID)
           const convPayload = data.data.conversation
           // Activity rows ("X marked the conversation as ...") are not unread messages.
           const isActivity = data.data.type === 'activity'
@@ -123,7 +128,7 @@ export class WebSocketClient {
             }
           }
 
-          if (!isActivity && this.convStore.isConversationInList(uuid)) {
+          if (!isOwnMessage && !isActivity && this.convStore.isConversationInList(uuid)) {
             this.convStore.incrementUnread(uuid, data.data.created_at)
           }
           if (isFromContact && !isActivity) this.boardStore.incrementUnread(uuid)

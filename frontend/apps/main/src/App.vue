@@ -51,7 +51,7 @@
         @delete-view="deleteView"
         @create-conversation="openCreateConversation()"
       >
-        <div class="flex flex-col h-full overflow-hidden bg-background">
+        <div class="flex flex-col h-full min-h-0 overflow-hidden bg-background">
           <ConnectionBanner />
 
           <!-- Show admin banner only in admin routes -->
@@ -61,7 +61,7 @@
           <PageHeader />
 
           <!-- Main content -->
-          <RouterView class="flex-grow" />
+          <RouterView class="min-h-0 flex-1" />
         </div>
         <ViewForm v-model:openDialog="openCreateViewForm" v-model:view="view" />
       </Sidebar>

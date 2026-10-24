@@ -1254,7 +1254,7 @@ func validateAttributeValue(key string, value any, app *App) any {
 		const maxValueLength = 1000
 		if len(strValue) > maxValueLength {
 			app.lo.Warn("form field value exceeds maximum length", "key", key, "length", len(strValue), "max", maxValueLength)
-			return strValue[:maxValueLength]
+			return stringutil.TruncateUTF8(strValue, maxValueLength)
 		}
 		return strValue
 	}

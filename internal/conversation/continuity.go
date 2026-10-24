@@ -145,7 +145,7 @@ func (m *Manager) sendContinuityEmail(conv models.ContinuityConversation, maxMes
 		emailSubject = m.formatRefMarker(conv.ReferenceNumber)
 		if text := strings.TrimSpace(unreadMessages[0].TextContent); text != "" {
 			if len(text) > 100 {
-				text = text[:100] + "..."
+				text = stringutil.TruncateUTF8(text, 100 /* maxBytes */) + "..."
 			}
 			emailSubject = fmt.Sprintf("%s - %s", text, emailSubject)
 		}

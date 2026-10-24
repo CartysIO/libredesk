@@ -484,7 +484,7 @@ CREATE TABLE macros (
    team_id BIGINT REFERENCES teams(id) ON DELETE CASCADE ON UPDATE CASCADE,
    usage_count INT DEFAULT 0 NOT NULL,
    CONSTRAINT name_length CHECK (length(name) <= 140),
-   CONSTRAINT message_content_length CHECK (length(message_content) <= 5000)
+   CONSTRAINT message_content_length CHECK (length(message_content) <= 100000)
 );
 
 DROP TABLE IF EXISTS conversation_participants CASCADE;
@@ -1266,6 +1266,8 @@ VALUES
 INSERT INTO templates
 ("type", body, is_default, "name", subject, is_builtin)
 VALUES('email_notification'::template_type, '
+<p>Hi {{ .Recipient.FirstName }},</p>
+
 <p>A new conversation has been assigned to you:</p>
 
 <div>
@@ -1287,6 +1289,8 @@ VALUES('email_notification'::template_type, '
 INSERT INTO templates
 ("type", body, is_default, "name", subject, is_builtin)
 VALUES('email_notification'::template_type, '
+<p>Hi {{ .Recipient.FirstName }},</p>
+
 <p>{{ .Author.FullName }} replied to a conversation assigned to you:</p>
 
 <div>
@@ -1312,6 +1316,8 @@ VALUES('email_notification'::template_type, '
 INSERT INTO templates
 ("type", body, is_default, "name", subject, is_builtin)
 VALUES('email_notification'::template_type, '
+<p>Hi {{ .Recipient.FirstName }},</p>
+
 <p>{{ .Author.FullName }} replied to a conversation you are participating in:</p>
 
 <div>
@@ -1337,6 +1343,8 @@ VALUES('email_notification'::template_type, '
 INSERT INTO templates
 ("type", body, is_default, "name", subject, is_builtin)
 VALUES('email_notification'::template_type, '
+<p>Hi {{ .Recipient.FirstName }},</p>
+
 <p>{{ .Author.FullName }} replied and reopened a conversation assigned to you:</p>
 
 <div>
@@ -1364,6 +1372,7 @@ INSERT INTO templates
 VALUES (
   'email_notification'::template_type,
   '
+<p>Hi {{ .Recipient.FirstName }},</p>
 
 <p>This is a notification that the SLA for conversation {{ .Conversation.ReferenceNumber }} is approaching the SLA deadline for {{ .SLA.Metric }}.</p>
 
@@ -1396,6 +1405,8 @@ INSERT INTO templates
 VALUES (
   'email_notification'::template_type,
   '
+<p>Hi {{ .Recipient.FirstName }},</p>
+
 <p>This is an urgent alert that the SLA for conversation {{ .Conversation.ReferenceNumber }} has been breached for {{ .SLA.Metric }}. Please take immediate action.</p>
 
 <p>
@@ -1427,6 +1438,8 @@ INSERT INTO templates
 VALUES (
   'email_notification'::template_type,
   '
+<p>Hi {{ .Recipient.FirstName }},</p>
+
 <p>{{ .MentionedBy.FullName }} mentioned you in a private note on conversation #{{ .Conversation.ReferenceNumber }}.</p>
 
 <blockquote style="background-color: #f5f5f5; padding: 12px; margin: 16px 0; border-left: 4px solid #ddd;">

@@ -1,97 +1,99 @@
 <template>
   <form class="space-y-6 w-full">
-    <FormField v-slot="{ componentField }" name="applies_to">
-      <FormItem>
-        <FormLabel>{{ $t('globals.terms.appliesTo') }}</FormLabel>
-        <FormControl>
-          <Select v-bind="componentField" :modelValue="componentField.modelValue">
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="contact">
-                  {{ $t('globals.terms.contact') }}
-                </SelectItem>
-                <SelectItem value="conversation">
-                  {{ $t('globals.terms.conversation') }}
-                </SelectItem>
-                <SelectItem value="organization">
-                  {{ $t('globals.terms.organization') }}
-                </SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </FormControl>
-        <FormDescription> </FormDescription>
-        <FormMessage />
-      </FormItem>
-    </FormField>
+    <FormGrid>
+      <FormField v-slot="{ componentField }" name="name">
+        <FormItem>
+          <FormLabel>{{ $t('globals.terms.name') }}</FormLabel>
+          <FormControl>
+            <Input type="text" placeholder="" v-bind="componentField" />
+          </FormControl>
+          <FormDescription />
+          <FormMessage />
+        </FormItem>
+      </FormField>
 
-    <FormField v-slot="{ componentField }" name="name">
-      <FormItem>
-        <FormLabel>{{ $t('globals.terms.name') }}</FormLabel>
-        <FormControl>
-          <Input type="text" placeholder="" v-bind="componentField" />
-        </FormControl>
-        <FormDescription />
-        <FormMessage />
-      </FormItem>
-    </FormField>
+      <FormField v-slot="{ componentField }" name="key">
+        <FormItem>
+          <FormLabel>{{ $t('globals.terms.key') }}</FormLabel>
+          <FormControl>
+            <Input
+              type="text"
+              v-bind="componentField"
+              :readonly="form.values.id && form.values.id > 0"
+            />
+          </FormControl>
+          <FormDescription></FormDescription>
+          <FormMessage />
+        </FormItem>
+      </FormField>
 
-    <FormField v-slot="{ componentField }" name="key">
-      <FormItem>
-        <FormLabel>{{ $t('globals.terms.key') }}</FormLabel>
-        <FormControl>
-          <Input
-            type="text"
-            v-bind="componentField"
-            :readonly="form.values.id && form.values.id > 0"
-          />
-        </FormControl>
-        <FormDescription></FormDescription>
-        <FormMessage />
-      </FormItem>
-    </FormField>
+      <FormField v-slot="{ componentField }" name="applies_to">
+        <FormItem>
+          <FormLabel>{{ $t('globals.terms.appliesTo') }}</FormLabel>
+          <FormControl>
+            <Select v-bind="componentField" :modelValue="componentField.modelValue">
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="contact">
+                    {{ $t('globals.terms.contact') }}
+                  </SelectItem>
+                  <SelectItem value="conversation">
+                    {{ $t('globals.terms.conversation') }}
+                  </SelectItem>
+                  <SelectItem value="organization">
+                    {{ $t('globals.terms.organization') }}
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </FormControl>
+          <FormDescription> </FormDescription>
+          <FormMessage />
+        </FormItem>
+      </FormField>
 
-    <FormField v-slot="{ componentField }" name="description">
-      <FormItem>
-        <FormLabel>{{ $t('globals.terms.description') }}</FormLabel>
-        <FormControl>
-          <Input type="text" v-bind="componentField" />
-        </FormControl>
-        <FormDescription />
-        <FormMessage />
-      </FormItem>
-    </FormField>
+      <FormField v-slot="{ componentField }" name="data_type">
+        <FormItem>
+          <FormLabel>{{ $t('globals.terms.type') }}</FormLabel>
+          <FormControl>
+            <Select v-bind="componentField" :disabled="!!(form.values.id && form.values.id > 0)">
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="text"> Text </SelectItem>
+                  <SelectItem value="number"> Number </SelectItem>
+                  <SelectItem value="checkbox"> Checkbox </SelectItem>
+                  <SelectItem value="date"> Date </SelectItem>
+                  <SelectItem value="link"> Link </SelectItem>
+                  <SelectItem value="list"> List </SelectItem>
+                  <SelectItem v-if="form.values.applies_to === 'conversation'" value="multi_select">
+                    {{ $t('admin.customAttributes.multiSelect') }}
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </FormControl>
+          <FormDescription> </FormDescription>
+          <FormMessage />
+        </FormItem>
+      </FormField>
 
-    <FormField v-slot="{ componentField }" name="data_type">
-      <FormItem>
-        <FormLabel>{{ $t('globals.terms.type') }}</FormLabel>
-        <FormControl>
-          <Select v-bind="componentField" :disabled="!!(form.values.id && form.values.id > 0)">
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="text"> Text </SelectItem>
-                <SelectItem value="number"> Number </SelectItem>
-                <SelectItem value="checkbox"> Checkbox </SelectItem>
-                <SelectItem value="date"> Date </SelectItem>
-                <SelectItem value="link"> Link </SelectItem>
-                <SelectItem value="list"> List </SelectItem>
-                <SelectItem v-if="form.values.applies_to === 'conversation'" value="multi_select">
-                  {{ $t('admin.customAttributes.multiSelect') }}
-                </SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </FormControl>
-        <FormDescription> </FormDescription>
-        <FormMessage />
-      </FormItem>
-    </FormField>
+      <FormField v-slot="{ componentField }" name="description">
+        <FormItem class="col-span-full">
+          <FormLabel>{{ $t('globals.terms.description') }}</FormLabel>
+          <FormControl>
+            <Input type="text" v-bind="componentField" />
+          </FormControl>
+          <FormDescription />
+          <FormMessage />
+        </FormItem>
+      </FormField>
+    </FormGrid>
 
     <FormField name="values" v-slot="{ componentField, handleChange }">
       <FormItem v-show="['list', 'multi_select'].includes(form.values.data_type)">
@@ -112,35 +114,37 @@
       </FormItem>
     </FormField>
 
-    <FormField name="regex" v-slot="{ componentField }">
-      <FormItem v-show="form.values.data_type === 'text'">
-        <FormLabel>
-          {{ $t('globals.terms.regex') }} ({{ $t('globals.terms.optional') }})
-        </FormLabel>
-        <FormControl>
-          <Input type="text" v-bind="componentField" />
-        </FormControl>
-        <FormDescription>
-          {{ $t('admin.customAttributes.regex.description') }} e.g. ^[a-zA-Z]*$</FormDescription
-        >
-        <FormMessage />
-      </FormItem>
-    </FormField>
+    <FormGrid>
+      <FormField name="regex" v-slot="{ componentField }">
+        <FormItem v-show="form.values.data_type === 'text'">
+          <FormLabel>
+            {{ $t('globals.terms.regex') }} ({{ $t('globals.terms.optional') }})
+          </FormLabel>
+          <FormControl>
+            <Input type="text" v-bind="componentField" />
+          </FormControl>
+          <FormDescription>
+            {{ $t('admin.customAttributes.regex.description') }} e.g. ^[a-zA-Z]*$</FormDescription
+          >
+          <FormMessage />
+        </FormItem>
+      </FormField>
 
-    <FormField name="regex_hint" v-slot="{ componentField }">
-      <FormItem v-show="form.values.data_type === 'text'">
-        <FormLabel>
-          {{ $t('globals.terms.regexHint') }} ({{ $t('globals.terms.optional') }})
-        </FormLabel>
-        <FormControl>
-          <Input type="text" v-bind="componentField" />
-        </FormControl>
-        <FormDescription>
-          {{ $t('admin.customAttributes.regexHint.description') }}
-        </FormDescription>
-        <FormMessage />
-      </FormItem>
-    </FormField>
+      <FormField name="regex_hint" v-slot="{ componentField }">
+        <FormItem v-show="form.values.data_type === 'text'">
+          <FormLabel>
+            {{ $t('globals.terms.regexHint') }} ({{ $t('globals.terms.optional') }})
+          </FormLabel>
+          <FormControl>
+            <Input type="text" v-bind="componentField" />
+          </FormControl>
+          <FormDescription>
+            {{ $t('admin.customAttributes.regexHint.description') }}
+          </FormDescription>
+          <FormMessage />
+        </FormItem>
+      </FormField>
+    </FormGrid>
 
     <!-- Form submit button slot -->
     <slot name="footer"></slot>
@@ -148,6 +152,7 @@
 </template>
 
 <script setup>
+import FormGrid from '@shared-ui/components/FormGrid.vue'
 import { watch } from 'vue'
 import {
   FormControl,

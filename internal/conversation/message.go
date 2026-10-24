@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"net/mail"
 	"path/filepath"
 	"regexp"
@@ -27,6 +28,7 @@ import (
 	mmodels "github.com/abhinavxd/libredesk/internal/media/models"
 	"github.com/abhinavxd/libredesk/internal/sla"
 	"github.com/abhinavxd/libredesk/internal/stringutil"
+	tmpl "github.com/abhinavxd/libredesk/internal/template"
 	umodels "github.com/abhinavxd/libredesk/internal/user/models"
 	wmodels "github.com/abhinavxd/libredesk/internal/webhook/models"
 	"github.com/jmoiron/sqlx"
@@ -37,7 +39,8 @@ import (
 const (
 	maxMessagesPerPage = 500
 	// Only allow visitor-to-contact upgrade within this window after the last continuity email.
-	upgradeWindowTTL = 7 * 24 * time.Hour
+	upgradeWindowTTL    = 7 * 24 * time.Hour
+	maxPreviousMessages = 10
 )
 
 // Matches <img ... src="URL"> and captures the URL for downstream parsing.
@@ -52,6 +55,26 @@ type fromNameVars struct {
 type fromNameAgent struct{ FirstName, LastName, FullName string }
 
 type fromNameInbox struct{ Name string }
+
+// previousMessage is one earlier message exposed to the outgoing email template. String fields are HTML-escaped.
+type previousMessage struct {
+	SenderName  string
+	SenderEmail string
+	CreatedAt   time.Time
+	IsIncoming  bool
+	Content     string
+}
+
+type previousMessageRow struct {
+	CreatedAt   time.Time `db:"created_at"`
+	IsIncoming  bool      `db:"is_incoming"`
+	Content     string    `db:"content"`
+	TextContent string    `db:"text_content"`
+	ContentType string    `db:"content_type"`
+	FirstName   string    `db:"first_name"`
+	LastName    string    `db:"last_name"`
+	Email       string    `db:"email"`
+}
 
 // Run starts a pool of worker goroutines to handle message dispatching via inbox's channel and processes incoming messages. It scans for
 // pending outgoing messages at the specified read interval and pushes them to the outgoing queue to be sent.
@@ -190,6 +213,12 @@ func (m *Manager) sendOutgoingMessage(message models.Message) {
 		outbound.From = m.emailFromAddress(inb, message, selected)
 		if len(messageArticleIDs(message.Meta)) > 0 {
 			outbound.AltContent = stringutil.HTML2TextMarkdownLinks(message.Content)
+		}
+
+		// Emails with no subject (e.g. arrived via IMAP with an empty Subject header) are
+		// rejected by some SMTP servers. Fall back to the reference number so replies go through.
+		if outbound.Subject == "" {
+			outbound.Subject = m.formatRefMarker(message.ReferenceNumber)
 		}
 
 		// Set "In-Reply-To" and "References" headers for email threading.
@@ -334,45 +363,13 @@ func (m *Manager) BuildTemplateData(conversationUUID string, senderID int) (map[
 		return nil, fmt.Errorf("fetching message sender user: %w", err)
 	}
 
-	data := map[string]any{
-		"Conversation": map[string]any{
-			"ReferenceNumber": conversation.ReferenceNumber,
-			"Subject":         conversation.Subject.String,
-			"Priority":        conversation.Priority.String,
-			"UUID":            conversation.UUID,
-		},
-		"Contact": map[string]any{
-			"FirstName": conversation.Contact.FirstName,
-			"LastName":  conversation.Contact.LastName,
-			"FullName":  conversation.Contact.FullName(),
-			"Email":     conversation.Contact.Email.String,
-		},
-		"Recipient": map[string]any{
-			"FirstName": conversation.Contact.FirstName,
-			"LastName":  conversation.Contact.LastName,
-			"FullName":  conversation.Contact.FullName(),
-			"Email":     conversation.Contact.Email.String,
-		},
-		"Author": map[string]any{
-			"FirstName": sender.FirstName,
-			"LastName":  sender.LastName,
-			"FullName":  sender.FullName(),
-			"Email":     sender.Email.String,
-		},
-		// Lets templates disclose AI-composed replies, e.g. {{ if .IsAIComposed }}Composed by AI{{ end }}.
-		"IsAIComposed": sender.Type == umodels.UserTypeAIAssistant,
+	recipient := umodels.User{
+		FirstName: conversation.Contact.FirstName,
+		LastName:  conversation.Contact.LastName,
+		Email:     conversation.Contact.Email,
 	}
-
-	// For automated replies set author fields to empty strings as the recipients will see name as System.
-	if sender.IsSystemUser() {
-		data["Author"] = map[string]any{
-			"FirstName": "",
-			"LastName":  "",
-			"FullName":  "",
-			"Email":     "",
-		}
-	}
-
+	data := tmpl.BuildConversationData(conversation, recipient, sender)
+	data["Recipient"] = data["Contact"]
 	return data, nil
 }
 
@@ -385,6 +382,10 @@ func (m *Manager) RenderMessageInTemplate(channel string, message *models.Messag
 		}
 
 		content := m.emailTemplateContent(message, data)
+		isContinuity, _ := data["IsContinuityEmail"].(bool)
+		if !isContinuity && m.template.DefaultOutgoingEmailTemplateContains("PreviousMessages") {
+			data["PreviousMessages"] = m.previousMessagesData(message.ConversationID, message.ID)
+		}
 		message.Content, err = m.template.RenderEmailWithTemplate(data, content)
 		if err != nil {
 			m.lo.Error("could not render email content using template", "id", message.ID, "error", err)
@@ -419,6 +420,34 @@ func (m *Manager) emailTemplateContent(message *models.Message, data map[string]
 		return content + "{{ .ArticleReferences }}"
 	}
 	return content
+}
+
+// previousMessagesData returns the conversation's earlier messages exchanged with the contact, newest first, with incoming reply chains removed.
+func (m *Manager) previousMessagesData(conversationID, messageID int) []previousMessage {
+	out := []previousMessage{}
+	var rows []previousMessageRow
+	if err := m.q.GetPreviousMessages.Select(&rows, conversationID, messageID, maxPreviousMessages); err != nil {
+		m.lo.Error("error fetching previous messages", "conversation_id", conversationID, "error", err)
+		return out
+	}
+	for _, r := range rows {
+		text := strings.TrimSpace(r.TextContent)
+		if r.IsIncoming {
+			text = textWithoutQuotedReplies(models.Message{Content: r.Content, TextContent: r.TextContent, ContentType: r.ContentType})
+		}
+		if text == "" {
+			continue
+		}
+		sender := umodels.User{FirstName: r.FirstName, LastName: r.LastName}
+		out = append(out, previousMessage{
+			SenderName:  html.EscapeString(strings.TrimSpace(sender.FullName())),
+			SenderEmail: html.EscapeString(r.Email),
+			CreatedAt:   r.CreatedAt,
+			IsIncoming:  r.IsIncoming,
+			Content:     strings.ReplaceAll(html.EscapeString(text), "\n", "<br>"),
+		})
+	}
+	return out
 }
 
 // GetConversationMessages retrieves messages for a specific conversation.
@@ -869,7 +898,6 @@ func (m *Manager) InsertMessageTx(tx *sqlx.Tx, message *models.Message) ([]strin
 
 // AfterMessageInsert runs the post-commit side effects of a message insert: participant, last message and broadcast.
 func (m *Manager) AfterMessageInsert(message *models.Message, inlineUUIDs []string) {
-	// Add this user as a participant if not already present.
 	m.addConversationParticipant(message.SenderID, message.ConversationUUID)
 
 	// Skip updating last_message and broadcasting for continuity emails.

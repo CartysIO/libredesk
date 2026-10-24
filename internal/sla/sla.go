@@ -13,6 +13,7 @@ import (
 
 	businesshours "github.com/abhinavxd/libredesk/internal/business_hours"
 	bmodels "github.com/abhinavxd/libredesk/internal/business_hours/models"
+	cmodels "github.com/abhinavxd/libredesk/internal/conversation/models"
 	cstatusmodels "github.com/abhinavxd/libredesk/internal/conversation/status/models"
 	"github.com/abhinavxd/libredesk/internal/dbutil"
 	"github.com/abhinavxd/libredesk/internal/envelope"
@@ -727,38 +728,18 @@ func (m *Manager) SendNotification(scheduledNotification models.ScheduledSLANoti
 			metricLabel = label
 		}
 
-		// Render the email template.
-		content, subject, err := m.template.RenderStoredEmailTemplate(tmpl,
-			map[string]any{
-				"SLA": map[string]any{
-					"DueIn":     dueIn,
-					"OverdueBy": overdueBy,
-					"Metric":    metricLabel,
-				},
-				"Conversation": map[string]any{
-					"ReferenceNumber": appliedSLA.ConversationReferenceNumber,
-					"Subject":         appliedSLA.ConversationSubject,
-					"Priority":        "",
-					"UUID":            appliedSLA.ConversationUUID,
-				},
-				"Recipient": map[string]any{
-					"FirstName": agent.FirstName,
-					"LastName":  agent.LastName,
-					"FullName":  agent.FullName(),
-					"Email":     agent.Email,
-				},
-				// Automated emails do not have an author, so we set empty values.
-				"Author": map[string]any{
-					"FirstName": "",
-					"LastName":  "",
-					"FullName":  "",
-					"Email":     "",
-				},
-			})
+		recipient := nmodels.Recipient{UserID: recipientID}
+		data := slaNotificationTemplateData(appliedSLA, agent, metricLabel, dueIn, overdueBy)
+		content, subject, err := m.template.RenderStoredEmailTemplate(tmpl, data)
 
 		if err != nil {
-			m.lo.Error("error rendering email template", "template", template.TmplConversationAssigned, "scheduled_notification_id", scheduledNotification.ID, "error", err)
-			continue
+			m.lo.Error("error rendering email template", "template", tmpl, "scheduled_notification_id", scheduledNotification.ID, "error", err)
+		} else {
+			recipient.Email = &nmodels.EmailNotification{
+				Recipient: agent.Email.String,
+				Subject:   subject,
+				Content:   content,
+			}
 		}
 
 		notifType := metricNotificationTypes[scheduledNotification.Metric].warning
@@ -779,15 +760,8 @@ func (m *Manager) SendNotification(scheduledNotification models.ScheduledSLANoti
 		}
 
 		if _, err := m.dispatcher.Send(nmodels.Notification{
-			Type: notifType,
-			Recipients: []nmodels.Recipient{{
-				UserID: recipientID,
-				Email: &nmodels.EmailNotification{
-					Recipient: agent.Email.String,
-					Subject:   subject,
-					Content:   content,
-				},
-			}},
+			Type:             notifType,
+			Recipients:       []nmodels.Recipient{recipient},
 			Title:            notificationTitle,
 			Body:             null.StringFrom(notificationBody),
 			ConversationID:   null.IntFrom(appliedSLA.ConversationID),
@@ -1054,4 +1028,25 @@ func (m *Manager) recomputeDeadlinesInBatches(conversationIDs []int) {
 			m.lo.Error("error updating conversation next SLA deadlines", "conversation_ids", batch, "error", err)
 		}
 	}
+}
+
+func slaNotificationTemplateData(appliedSLA models.AppliedSLA, recipient umodels.User, metric, dueIn, overdueBy string) map[string]any {
+	conversation := cmodels.Conversation{
+		ReferenceNumber: appliedSLA.ConversationReferenceNumber,
+		Subject:         null.StringFrom(appliedSLA.ConversationSubject),
+		Priority:        appliedSLA.ConversationPriority,
+		UUID:            appliedSLA.ConversationUUID,
+		InboxName:       appliedSLA.ConversationInboxName,
+		InboxChannel:    appliedSLA.ConversationInboxChannel,
+		Contact:         appliedSLA.ConversationContact,
+	}
+	data := template.BuildConversationData(conversation, recipient, umodels.User{} /** author **/)
+	data["Recipient"].(map[string]any)["Email"] = recipient.Email
+	data["Author"].(map[string]any)["FullName"] = ""
+	data["SLA"] = map[string]any{
+		"DueIn":     dueIn,
+		"OverdueBy": overdueBy,
+		"Metric":    metric,
+	}
+	return data
 }
