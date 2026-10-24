@@ -300,6 +300,17 @@ func TestContactAddress(t *testing.T) {
 	require.Equal(t, support, e.contactAddress(&imap.Envelope{From: []imap.Address{support}, To: []imap.Address{support}}))
 }
 
+func TestContactNameSkipsOwnedAddress(t *testing.T) {
+	e := &Email{receiveAddresses: map[string]struct{}{"support@example.com": {}}}
+	// Another tool's copy from the inbox address must not rename the shared contact.
+	first, last := e.contactName(imap.Address{Name: "Backend Key", Mailbox: "support", Host: "example.com"})
+	require.Equal(t, "", first)
+	require.Equal(t, "", last)
+	first, last = e.contactName(imap.Address{Name: "Josh Rosen", Mailbox: "josh", Host: "xl-rpm.com"})
+	require.Equal(t, "Josh", first)
+	require.Equal(t, "Rosen", last)
+}
+
 func TestGetContactNameCapitalizesLowercase(t *testing.T) {
 	cases := []struct{ name, first, last string }{
 		{"omer Menashe", "Omer", "Menashe"},
