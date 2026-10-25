@@ -77,3 +77,13 @@ func TestCleanPageURLDropsFragmentAndUserinfo(t *testing.T) {
 		t.Errorf("cleanPageURL = %q, want %q", got, want)
 	}
 }
+
+func TestCleanPageURLDropsCredentialQuery(t *testing.T) {
+	got := cleanPageURL("https://app.clyr.io/reset?tab=plan&token=abc&code=xyz&__clerk_db_jwt=j&State=s&page=2")
+	if want := "https://app.clyr.io/reset?tab=plan&page=2"; got != want {
+		t.Errorf("cleanPageURL = %q, want %q", got, want)
+	}
+	if got := cleanPageURL("https://app.clyr.io/receipts?id=1"); got != "https://app.clyr.io/receipts?id=1" {
+		t.Errorf("plain query changed: %q", got)
+	}
+}

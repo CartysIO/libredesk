@@ -89,10 +89,46 @@ func cleanPageURL(raw string) string {
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return ""
 	}
-	// A fragment or userinfo can carry tokens, so neither is stored.
+	// A fragment, userinfo or credential-like query parameter can carry tokens, so none is stored.
 	u.User = nil
 	u.Fragment, u.RawFragment = "", ""
+	u.RawQuery = dropSensitiveQuery(u.RawQuery)
 	return cleanContextText(u.String(), maxChatContextURLLen)
+}
+
+var (
+	sensitiveQueryNames = map[string]bool{"code": true, "key": true, "sig": true, "otp": true, "pwd": true, "state": true, "nonce": true}
+	sensitiveQueryParts = []string{"token", "secret", "password", "passwd", "auth", "signature", "session", "credential", "jwt", "ticket", "apikey", "api_key"}
+)
+
+// dropSensitiveQuery removes the query parameters whose names look like credentials. The others keep their order.
+func dropSensitiveQuery(rawQuery string) string {
+	if rawQuery == "" {
+		return ""
+	}
+	kept := make([]string, 0)
+	for _, pair := range strings.Split(rawQuery, "&") {
+		name, _, _ := strings.Cut(pair, "=")
+		if unescaped, err := url.QueryUnescape(name); err == nil {
+			name = unescaped
+		}
+		if pair != "" && !isSensitiveQueryName(strings.ToLower(name)) {
+			kept = append(kept, pair)
+		}
+	}
+	return strings.Join(kept, "&")
+}
+
+func isSensitiveQueryName(name string) bool {
+	if sensitiveQueryNames[name] {
+		return true
+	}
+	for _, part := range sensitiveQueryParts {
+		if strings.Contains(name, part) {
+			return true
+		}
+	}
+	return false
 }
 
 // cleanContextText removes control characters and cuts s to at most max bytes without splitting a character.
