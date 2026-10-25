@@ -106,11 +106,15 @@ var (
 		"credentials": true, "jwt": true, "key": true, "apikey": true, "code": true, "otp": true,
 		"state": true, "nonce": true,
 	}
+	// sensitiveQueryParts also match inside a word ("authtoken", "oauth2Token", "XAPIKey"). They are
+	// specific enough not to hit ordinary names such as author, keyword or ticket.
+	sensitiveQueryParts = []string{"token", "apikey", "secret", "password", "passwd", "jwt"}
 	// sensitiveQueryNames are whole parameter names that carry a secret but have no sensitive word.
 	sensitiveQueryNames = map[string]bool{"__clerk_ticket": true}
 
 	uuidSegmentRe  = regexp.MustCompile(`^(?:[A-Za-z]+_)*[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 	tokenSegmentRe = regexp.MustCompile(`^[A-Za-z0-9_.~-]{24,}$`)
+	hexSegmentRe   = regexp.MustCompile(`^[0-9a-fA-F]{32,}$`)
 )
 
 // dropSensitiveQuery removes the query parameters whose names look like credentials. The others keep their order.
@@ -137,6 +141,12 @@ func isSensitiveQueryName(name string) bool {
 	}
 	for _, word := range nameWords(name) {
 		if sensitiveQueryWords[word] {
+			return true
+		}
+	}
+	lower := strings.ToLower(name)
+	for _, part := range sensitiveQueryParts {
+		if strings.Contains(lower, part) {
 			return true
 		}
 	}
@@ -169,9 +179,9 @@ func nameWords(name string) []string {
 	return words
 }
 
-// redactTokenSegments replaces path segments that look like secrets (24 or more URL-safe characters
-// with both letters and digits, for example a reset or invite token) with "redacted". UUIDs and
-// prefixed UUIDs such as team_<uuid> stay, because agents use them to find the record.
+// redactTokenSegments replaces path segments that look like random secrets (a reset or invite
+// token) with "redacted". Slugs, UUIDs and prefixed UUIDs such as team_<uuid> stay, because agents
+// use them to find the page or record.
 func redactTokenSegments(path string) string {
 	segments := strings.Split(path, "/")
 	for i, seg := range segments {
@@ -182,11 +192,28 @@ func redactTokenSegments(path string) string {
 	return strings.Join(segments, "/")
 }
 
+// looksLikeToken is true for a segment of 24 or more URL-safe characters that is either a long hex
+// string of digits and letters (not a UUID) or mixes upper case, lower case and digits, as base64 and random tokens do.
+// A lowercase slug such as customer-2024-quarterly-summary is not a token.
 func looksLikeToken(seg string) bool {
 	if !tokenSegmentRe.MatchString(seg) || uuidSegmentRe.MatchString(seg) {
 		return false
 	}
-	return strings.ContainsAny(seg, "0123456789") && strings.IndexFunc(seg, unicode.IsLetter) >= 0
+	if hexSegmentRe.MatchString(seg) {
+		return strings.ContainsAny(seg, "0123456789") && strings.ContainsAny(strings.ToLower(seg), "abcdef")
+	}
+	var upper, lower, digit int
+	for _, r := range seg {
+		switch {
+		case unicode.IsUpper(r):
+			upper++
+		case unicode.IsLower(r):
+			lower++
+		case unicode.IsDigit(r):
+			digit++
+		}
+	}
+	return upper >= 2 && lower >= 2 && digit >= 2
 }
 
 // cleanContextText removes control characters and cuts s to at most max bytes without splitting a character.

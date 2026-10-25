@@ -105,3 +105,21 @@ func TestCleanPageURLRedactsTokenPathSegments(t *testing.T) {
 		t.Errorf("ids or words were redacted: %q", got)
 	}
 }
+
+func TestCleanPageURLEmbeddedSecretNames(t *testing.T) {
+	got := cleanPageURL("https://app.clyr.io/x?authtoken=1&apitoken=2&accesstoken=3&oauth2Token=4&XAPIKey=5&author=me&authorization_tab=a&keyword=k&ticket=7")
+	if want := "https://app.clyr.io/x?author=me&authorization_tab=a&keyword=k&ticket=7"; got != want {
+		t.Errorf("cleanPageURL = %q, want %q", got, want)
+	}
+}
+
+func TestCleanPageURLKeepsSlugsAndRedactsHex(t *testing.T) {
+	slug := "https://app.clyr.io/reports/customer-2024-quarterly-summary/receipt_matching_settings_v2"
+	if got := cleanPageURL(slug); got != slug {
+		t.Errorf("slug was redacted: %q", got)
+	}
+	got := cleanPageURL("https://app.clyr.io/verify/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")
+	if want := "https://app.clyr.io/verify/redacted"; got != want {
+		t.Errorf("cleanPageURL = %q, want %q", got, want)
+	}
+}
