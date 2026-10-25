@@ -58,8 +58,8 @@ var migList = []migFunc{
 	{"v2.9.0-rc.9.clyr.6", migrations.V2_9_0_RC9_CLYR6},
 	{"v2.9.0-rc.9.clyr.7", migrations.V2_9_0_RC9_CLYR7},
 	{"v2.9.0-rc.9.clyr.8", migrations.V2_9_0_RC9_CLYR8},
-	{"v2.9.0-rc.9.clyr.9", migrations.V2_9_0_RC9_CLYR9},
 	{"v2.9.0-rc.10", migrations.V2_9_0_RC10},
+	{"v2.9.0-rc.10.clyr.1", migrations.V2_9_0_RC10_CLYR1},
 }
 
 // upgrade upgrades the database to the current version by running SQL migration files

@@ -8,7 +8,7 @@ import (
 	"github.com/zerodha/logf"
 )
 
-func TestV2_9_0_RC9_CLYR9ChatContextAttributes(t *testing.T) {
+func TestV2_9_0_RC10_CLYR1ChatContextAttributes(t *testing.T) {
 	db := testutil.NewDB(t, "migration_clyr_chat_context")
 	// An agent already made one of the definitions with a name of their own.
 	db.MustExec(`DELETE FROM custom_attribute_definitions WHERE key LIKE 'chat\_%'`)
@@ -16,7 +16,7 @@ func TestV2_9_0_RC9_CLYR9ChatContextAttributes(t *testing.T) {
 
 	// Running it twice proves it is idempotent, which matters because a fresh install runs every migration.
 	for range 2 {
-		if err := V2_9_0_RC9_CLYR9(db, nil, nil); err != nil {
+		if err := V2_9_0_RC10_CLYR1(db, nil, nil); err != nil {
 			t.Fatalf("running migration: %v", err)
 		}
 	}

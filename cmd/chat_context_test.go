@@ -17,7 +17,7 @@ func TestBuildChatContextAttributes(t *testing.T) {
 		chatAttrBrowser:    "Chrome 126",
 		chatAttrOS:         "macOS",
 		chatAttrDeviceType: "desktop",
-		chatAttrPageURL:    "https://app.clyr.io/receipts?id=1#top",
+		chatAttrPageURL:    "https://app.clyr.io/receipts?id=1",
 		chatAttrUserAgent:  testChromeMacUA,
 		chatAttrTimezone:   "Asia/Jerusalem",
 		chatAttrApp:        "web",
@@ -68,5 +68,12 @@ func TestMergeChatContextKeepsExisting(t *testing.T) {
 	}
 	if got := mergeChatContext(nil, map[string]any{"a": "b"}); got["a"] != "b" {
 		t.Fatalf("nil attrs: %v", got)
+	}
+}
+
+func TestCleanPageURLDropsFragmentAndUserinfo(t *testing.T) {
+	got := cleanPageURL("https://user:pass@app.clyr.io/cb?step=2#access_token=abc")
+	if want := "https://app.clyr.io/cb?step=2"; got != want {
+		t.Errorf("cleanPageURL = %q, want %q", got, want)
 	}
 }

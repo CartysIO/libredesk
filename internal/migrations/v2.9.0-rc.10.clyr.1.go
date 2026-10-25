@@ -6,10 +6,10 @@ import (
 	"github.com/knadh/stuffbin"
 )
 
-// V2_9_0_RC9_CLYR9 creates the conversation attribute definitions that show a live chat's visitor
+// V2_9_0_RC10_CLYR1 creates the conversation attribute definitions that show a live chat's visitor
 // context in the agent sidebar: browser, operating system, device, page URL, User-Agent, timezone and app
 // (Clyr fork). The chat widget fills them when a chat starts. A definition that exists is left alone.
-func V2_9_0_RC9_CLYR9(db *sqlx.DB, fs stuffbin.FileSystem, ko *koanf.Koanf) error {
+func V2_9_0_RC10_CLYR1(db *sqlx.DB, fs stuffbin.FileSystem, ko *koanf.Koanf) error {
 	_, err := db.Exec(`
 		INSERT INTO custom_attribute_definitions (name, description, applies_to, key, data_type, values, regex, regex_hint)
 		VALUES

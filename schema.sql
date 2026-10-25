@@ -1024,7 +1024,7 @@ CREATE TABLE custom_attribute_definitions (
 	CONSTRAINT constraint_custom_attribute_definitions_key_applies_to_unique UNIQUE (key, applies_to)
 );
 
--- Clyr fork: conversation attributes that hold a live chat's visitor context (also created by migration v2.9.0-rc.9.clyr.9).
+-- Clyr fork: conversation attributes that hold a live chat's visitor context (also created by migration v2.9.0-rc.10.clyr.1).
 INSERT INTO custom_attribute_definitions (name, description, applies_to, key, data_type, values, regex, regex_hint)
 VALUES
 	('Browser', 'Browser name and major version of the visitor, recorded when a live chat starts', 'conversation', 'chat_browser', 'text', '{}', '', ''),

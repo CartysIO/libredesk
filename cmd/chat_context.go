@@ -20,7 +20,7 @@ const (
 )
 
 // The conversation attribute keys that hold the visitor context (Clyr fork). The migration
-// V2_9_0_RC9_CLYR9 creates a definition for each, so the agent sidebar shows them.
+// V2_9_0_RC10_CLYR1 creates a definition for each, so the agent sidebar shows them.
 const (
 	chatAttrBrowser    = "chat_browser"
 	chatAttrOS         = "chat_operating_system"
@@ -89,7 +89,10 @@ func cleanPageURL(raw string) string {
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return ""
 	}
-	return cleanContextText(raw, maxChatContextURLLen)
+	// A fragment or userinfo can carry tokens, so neither is stored.
+	u.User = nil
+	u.Fragment, u.RawFragment = "", ""
+	return cleanContextText(u.String(), maxChatContextURLLen)
 }
 
 // cleanContextText removes control characters and cuts s to at most max bytes without splitting a character.
