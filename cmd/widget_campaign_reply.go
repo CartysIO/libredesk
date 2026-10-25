@@ -76,7 +76,9 @@ func handleWidgetCampaignReply(r *fastglue.Request, req chatInitReq, inbox imode
 		if err := checkConversationPermissions(app, config, visitor, contact.ID, inbox.ID); err != nil {
 			return sendErrorEnvelope(r, err)
 		}
-		meta := map[string]any{"ip": realip.FromRequest(r.RequestCtx), "user_agent": string(r.RequestCtx.Request.Header.Peek("User-Agent")), "campaign_id": delivery.CampaignID}
+		userAgent := string(r.RequestCtx.Request.Header.Peek("User-Agent"))
+		attrs = mergeChatContext(attrs, buildChatContextAttributes(userAgent, req.Context))
+		meta := map[string]any{"ip": realip.FromRequest(r.RequestCtx), "user_agent": userAgent, "campaign_id": delivery.CampaignID}
 		reply, err := app.conversation.CreateProactiveConversation(delivery, contact.ID, req.Message, attrs, meta, maxChatConversationsPerContact, chatConversationRateLimitWindow, getWidgetOrganizationID(r))
 		if err != nil {
 			if _, ok := err.(envelope.Error); ok {

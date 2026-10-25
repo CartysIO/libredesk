@@ -107,3 +107,30 @@ describe('campaign navigation', () => {
     } })
   })
 })
+
+describe('page context for a new chat', () => {
+  const request = (requestId) => {
+    const contentWindow = {}
+    widget.iframe = { contentWindow }
+    widget.handleMessage({
+      source: contentWindow,
+      origin: window.location.origin,
+      data: { type: 'REQUEST_PAGE_CONTEXT', requestId }
+    })
+  }
+
+  test('answers with the current URL, so a route change after load is seen', () => {
+    widget.config.app = 'web'
+    window.history.pushState({}, '', '/billing?tab=plan')
+    request('r1')
+    expect(window.location.href).toContain('/billing?tab=plan')
+    expect(widget.postToIframe).toHaveBeenCalledWith({
+      type: 'PAGE_CONTEXT', requestId: 'r1', url: window.location.href, app: 'web'
+    })
+  })
+
+  test('sends an empty app label when the host page sets none', () => {
+    request('r2')
+    expect(widget.postToIframe).toHaveBeenCalledWith(expect.objectContaining({ requestId: 'r2', app: '' }))
+  })
+})

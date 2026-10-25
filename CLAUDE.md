@@ -25,7 +25,7 @@ docker build -f Dockerfile.clyr -t libredesk-clyr:local .
 ```
 
 - Go changes: add tests for every new package, run `gofmt` and `go vet`.
-- Fork migrations: name each one as a prerelease of the latest upstream version in `cmd/upgrade.go` `migList`, for example `v2.9.0-rc.9.clyr.1`, and add it after that version. A database never runs a migration that sorts below its last recorded version. Put every schema change in `schema.sql` too, and make the migration idempotent: a fresh install runs every migration against the final schema.
+- Fork migrations: name each one as a prerelease of the latest upstream version in `cmd/upgrade.go` `migList`, for example `v2.9.0-rc.10.clyr.1` (upstream v2.9.0's last migration is `v2.9.0-rc.10`), and add it after that version. Check `semver.Compare`: `v2.9.0-rc.9.clyr.9` sorts below `v2.9.0-rc.10`. A database never runs a migration that sorts below its last recorded version. Put every schema change in `schema.sql` too, and make the migration idempotent: a fresh install runs every migration against the final schema.
 - Frontend: ESLint and Prettier. Some upstream files were already unformatted; do not reformat files you did not change.
 - Before you report a change as working, run it: boot the image against Postgres 17 and Redis 7 and exercise the changed path (HTTP request or headless browser).
 
