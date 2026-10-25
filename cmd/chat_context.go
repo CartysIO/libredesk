@@ -89,16 +89,28 @@ func cleanPageURL(raw string) string {
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return ""
 	}
-	// A fragment, userinfo or credential-like query parameter can carry tokens, so none is stored.
+	// A fragment, userinfo, credential-like query parameter or token-like path segment can carry
+	// secrets, so none is stored.
 	u.User = nil
 	u.Fragment, u.RawFragment = "", ""
 	u.RawQuery = dropSensitiveQuery(u.RawQuery)
+	u.Path, u.RawPath = redactTokenSegments(u.Path), ""
 	return cleanContextText(u.String(), maxChatContextURLLen)
 }
 
 var (
-	sensitiveQueryNames = map[string]bool{"code": true, "key": true, "sig": true, "otp": true, "pwd": true, "state": true, "nonce": true}
-	sensitiveQueryParts = []string{"token", "secret", "password", "passwd", "auth", "signature", "session", "credential", "jwt", "ticket", "apikey", "api_key"}
+	// sensitiveQueryWords are matched against the words of a parameter name ("x-api-key" -> x, api, key).
+	sensitiveQueryWords = map[string]bool{
+		"token": true, "secret": true, "password": true, "passwd": true, "pwd": true, "auth": true,
+		"signature": true, "sig": true, "session": true, "sessionid": true, "credential": true,
+		"credentials": true, "jwt": true, "key": true, "apikey": true, "code": true, "otp": true,
+		"state": true, "nonce": true,
+	}
+	// sensitiveQueryNames are whole parameter names that carry a secret but have no sensitive word.
+	sensitiveQueryNames = map[string]bool{"__clerk_ticket": true}
+
+	uuidSegmentRe  = regexp.MustCompile(`^(?:[A-Za-z]+_)*[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+	tokenSegmentRe = regexp.MustCompile(`^[A-Za-z0-9_.~-]{24,}$`)
 )
 
 // dropSensitiveQuery removes the query parameters whose names look like credentials. The others keep their order.
@@ -112,7 +124,7 @@ func dropSensitiveQuery(rawQuery string) string {
 		if unescaped, err := url.QueryUnescape(name); err == nil {
 			name = unescaped
 		}
-		if pair != "" && !isSensitiveQueryName(strings.ToLower(name)) {
+		if pair != "" && !isSensitiveQueryName(name) {
 			kept = append(kept, pair)
 		}
 	}
@@ -120,15 +132,61 @@ func dropSensitiveQuery(rawQuery string) string {
 }
 
 func isSensitiveQueryName(name string) bool {
-	if sensitiveQueryNames[name] {
+	if sensitiveQueryNames[strings.ToLower(name)] {
 		return true
 	}
-	for _, part := range sensitiveQueryParts {
-		if strings.Contains(name, part) {
+	for _, word := range nameWords(name) {
+		if sensitiveQueryWords[word] {
 			return true
 		}
 	}
 	return false
+}
+
+// nameWords splits a parameter name on separators and camelCase into lowercase words.
+func nameWords(name string) []string {
+	var words []string
+	var cur []rune
+	flush := func() {
+		if len(cur) > 0 {
+			words = append(words, strings.ToLower(string(cur)))
+			cur = cur[:0]
+		}
+	}
+	runes := []rune(name)
+	for i, r := range runes {
+		switch {
+		case !unicode.IsLetter(r) && !unicode.IsDigit(r):
+			flush()
+		case unicode.IsUpper(r) && i > 0 && unicode.IsLower(runes[i-1]):
+			flush()
+			cur = append(cur, r)
+		default:
+			cur = append(cur, r)
+		}
+	}
+	flush()
+	return words
+}
+
+// redactTokenSegments replaces path segments that look like secrets (24 or more URL-safe characters
+// with both letters and digits, for example a reset or invite token) with "redacted". UUIDs and
+// prefixed UUIDs such as team_<uuid> stay, because agents use them to find the record.
+func redactTokenSegments(path string) string {
+	segments := strings.Split(path, "/")
+	for i, seg := range segments {
+		if looksLikeToken(seg) {
+			segments[i] = "redacted"
+		}
+	}
+	return strings.Join(segments, "/")
+}
+
+func looksLikeToken(seg string) bool {
+	if !tokenSegmentRe.MatchString(seg) || uuidSegmentRe.MatchString(seg) {
+		return false
+	}
+	return strings.ContainsAny(seg, "0123456789") && strings.IndexFunc(seg, unicode.IsLetter) >= 0
 }
 
 // cleanContextText removes control characters and cuts s to at most max bytes without splitting a character.

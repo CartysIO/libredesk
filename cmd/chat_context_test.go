@@ -87,3 +87,21 @@ func TestCleanPageURLDropsCredentialQuery(t *testing.T) {
 		t.Errorf("plain query changed: %q", got)
 	}
 }
+
+func TestCleanPageURLQueryWords(t *testing.T) {
+	got := cleanPageURL("https://app.clyr.io/x?x-api-key=1&access_key=2&private_key=3&accessToken=4&__clerk_ticket=5&author=me&authorization_tab=a&ticket=123&keyword=k")
+	if want := "https://app.clyr.io/x?author=me&authorization_tab=a&ticket=123&keyword=k"; got != want {
+		t.Errorf("cleanPageURL = %q, want %q", got, want)
+	}
+}
+
+func TestCleanPageURLRedactsTokenPathSegments(t *testing.T) {
+	got := cleanPageURL("https://app.clyr.io/reset/a8Fk2LmQ9zXv7Bn3Rt5Yw1Hj/done")
+	if want := "https://app.clyr.io/reset/redacted/done"; got != want {
+		t.Errorf("cleanPageURL = %q, want %q", got, want)
+	}
+	keep := "https://app.clyr.io/teams/team_2b31a44f-a6e2-4f9f-b7f0-9e21a5f567e8/transactions/0b5e2c1a-2f9d-4c55-9f1e-3a7b8c9d0e1f/receipt-matching-settings"
+	if got := cleanPageURL(keep); got != keep {
+		t.Errorf("ids or words were redacted: %q", got)
+	}
+}
