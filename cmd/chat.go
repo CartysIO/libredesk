@@ -95,6 +95,8 @@ type chatInitReq struct {
 	BrowserKey string         `json:"browser_key"`
 	Message    string         `json:"message"`
 	FormData   map[string]any `json:"form_data"`
+	// Context is the host page and browser data that the widget reads (Clyr fork).
+	Context chatContextReq `json:"context"`
 }
 
 type handoffFormReq struct {
@@ -254,6 +256,10 @@ func handleChatInit(r *fastglue.Request) error {
 	}
 
 	app.lo.Info("creating new live chat conversation for user", "user_id", contactID, "inbox_id", inbox.ID, "is_visitor", isVisitor)
+
+	// Record the visitor's browser, device and page as conversation attributes. A value from the
+	// pre-chat form wins.
+	conversationAttrs = mergeChatContext(conversationAttrs, buildChatContextAttributes(userAgent, req.Context))
 
 	// Create conversation and insert message.
 	meta := map[string]any{

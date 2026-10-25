@@ -435,6 +435,17 @@
             });
         }
 
+        // The widget asks for this when a chat starts. The URL is read now, so a single-page app
+        // that changed route since the page loaded gives its current page.
+        sendPageContext (requestId) {
+            this.postToIframe({
+                type: 'PAGE_CONTEXT',
+                requestId,
+                url: window.location.href,
+                app: typeof this.config.app === 'string' ? this.config.app : ''
+            });
+        }
+
         setLauncherPosition () {
             const spacing = this.widgetSettings.launcher.spacing;
             const side = this.widgetSettings.launcher.position === 'right' ? 'right' : 'left';
@@ -537,6 +548,9 @@
                     break;
                 case 'REQUEST_PAGE_INFO':
                     this.sendPageInfo();
+                    break;
+                case 'REQUEST_PAGE_CONTEXT':
+                    this.sendPageContext(event.data.requestId);
                     break;
                 case 'STORE_SESSION':
                     this.setCookie(this.getCookieName('session'), event.data.token);

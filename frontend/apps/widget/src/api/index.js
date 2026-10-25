@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getChatContext } from '../utils/chatContext.js'
 
 let _sessionToken = ''
 let _visitorToken = ''
@@ -132,7 +133,11 @@ const getLanguage = (lang) => http.get(`/api/v1/lang/${lang}`)
 const getAvailableLanguages = () => http.get('/api/v1/lang')
 const exchangeJWTForSession = (jwt) => http.post('/api/v1/widget/chat/auth/exchange', { jwt })
 const getAuthMe = () => http.get('/api/v1/widget/chat/auth/me')
-const initChatConversation = (data) => http.post('/api/v1/widget/chat/conversations/init', data)
+const initChatConversation = async (data) =>
+  http.post('/api/v1/widget/chat/conversations/init', {
+    ...data,
+    context: await getChatContext()
+  })
 const getChatConversations = () => http.get('/api/v1/widget/chat/conversations')
 const getChatConversation = (uuid) => http.get(`/api/v1/widget/chat/conversations/${uuid}`)
 const downloadTranscript = (uuid) =>
