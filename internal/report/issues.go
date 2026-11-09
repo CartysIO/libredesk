@@ -35,7 +35,7 @@ func (m *Manager) GetIssuesReport(in IssuesRangeInput, accountSearch string) (js
 		accountsList []any
 	)
 
-	if err := tx.Get(&scalars, m.q.GetIssuesScalars, tz, bounds.StartsAt, bounds.EndsAt); err != nil {
+	if err := tx.Get(&scalars, m.q.GetIssuesScalars, bounds.StartsAt, bounds.EndsAt); err != nil {
 		m.lo.Error("error fetching issues scalars", "error", err)
 		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
@@ -53,7 +53,7 @@ func (m *Manager) GetIssuesReport(in IssuesRangeInput, accountSearch string) (js
 		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
 
-	if err := tx.Get(&topAccounts, m.q.GetIssuesTopAccounts, tz, bounds.StartsAt, bounds.EndsAt, accountSearch); err != nil {
+	if err := tx.Get(&topAccounts, m.q.GetIssuesTopAccounts, bounds.StartsAt, bounds.EndsAt, accountSearch); err != nil {
 		m.lo.Error("error fetching issues top accounts", "error", err)
 		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}

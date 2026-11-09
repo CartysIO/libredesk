@@ -387,8 +387,8 @@ SELECT
             FROM
                 conversations c
             WHERE
-                c.created_at >= $2::timestamptz
-                AND c.created_at < $3::timestamptz
+                c.created_at >= $1::timestamptz
+                AND c.created_at < $2::timestamptz
         ),
         'issues_solved',
         (
@@ -398,8 +398,8 @@ SELECT
                 conversations c
             WHERE
                 c.resolved_at IS NOT NULL
-                AND c.resolved_at >= $2::timestamptz
-                AND c.resolved_at < $3::timestamptz
+                AND c.resolved_at >= $1::timestamptz
+                AND c.resolved_at < $2::timestamptz
         ),
         'issues_unsolved',
         (
@@ -408,8 +408,8 @@ SELECT
             FROM
                 conversations c
             WHERE
-                c.created_at >= $2::timestamptz
-                AND c.created_at < $3::timestamptz
+                c.created_at >= $1::timestamptz
+                AND c.created_at < $2::timestamptz
                 AND c.resolved_at IS NULL
         ),
         'reopened',
@@ -424,8 +424,8 @@ SELECT
                         user_notifications un
                     WHERE
                         un.notification_type = 'conversation_reopened'
-                        AND un.created_at >= $2::timestamptz
-                        AND un.created_at < $3::timestamptz
+                        AND un.created_at >= $1::timestamptz
+                        AND un.created_at < $2::timestamptz
                         AND un.conversation_id IS NOT NULL
                     UNION
                     SELECT
@@ -449,8 +449,8 @@ SELECT
                             NULLIF(TRIM(m.meta->>'new_value'), '') IS NOT NULL
                             OR m.content ~ 'marked the conversation as '
                         )
-                        AND m.created_at >= $2::timestamptz
-                        AND m.created_at < $3::timestamptz
+                        AND m.created_at >= $1::timestamptz
+                        AND m.created_at < $2::timestamptz
                         AND c.last_resolved_at IS NOT NULL
                         AND m.created_at > c.last_resolved_at
                         AND s.category != 'resolved'
@@ -1024,8 +1024,8 @@ SELECT
 -- name: get-issues-top-accounts
 WITH range_bounds AS (
     SELECT
-        $2::timestamptz AS starts_at,
-        $3::timestamptz AS ends_at
+        $1::timestamptz AS starts_at,
+        $2::timestamptz AS ends_at
 ),
 account_stats AS (
     SELECT
@@ -1079,8 +1079,8 @@ account_stats AS (
         c.created_at >= rb.starts_at
         AND c.created_at < rb.ends_at
         AND (
-            $4 = ''
-            OR COALESCE(o.name, '') ILIKE '%%' || $4 || '%%'
+            $3 = ''
+            OR COALESCE(o.name, '') ILIKE '%' || $3 || '%'
         )
     GROUP BY
         o.id,

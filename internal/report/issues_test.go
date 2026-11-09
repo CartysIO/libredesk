@@ -17,11 +17,11 @@ func TestGetIssuesTopAccountsQueryParams(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(m.q.GetIssuesTopAccounts, "ILIKE '%' || $4 || '%'") {
-		t.Fatalf("ILIKE should use $4 for search: %s", m.q.GetIssuesTopAccounts[strings.Index(m.q.GetIssuesTopAccounts, "ILIKE"):])
+	if !strings.Contains(m.q.GetIssuesTopAccounts, "ILIKE '%' || $3 || '%'") {
+		t.Fatalf("ILIKE should use $3 for search: %s", m.q.GetIssuesTopAccounts[strings.Index(m.q.GetIssuesTopAccounts, "ILIKE"):])
 	}
-	if !strings.Contains(m.q.GetIssuesTopAccounts, "$4 = ''") {
-		t.Fatal("account search empty check should use $4")
+	if !strings.Contains(m.q.GetIssuesTopAccounts, "$3 = ''") {
+		t.Fatal("account search empty check should use $3")
 	}
 }
 
