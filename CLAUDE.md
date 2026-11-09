@@ -90,3 +90,17 @@ Config comes from environment variables: `LIBREDESK_<SECTION>__<KEY>`, for examp
 ## Reporting to Eran
 
 Give the result first, then at most 5 one-line bullets with bold labels. No time estimates. No markdown blockquotes. Ask questions one line each, numbered, with your recommendation. Never say done, fixed or deployed without a check that ran in the same turn.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub (`CartysIO/libredesk`); use the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `GLOSSARY.md` and `docs/adr/` when present. See `docs/agents/domain.md`.
