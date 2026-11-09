@@ -1,11 +1,16 @@
 <script setup>
-import { ChartCrosshair, ChartLegend, defaultColors } from '@shared-ui/components/ui/chart'
+import {
+  ChartCrosshair,
+  ChartLegend,
+  defaultColors,
+  useLegendItems
+} from '@shared-ui/components/ui/chart'
 import { cn } from '@shared-ui/lib/utils'
 import { CurveType } from '@unovis/ts'
 import { Axis, Line } from '@unovis/ts'
 import { VisAxis, VisLine, VisXYContainer } from '@unovis/vue'
 import { useMounted } from '@vueuse/core'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 
 const props = defineProps({
   data: { type: Array, required: true },
@@ -38,13 +43,7 @@ const colors = computed(() =>
   props.colors?.length ? props.colors : defaultColors(props.categories.length)
 )
 
-const legendItems = ref(
-  props.categories.map((category, i) => ({
-    name: category,
-    color: colors.value[i],
-    inactive: false
-  }))
-)
+const legendItems = useLegendItems(() => props.categories, colors)
 
 const isMounted = useMounted()
 

@@ -167,7 +167,6 @@
               v-model="accountSearch"
               class="max-w-xs"
               :placeholder="$t('report.issues.searchAccounts')"
-              :disabled="isLoading"
             />
           </div>
           <IssuesAccountsTable
@@ -442,8 +441,10 @@ const showError = (error) => {
   })
 }
 
-const loadReport = async () => {
-  isLoading.value = true
+const loadReport = async ({ silent = false } = {}) => {
+  if (!silent) {
+    isLoading.value = true
+  }
   try {
     const params = { account_search: accountSearch.value.trim() }
     if (isCustom.value && customStart.value && customEnd.value) {
@@ -463,7 +464,9 @@ const loadReport = async () => {
   } catch (error) {
     showError(error)
   } finally {
-    isLoading.value = false
+    if (!silent) {
+      isLoading.value = false
+    }
   }
 }
 
@@ -533,7 +536,7 @@ watch(visibility, (v) => {
 watchDebounced(
   accountSearch,
   () => {
-    if (!isLoading.value) loadReport()
+    loadReport({ silent: true })
   },
   { debounce: 400 }
 )

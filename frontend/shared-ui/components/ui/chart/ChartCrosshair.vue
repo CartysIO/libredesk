@@ -1,8 +1,8 @@
 <script setup>
 import { VisCrosshair, VisTooltip } from '@unovis/vue'
-import { omit } from '@unovis/ts'
-import { createApp } from 'vue'
+import { watch } from 'vue'
 import { ChartTooltip } from '.'
+import { renderTooltip, seriesFromDatum } from './tooltipSeries'
 
 const props = defineProps({
   colors: { type: Array, required: true, default: () => [] },
@@ -21,28 +21,32 @@ const props = defineProps({
   }
 })
 
-// Use weakmap to store reference to each datapoint for Tooltip
+// Drop a cached tooltip when the legend catches up, so a hover during load
+// cannot keep the series name blank.
 const wm = new WeakMap()
-function template(d) {
-  if (wm.has(d)) {
-    return wm.get(d)
-  } else {
-    const componentDiv = document.createElement('div')
-    const omittedData = Object.entries(omit(d, [props.index])).map(([key, value]) => {
-      const legendReference = props.items.find((i) => i.name === key)
-      return { ...legendReference, value }
-    })
-    const TooltipComponent = props.customTooltip ?? ChartTooltip
-    createApp(TooltipComponent, {
-      title: props.titleFormatter(d[props.index]),
-      data: omittedData.map((row) => ({
-        ...row,
-        value: props.valueFormatter(row.value)
-      }))
-    }).mount(componentDiv)
-    wm.set(d, componentDiv.innerHTML)
-    return componentDiv.innerHTML
+let cacheVersion = 0
+watch(
+  () => props.items,
+  () => {
+    cacheVersion += 1
   }
+)
+
+function template(d) {
+  const cached = wm.get(d)
+  if (cached?.version === cacheVersion) return cached.html
+
+  const TooltipComponent = props.customTooltip ?? ChartTooltip
+  const html = renderTooltip(
+    TooltipComponent,
+    props.titleFormatter(d[props.index]),
+    seriesFromDatum(d, props.index, props.items, props.colors).map((row) => ({
+      ...row,
+      value: props.valueFormatter(row.value)
+    }))
+  )
+  wm.set(d, { version: cacheVersion, html })
+  return html
 }
 
 function color(d, i) {

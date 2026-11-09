@@ -156,7 +156,7 @@ func initFlags() {
 	f.String("pylon-cache", "pylon-cache", "with --pylon-import: directory that caches every Pylon response and file")
 	f.Bool("dry-run", false, "with --pylon-import: print what would be imported and write nothing")
 	f.Int("limit", 0, "with --pylon-import: import at most this many conversations (0 = all)")
-	f.String("since", "", "with --pylon-import: only issues created on or after this date (YYYY-MM-DD)")
+	f.String("since", "", "with --pylon-import: only issues created on or after this date (YYYY-MM-DD); also limits Pylon API issue listing unless issues.json is already cached")
 	f.Int("pylon-inbox", 0, "with --pylon-import: email inbox id for the conversations (default: the only email inbox)")
 	f.Int("pylon-reference-floor", 4000, "with --pylon-import: new conversations get reference numbers from here up (at least the highest Pylon number + 1)")
 	f.Bool("pylon-allow-missing-files", false, "with --pylon-import: import even when some files cannot be downloaded (their URLs stay in message meta)")
