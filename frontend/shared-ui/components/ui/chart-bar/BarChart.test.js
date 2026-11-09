@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { createApp, h, nextTick, reactive } from 'vue'
+import { nextTick, reactive } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { mountChartWithLegend } from '../chart/chartLegendTestMount.js'
 
 vi.mock('@unovis/vue', () => ({
   VisAxis: { name: 'VisAxis', render: () => null },
@@ -13,29 +14,10 @@ vi.mock('@unovis/vue', () => ({
 
 import BarChart from './BarChart.vue'
 
-let app
-let host
-
-function mount(state) {
-  host = document.createElement('div')
-  document.body.append(host)
-  app = createApp({
-    setup() {
-      return () =>
-        h(BarChart, {
-          data: state.data,
-          categories: state.categories,
-          index: 'week',
-          type: 'stacked'
-        })
-    }
-  })
-  app.mount(host)
-}
+let mounted
 
 afterEach(() => {
-  app?.unmount()
-  host?.remove()
+  mounted?.unmount()
 })
 
 describe('BarChart legend', () => {
@@ -44,7 +26,13 @@ describe('BarChart legend', () => {
       data: [],
       categories: []
     })
-    mount(state)
+    mounted = mountChartWithLegend(BarChart, state, (s) => ({
+      data: s.data,
+      categories: s.categories,
+      index: 'week',
+      type: 'stacked'
+    }))
+    const { host } = mounted
     expect(host.textContent).not.toContain('billing')
 
     state.categories = ['billing', 'bug']

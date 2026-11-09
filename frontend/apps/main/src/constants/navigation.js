@@ -9,7 +9,7 @@ export const reportsNavItems = [
     titleKey: 'globals.terms.issues',
     href: '/reports/issues',
     permission: 'reports:manage',
-    icon: 'Ticket'
+    icon: 'LineChart'
   }
 ]
 

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { createApp, h, nextTick, reactive } from 'vue'
+import { nextTick, reactive } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { mountChartWithLegend } from '../chart/chartLegendTestMount.js'
 
 vi.mock('@unovis/vue', () => ({
   VisAxis: { name: 'VisAxis', render: () => null },
@@ -12,28 +13,10 @@ vi.mock('@unovis/vue', () => ({
 
 import LineChart from './LineChart.vue'
 
-let app
-let host
-
-function mount(state) {
-  host = document.createElement('div')
-  document.body.append(host)
-  app = createApp({
-    setup() {
-      return () =>
-        h(LineChart, {
-          data: state.data,
-          categories: state.categories,
-          index: 'date'
-        })
-    }
-  })
-  app.mount(host)
-}
+let mounted
 
 afterEach(() => {
-  app?.unmount()
-  host?.remove()
+  mounted?.unmount()
 })
 
 describe('LineChart legend', () => {
@@ -42,7 +25,12 @@ describe('LineChart legend', () => {
       data: [],
       categories: []
     })
-    mount(state)
+    mounted = mountChartWithLegend(LineChart, state, (s) => ({
+      data: s.data,
+      categories: s.categories,
+      index: 'date'
+    }))
+    const { host } = mounted
     expect(host.textContent).not.toContain('Open')
 
     state.categories = ['Open', 'Waiting on customer']

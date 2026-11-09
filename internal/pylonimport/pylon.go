@@ -191,6 +191,20 @@ type issueFetchWindow struct {
 	Start, End time.Time
 }
 
+// issuesNotBefore drops issues created before oldest (same cutoff as the importer's --since).
+func issuesNotBefore(issues []Issue, oldest time.Time) []Issue {
+	if oldest.IsZero() {
+		return issues
+	}
+	out := make([]Issue, 0, len(issues))
+	for _, is := range issues {
+		if !is.CreatedAt.Before(oldest) {
+			out = append(out, is)
+		}
+	}
+	return out
+}
+
 // issueFetchWindows splits [oldest, end) into windows of at most 360 days, newest first.
 func issueFetchWindows(oldest, end time.Time) []issueFetchWindow {
 	var windows []issueFetchWindow
@@ -209,7 +223,15 @@ func issueFetchWindows(oldest, end time.Time) []issueFetchWindow {
 func (f *Fetcher) fetchIssues(ctx context.Context, out *[]Issue) error {
 	path := filepath.Join(f.Dir, "issues.json")
 	if b, err := os.ReadFile(path); err == nil {
-		return json.Unmarshal(b, out)
+		if err := json.Unmarshal(b, out); err != nil {
+			return err
+		}
+		before := len(*out)
+		*out = issuesNotBefore(*out, f.Oldest)
+		if dropped := before - len(*out); dropped > 0 {
+			f.Logf("pylon: dropped %d cached issues created before %s", dropped, f.Oldest.Format("2006-01-02"))
+		}
+		return nil
 	}
 	seen := map[string]bool{}
 	end := time.Now().UTC().Add(time.Hour).Truncate(time.Hour)

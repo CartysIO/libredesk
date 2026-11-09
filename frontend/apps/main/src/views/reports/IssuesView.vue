@@ -441,7 +441,10 @@ const showError = (error) => {
   })
 }
 
+let loadSeq = 0
+
 const loadReport = async ({ silent = false } = {}) => {
+  const seq = ++loadSeq
   if (!silent) {
     isLoading.value = true
   }
@@ -454,6 +457,7 @@ const loadReport = async ({ silent = false } = {}) => {
       params.days = range.value
     }
     const { data } = await api.getIssuesReport(params)
+    if (seq !== loadSeq) return
     scalars.value = data.data.scalars || {}
     charts.value = data.data.charts || {}
     topAccounts.value = (data.data.top_accounts || []).map((row) => ({
@@ -462,9 +466,10 @@ const loadReport = async ({ silent = false } = {}) => {
     }))
     lastUpdate.value = new Date()
   } catch (error) {
+    if (seq !== loadSeq) return
     showError(error)
   } finally {
-    if (!silent) {
+    if (seq === loadSeq && !silent) {
       isLoading.value = false
     }
   }

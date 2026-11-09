@@ -30,7 +30,7 @@
             :y="seg.labelY"
             text-anchor="middle"
             dominant-baseline="middle"
-            class="fill-background text-[7px] font-semibold pointer-events-none"
+            class="fill-white text-[7px] font-semibold pointer-events-none"
           >
             {{ seg.shortLabel }}
           </text>
@@ -74,8 +74,8 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
-import { ChartLegend } from '@shared-ui/components/ui/chart'
+import { computed, ref } from 'vue'
+import { ChartLegend, useLegendItems } from '@shared-ui/components/ui/chart'
 import { Card, CardContent, CardHeader, CardTitle } from '@shared-ui/components/ui/card'
 import { donutArcPath, donutSegmentColors, polarToCartesian } from './donutSegments.js'
 
@@ -111,19 +111,8 @@ const total = computed(() => segments.value.reduce((sum, row) => sum + row.value
 
 const colors = computed(() => donutSegmentColors(segments.value.length))
 
-const legendItems = ref([])
-watch(
-  segments,
-  (rows) => {
-    const cols = donutSegmentColors(rows.length)
-    legendItems.value = rows.map((row, i) => ({
-      name: row.label,
-      color: cols[i],
-      inactive: false
-    }))
-  },
-  { immediate: true }
-)
+const legendCategories = computed(() => segments.value.map((row) => row.label))
+const legendItems = useLegendItems(() => legendCategories.value, colors)
 
 const arcPaths = computed(() => {
   const t = total.value

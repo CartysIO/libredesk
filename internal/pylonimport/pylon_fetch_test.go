@@ -5,6 +5,22 @@ import (
 	"time"
 )
 
+func TestIssuesNotBefore(t *testing.T) {
+	cutoff := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	issues := []Issue{
+		{ID: "old", CreatedAt: cutoff.Add(-time.Hour)},
+		{ID: "ok", CreatedAt: cutoff},
+		{ID: "new", CreatedAt: cutoff.Add(24 * time.Hour)},
+	}
+	got := issuesNotBefore(issues, cutoff)
+	if len(got) != 2 {
+		t.Fatalf("want 2 issues, got %d", len(got))
+	}
+	if got[0].ID != "ok" || got[1].ID != "new" {
+		t.Fatalf("got ids %q, %q", got[0].ID, got[1].ID)
+	}
+}
+
 func TestIssueFetchWindowsSinceCutoff(t *testing.T) {
 	oldest := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC)
