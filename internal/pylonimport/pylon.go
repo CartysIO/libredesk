@@ -186,32 +186,68 @@ func (f *Fetcher) Fetch(ctx context.Context) (Data, error) {
 	return d, nil
 }
 
+// issueFetchWindow is one [Start, End) time range when listing issues from the API.
+type issueFetchWindow struct {
+	Start, End time.Time
+}
+
+// issuesNotBefore drops issues created before oldest (same cutoff as the importer's --since).
+func issuesNotBefore(issues []Issue, oldest time.Time) []Issue {
+	if oldest.IsZero() {
+		return issues
+	}
+	out := make([]Issue, 0, len(issues))
+	for _, is := range issues {
+		if !is.CreatedAt.Before(oldest) {
+			out = append(out, is)
+		}
+	}
+	return out
+}
+
+// issueFetchWindows splits [oldest, end) into windows of at most 360 days, newest first.
+func issueFetchWindows(oldest, end time.Time) []issueFetchWindow {
+	var windows []issueFetchWindow
+	for end.After(oldest) {
+		start := end.Add(-360 * 24 * time.Hour)
+		if start.Before(oldest) {
+			start = oldest
+		}
+		windows = append(windows, issueFetchWindow{Start: start, End: end})
+		end = start
+	}
+	return windows
+}
+
 // fetchIssues lists issues in windows of 360 days, newest first, back to Oldest.
 func (f *Fetcher) fetchIssues(ctx context.Context, out *[]Issue) error {
 	path := filepath.Join(f.Dir, "issues.json")
 	if b, err := os.ReadFile(path); err == nil {
-		return json.Unmarshal(b, out)
+		if err := json.Unmarshal(b, out); err != nil {
+			return err
+		}
+		before := len(*out)
+		*out = issuesNotBefore(*out, f.Oldest)
+		if dropped := before - len(*out); dropped > 0 {
+			f.Logf("pylon: dropped %d cached issues created before %s", dropped, f.Oldest.Format("2006-01-02"))
+		}
+		return nil
 	}
 	seen := map[string]bool{}
 	end := time.Now().UTC().Add(time.Hour).Truncate(time.Hour)
-	for end.After(f.Oldest) {
-		start := end.Add(-360 * 24 * time.Hour)
-		if start.Before(f.Oldest) {
-			start = f.Oldest
-		}
+	for _, w := range issueFetchWindows(f.Oldest, end) {
 		var page []Issue
-		q := url.Values{"start_time": {start.Format(time.RFC3339)}, "end_time": {end.Format(time.RFC3339)}}
+		q := url.Values{"start_time": {w.Start.Format(time.RFC3339)}, "end_time": {w.End.Format(time.RFC3339)}}
 		if err := f.getAll(ctx, "/issues", q, &page); err != nil {
 			return err
 		}
-		f.Logf("pylon: %d issues created %s to %s", len(page), start.Format("2006-01-02"), end.Format("2006-01-02"))
+		f.Logf("pylon: %d issues created %s to %s", len(page), w.Start.Format("2006-01-02"), w.End.Format("2006-01-02"))
 		for _, is := range page {
 			if !seen[is.ID] {
 				seen[is.ID] = true
 				*out = append(*out, is)
 			}
 		}
-		end = start
 	}
 	return writeJSON(path, *out)
 }

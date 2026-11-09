@@ -1,8 +1,8 @@
 <script setup>
 import { VisCrosshair, VisTooltip } from '@unovis/vue'
-import { omit } from '@unovis/ts'
-import { createApp } from 'vue'
 import { ChartTooltip } from '.'
+import { renderTooltip, seriesFromDatum } from './tooltipSeries'
+import { createVersionedTooltipCache } from './tooltipCache'
 
 const props = defineProps({
   colors: { type: Array, required: true, default: () => [] },
@@ -21,28 +21,20 @@ const props = defineProps({
   }
 })
 
-// Use weakmap to store reference to each datapoint for Tooltip
-const wm = new WeakMap()
+const tooltipCache = createVersionedTooltipCache(() => props.items)
+
 function template(d) {
-  if (wm.has(d)) {
-    return wm.get(d)
-  } else {
-    const componentDiv = document.createElement('div')
-    const omittedData = Object.entries(omit(d, [props.index])).map(([key, value]) => {
-      const legendReference = props.items.find((i) => i.name === key)
-      return { ...legendReference, value }
-    })
+  return tooltipCache.remember(d, () => {
     const TooltipComponent = props.customTooltip ?? ChartTooltip
-    createApp(TooltipComponent, {
-      title: props.titleFormatter(d[props.index]),
-      data: omittedData.map((row) => ({
+    return renderTooltip(
+      TooltipComponent,
+      props.titleFormatter(d[props.index]),
+      seriesFromDatum(d, props.index, props.items, props.colors).map((row) => ({
         ...row,
         value: props.valueFormatter(row.value)
       }))
-    }).mount(componentDiv)
-    wm.set(d, componentDiv.innerHTML)
-    return componentDiv.innerHTML
-  }
+    )
+  })
 }
 
 function color(d, i) {

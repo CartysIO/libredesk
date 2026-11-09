@@ -3,6 +3,7 @@ import {
   ChartCrosshair,
   ChartLegend,
   defaultColors,
+  useLegendItems,
 } from '../chart';
 import { cn } from '../../../lib/utils';
 import { Axis, GroupedBar, StackedBar } from '@unovis/ts';
@@ -13,7 +14,7 @@ import {
   VisXYContainer,
 } from '@unovis/vue';
 import { useMounted } from '@vueuse/core';
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
 const props = defineProps({
   data: { type: Array, required: true },
@@ -45,13 +46,7 @@ const index = computed(() => props.index);
 const colors = computed(() =>
   props.colors?.length ? props.colors : defaultColors(props.categories.length),
 );
-const legendItems = ref(
-  props.categories.map((category, i) => ({
-    name: category,
-    color: colors.value[i],
-    inactive: false,
-  })),
-);
+const legendItems = useLegendItems(() => props.categories, colors);
 
 const isMounted = useMounted();
 

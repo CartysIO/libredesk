@@ -54,6 +54,12 @@ func runPylonImport(ctx context.Context, db *sqlx.DB, fs stuffbin.FileSystem, se
 		},
 		Logf: func(format string, args ...any) { log.Printf(format, args...) },
 	}
+	if !opt.Since.IsZero() {
+		// Limit API issue listing to --since. Cached issues.json is filtered in-memory to the
+		// same cutoff so message GETs stay bounded. Use a fresh --pylon-cache to refetch listing.
+		fetcher.Oldest = opt.Since.UTC()
+		log.Printf("pylon: fetching issues created on or after %s", fetcher.Oldest.Format("2006-01-02"))
+	}
 	started := time.Now()
 	data, err := fetcher.Fetch(ctx)
 	if err != nil {

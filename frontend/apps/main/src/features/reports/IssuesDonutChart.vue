@@ -11,23 +11,29 @@
         :aria-label="ariaLabel"
       >
         <g transform="translate(100, 100)">
-          <circle
-            r="70"
-            fill="hsl(var(--background))"
-            stroke="hsl(var(--border))"
-            stroke-width="1"
-          />
           <path
             v-for="(seg, i) in arcPaths"
             :key="i"
             :d="seg.d"
-            :fill="seg.color"
+            :style="{ fill: seg.color }"
             class="transition-opacity cursor-pointer"
             :opacity="hoverIndex === null || hoverIndex === i ? 1 : 0.35"
             @mouseenter="showTip($event, seg, i)"
             @mouseleave="hideTip"
           />
           <circle r="42" fill="hsl(var(--background))" />
+          <text
+            v-for="(seg, i) in arcPaths"
+            v-show="seg.showLabel"
+            :key="`lbl-${i}`"
+            :x="seg.labelX"
+            :y="seg.labelY"
+            text-anchor="middle"
+            dominant-baseline="middle"
+            class="fill-white text-[7px] font-semibold pointer-events-none"
+          >
+            {{ seg.shortLabel }}
+          </text>
           <text
             text-anchor="middle"
             dominant-baseline="middle"
@@ -68,9 +74,14 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
-import { ChartLegend, defaultColors } from '@shared-ui/components/ui/chart'
+import { computed, ref } from 'vue'
+import { ChartLegend, useLegendItems } from '@shared-ui/components/ui/chart'
 import { Card, CardContent, CardHeader, CardTitle } from '@shared-ui/components/ui/card'
+import { donutArcPath, donutSegmentColors, polarToCartesian } from './donutSegments.js'
+
+const OUTER_R = 70
+const INNER_R = 42
+const LABEL_MIN_DEG = 22
 
 const props = defineProps({
   data: { type: Array, default: () => [] },
@@ -86,58 +97,48 @@ const props = defineProps({
 const hoverIndex = ref(null)
 const tip = ref(null)
 
-const total = computed(() =>
-  props.data.reduce((sum, row) => sum + (Number(row[props.valueKey]) || 0), 0)
-)
-
-const colors = computed(() => defaultColors(Math.max(props.data.length, 1)))
-
-const legendItems = ref([])
-watch(
-  () => props.data,
-  (data) => {
-    const cols = defaultColors(Math.max(data.length, 1))
-    legendItems.value = data.map((row, i) => ({
-      name: row[props.labelKey],
-      color: cols[i],
-      inactive: false
+const segments = computed(() =>
+  props.data
+    .map((row, index) => ({
+      index,
+      label: row[props.labelKey],
+      value: Number(row[props.valueKey]) || 0
     }))
-  },
-  { immediate: true, deep: true }
+    .filter((row) => row.value > 0)
 )
 
-const polarToCartesian = (cx, cy, r, angleDeg) => {
-  const rad = ((angleDeg - 90) * Math.PI) / 180
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
-}
+const total = computed(() => segments.value.reduce((sum, row) => sum + row.value, 0))
 
-const arcPath = (startAngle, endAngle, outerR = 70, innerR = 42) => {
-  const start = polarToCartesian(0, 0, outerR, endAngle)
-  const end = polarToCartesian(0, 0, outerR, startAngle)
-  const innerStart = polarToCartesian(0, 0, innerR, endAngle)
-  const innerEnd = polarToCartesian(0, 0, innerR, startAngle)
-  const largeArc = endAngle - startAngle <= 180 ? '0' : '1'
-  return [
-    `M ${start.x} ${start.y}`,
-    `A ${outerR} ${outerR} 0 ${largeArc} 0 ${end.x} ${end.y}`,
-    `L ${innerEnd.x} ${innerEnd.y}`,
-    `A ${innerR} ${innerR} 0 ${largeArc} 1 ${innerStart.x} ${innerStart.y}`,
-    'Z'
-  ].join(' ')
-}
+const colors = computed(() => donutSegmentColors(segments.value.length))
+
+const legendCategories = computed(() => segments.value.map((row) => row.label))
+const legendItems = useLegendItems(() => legendCategories.value, colors)
 
 const arcPaths = computed(() => {
+  const t = total.value
+  if (!t) return []
+
   let cursor = 0
-  return props.data.map((row, i) => {
-    const value = Number(row[props.valueKey]) || 0
-    const slice = total.value ? (value / total.value) * 360 : 0
+  const labelR = (OUTER_R + INNER_R) / 2
+
+  return segments.value.map((row, i) => {
+    const slice = (row.value / t) * 360
     const start = cursor
-    cursor += slice
+    const end = cursor + slice
+    cursor = end
+    const mid = start + slice / 2
+    const pct = Math.round((row.value / t) * 100)
+    const labelPos = polarToCartesian(0, 0, labelR, mid)
+
     return {
-      d: arcPath(start, cursor),
+      d: donutArcPath(start, end, OUTER_R, INNER_R),
       color: colors.value[i],
-      label: row[props.labelKey],
-      value
+      label: row.label,
+      value: row.value,
+      showLabel: slice >= LABEL_MIN_DEG,
+      labelX: labelPos.x,
+      labelY: labelPos.y,
+      shortLabel: `${pct}%`
     }
   })
 })

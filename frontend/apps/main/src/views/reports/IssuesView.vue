@@ -167,7 +167,6 @@
               v-model="accountSearch"
               class="max-w-xs"
               :placeholder="$t('report.issues.searchAccounts')"
-              :disabled="isLoading"
             />
           </div>
           <IssuesAccountsTable
@@ -442,8 +441,13 @@ const showError = (error) => {
   })
 }
 
-const loadReport = async () => {
-  isLoading.value = true
+let loadSeq = 0
+
+const loadReport = async ({ silent = false } = {}) => {
+  const seq = ++loadSeq
+  if (!silent) {
+    isLoading.value = true
+  }
   try {
     const params = { account_search: accountSearch.value.trim() }
     if (isCustom.value && customStart.value && customEnd.value) {
@@ -453,6 +457,7 @@ const loadReport = async () => {
       params.days = range.value
     }
     const { data } = await api.getIssuesReport(params)
+    if (seq !== loadSeq) return
     scalars.value = data.data.scalars || {}
     charts.value = data.data.charts || {}
     topAccounts.value = (data.data.top_accounts || []).map((row) => ({
@@ -461,9 +466,12 @@ const loadReport = async () => {
     }))
     lastUpdate.value = new Date()
   } catch (error) {
+    if (seq !== loadSeq) return
     showError(error)
   } finally {
-    isLoading.value = false
+    if (seq === loadSeq && !silent) {
+      isLoading.value = false
+    }
   }
 }
 
@@ -533,7 +541,7 @@ watch(visibility, (v) => {
 watchDebounced(
   accountSearch,
   () => {
-    if (!isLoading.value) loadReport()
+    loadReport({ silent: true })
   },
   { debounce: 400 }
 )
