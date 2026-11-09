@@ -10,10 +10,12 @@ After each successful image push, CI can run `railway redeploy --from-source` fo
 
 **One-time setup** (repo admin):
 
-1. GitHub → **CartysIO/libredesk** → **Settings** → **Environments** → create or open **staging** and **production**.
-2. In each GitHub environment, add secret **`RAILWAY_TOKEN`**: the Railway **project token** for that environment (Railway → libredesk → same environment name → **Settings** → **Tokens**).
+1. Railway → project **libredesk** → environment **staging** → **Settings** → **Tokens** → create a **project token** → paste into GitHub as **`RAILWAY_TOKEN_STAGING`**.
+2. Repeat in Railway **production** → GitHub secret **`RAILWAY_TOKEN_PRODUCTION`**.
 
-Both jobs read `${{ secrets.RAILWAY_TOKEN }}`; the value comes from the GitHub **environment** attached to the job (`staging` then `production`). Until a token is set, that job’s deploy step is skipped (warning in the workflow log).
+GitHub → **CartysIO/libredesk** → **Settings** → **Secrets and variables** → **Actions** → **New repository secret** (not Environments).
+
+Each job maps its secret into `RAILWAY_TOKEN` for the Railway CLI. Until a secret is set, that job’s deploy step is skipped (warning in the workflow log).
 
 ### 2. Railway image auto-updates (optional backup)
 
