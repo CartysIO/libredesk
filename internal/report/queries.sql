@@ -775,6 +775,7 @@ mean_touches_by_source AS (
                         FROM
                             conversations c
                             INNER JOIN inboxes i ON i.id = c.inbox_id
+                            CROSS JOIN range_start rs
                             LEFT JOIN LATERAL (
                                 SELECT
                                     COUNT(*) AS touches
@@ -785,8 +786,7 @@ mean_touches_by_source AS (
                                     AND m.type IN ('incoming', 'outgoing')
                                     AND m.private = false
                                     AND m.created_at >= rs.starts_at
-                            ) touch_counts ON true,
-                            range_start rs
+                            ) touch_counts ON true
                         WHERE
                             c.created_at >= rs.starts_at
                         GROUP BY
@@ -1074,6 +1074,7 @@ SELECT
                     FROM
                         conversations c
                         LEFT JOIN organizations o ON o.id = c.organization_id
+                        CROSS JOIN range_start rs
                         LEFT JOIN LATERAL (
                             SELECT
                                 COUNT(*) AS touches
@@ -1084,8 +1085,7 @@ SELECT
                                 AND m.type IN ('incoming', 'outgoing')
                                 AND m.private = false
                                 AND m.created_at >= rs.starts_at
-                        ) touch_counts ON true,
-                        range_start rs
+                        ) touch_counts ON true
                     WHERE
                         c.created_at >= rs.starts_at
                         AND (
