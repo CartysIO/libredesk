@@ -40,17 +40,11 @@
             >
               {{ $t('globals.terms.custom') }}
             </Button>
-            <Input
+            <IssuesReportDateRange
               v-if="isCustom"
-              v-model="customDays"
-              :aria-label="$t('report.customRangeDays')"
-              type="number"
-              min="1"
-              max="365"
-              class="w-20 h-8"
+              v-model:start="customStart"
+              v-model:end="customEnd"
               :disabled="isLoading"
-              @blur="applyCustom"
-              @keyup.enter="applyCustom"
             />
           </div>
         </div>
@@ -71,7 +65,12 @@
 
         <div class="box w-full p-5">
           <p class="ui-heading mb-4">{{ $t('report.issues.volumeByDay') }}</p>
-          <IssuesBarChart :data="volumeByDayChart" :categories="[countLabel]" index="date" />
+          <IssuesBarChart
+            :data="volumeByDayChart"
+            :categories="[countLabel]"
+            index="date"
+            format-index-as-date
+          />
         </div>
 
         <div :class="REPORT_ROW_CLASS">
@@ -88,7 +87,15 @@
         <div :class="REPORT_ROW_CLASS">
           <div class="flex-1 box p-5">
             <p class="ui-heading mb-4">{{ $t('report.issues.bySource') }}</p>
-            <IssuesBarChart :data="bySourceChart" :categories="[countLabel]" index="label" />
+            <IssuesDonutChart
+              :data="bySourceChart"
+              :value-key="countLabel"
+              label-key="label"
+              :value-label="countLabel"
+              :center-label="countLabel"
+              :empty-label="$t('report.issues.noSourceData')"
+              :aria-label="$t('report.issues.bySource')"
+            />
           </div>
           <div class="flex-1 box p-5">
             <p class="ui-heading mb-4">{{ $t('report.issues.meanTouchesBySource') }}</p>
@@ -98,9 +105,11 @@
 
         <div class="box w-full p-5">
           <p class="ui-heading mb-4">{{ $t('report.issues.volumeOverTime') }}</p>
-          <IssuesLineChart
+          <IssuesBarChart
             :data="volumeOverTimeChart"
             :categories="[createdLabel, closedLabel]"
+            index="date"
+            format-index-as-date
           />
         </div>
 
@@ -111,15 +120,22 @@
             :categories="tagsByWeekChart.categories"
             index="week"
             type="stacked"
+            format-index-as-date
           />
         </div>
 
         <div :class="REPORT_ROW_CLASS">
           <div class="flex-1 box p-5">
             <p class="ui-heading mb-4">{{ $t('report.issues.medianResponseResolution') }}</p>
+            <p v-if="!medianSlaHasData" class="text-sm text-muted-foreground min-h-[200px]">
+              {{ $t('report.issues.noSlaData') }}
+            </p>
             <IssuesLineChart
+              v-else
               :data="medianSlaChart"
               :categories="[firstResponseLabel, resolutionLabel]"
+              format-index-as-date
+              duration-axis
             />
           </div>
           <div class="flex-1 box p-5">
@@ -129,6 +145,7 @@
               :categories="[withinWeekLabel, overWeekLabel]"
               index="week"
               type="stacked"
+              format-index-as-date
             />
           </div>
         </div>
@@ -138,6 +155,8 @@
           <IssuesLineChart
             :data="medianTimeInStatusChart.data"
             :categories="medianTimeInStatusChart.categories"
+            format-index-as-date
+            duration-axis
           />
         </div>
 
@@ -171,9 +190,16 @@ import { useIntervalFn, useDocumentVisibility, watchDebounced } from '@vueuse/co
 import { useEmitter } from '@main/composables/useEmitter'
 import { EMITTER_EVENTS } from '@main/constants/emitterEvents.js'
 import { handleHTTPError } from '@shared-ui/utils/http.js'
-import { formatDuration } from '@shared-ui/utils/datetime.js'
+import { subDays, format } from 'date-fns'
+import {
+  formatReportDateTime,
+  formatReportHour24,
+  formatResolutionDaysHours
+} from '@/features/reports/issuesFormat.js'
 import IssuesBarChart from '@/features/reports/IssuesBarChart.vue'
 import IssuesLineChart from '@/features/reports/IssuesLineChart.vue'
+import IssuesDonutChart from '@/features/reports/IssuesDonutChart.vue'
+import IssuesReportDateRange from '@/features/reports/IssuesReportDateRange.vue'
 import IssuesAccountsTable from '@/features/reports/IssuesAccountsTable.vue'
 import Spinner from '@shared-ui/components/ui/spinner/Spinner.vue'
 import { Button } from '@shared-ui/components/ui/button/index.js'
@@ -189,7 +215,8 @@ const lastUpdate = ref(new Date())
 const rangeOptions = [7, 30, 90, 120]
 const range = ref(120)
 const isCustom = ref(false)
-const customDays = ref('')
+const customStart = ref('')
+const customEnd = ref('')
 const accountSearch = ref('')
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000
 const MAX_POLL_DURATION_MS = 60 * 60 * 1000
@@ -273,7 +300,7 @@ const volumeByDayChart = computed(() => {
 const byHourChart = computed(() => {
   const rows = charts.value.by_hour || []
   return rows.map((row) => ({
-    label: String(row.hour).padStart(2, '0') + ':00',
+    label: formatReportHour24(row.hour),
     [countLabel.value]: row.count
   }))
 })
@@ -355,9 +382,18 @@ const medianSlaChart = computed(() => {
   const rows = charts.value.median_sla_by_week || []
   return rows.map((row) => ({
     date: row.week,
-    [firstResponseLabel.value]: Math.round(row.median_first_response_sec || 0),
-    [resolutionLabel.value]: Math.round(row.median_resolution_sec || 0)
+    [firstResponseLabel.value]: Number(row.median_first_response_sec) || 0,
+    [resolutionLabel.value]: Number(row.median_resolution_sec) || 0
   }))
+})
+
+const medianSlaHasData = computed(() => {
+  const rows = charts.value.median_sla_by_week || []
+  return rows.some(
+    (row) =>
+      (Number(row.median_first_response_sec) || 0) > 0 ||
+      (Number(row.median_resolution_sec) || 0) > 0
+  )
 })
 
 const solvedWithinWeekChart = computed(() => {
@@ -377,7 +413,7 @@ const medianTimeInStatusChart = computed(() => {
     const point = { date: week }
     statuses.forEach((status) => {
       const match = rows.find((r) => r.week === week && r.status === status)
-      point[status] = Math.round(match?.median_seconds || 0)
+      point[status] = Number(match?.median_seconds) || 0
     })
     return point
   })
@@ -392,12 +428,12 @@ const accountColumns = computed(() => [
   {
     key: 'avg_resolution_sec',
     label: t('report.issues.avgResolution'),
-    format: (v) => formatDuration(v, false)
+    format: (v) => formatResolutionDaysHours(v)
   },
   { key: 'avg_touches', label: t('report.issues.avgTouches') }
 ])
 
-const lastUpdateFormatted = computed(() => lastUpdate.value.toLocaleTimeString())
+const lastUpdateFormatted = computed(() => formatReportDateTime(lastUpdate.value))
 
 const showError = (error) => {
   emitter.emit(EMITTER_EVENTS.SHOW_TOAST, {
@@ -409,10 +445,14 @@ const showError = (error) => {
 const loadReport = async () => {
   isLoading.value = true
   try {
-    const { data } = await api.getIssuesReport({
-      days: range.value,
-      account_search: accountSearch.value.trim()
-    })
+    const params = { account_search: accountSearch.value.trim() }
+    if (isCustom.value && customStart.value && customEnd.value) {
+      params.start_date = customStart.value
+      params.end_date = customEnd.value
+    } else {
+      params.days = range.value
+    }
+    const { data } = await api.getIssuesReport(params)
     scalars.value = data.data.scalars || {}
     charts.value = data.data.charts || {}
     topAccounts.value = (data.data.top_accounts || []).map((row) => ({
@@ -435,20 +475,24 @@ const selectRange = (option) => {
   loadReport()
 }
 
-const enableCustom = () => {
-  isCustom.value = true
-  customDays.value = String(range.value)
+const seedCustomRangeFromPreset = () => {
+  const end = new Date()
+  const start = subDays(end, range.value)
+  customEnd.value = format(end, 'yyyy-MM-dd')
+  customStart.value = format(start, 'yyyy-MM-dd')
 }
 
-const applyCustom = () => {
-  let days = parseInt(customDays.value, 10)
-  if (!days || days < 1 || days > 365) {
-    days = 120
-    customDays.value = '120'
+const enableCustom = () => {
+  isCustom.value = true
+  if (!customStart.value || !customEnd.value) {
+    seedCustomRangeFromPreset()
   }
-  if (days === range.value) return
+}
+
+const applyCustomRange = () => {
+  if (!isCustom.value || !customStart.value || !customEnd.value) return
+  if (customStart.value > customEnd.value) return
   markActive()
-  range.value = days
   loadReport()
 }
 
@@ -492,6 +536,16 @@ watchDebounced(
     if (!isLoading.value) loadReport()
   },
   { debounce: 400 }
+)
+
+watchDebounced(
+  [customStart, customEnd],
+  () => {
+    if (isCustom.value && customStart.value && customEnd.value) {
+      applyCustomRange()
+    }
+  },
+  { debounce: 350 }
 )
 
 onMounted(loadReport)

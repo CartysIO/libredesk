@@ -26,6 +26,8 @@ const props = defineProps({
   showLegend: { type: Boolean, required: false, default: true },
   showGridLine: { type: Boolean, required: false, default: true },
   customTooltip: { type: null, required: false },
+  valueFormatter: { type: Function, required: false },
+  titleFormatter: { type: Function, required: false },
   curveType: { type: String, required: false, default: CurveType.MonotoneX }
 })
 
@@ -71,6 +73,8 @@ function handleLegendItemClick(d, i) {
         :items="legendItems"
         :index="index"
         :custom-tooltip="customTooltip"
+        :value-formatter="valueFormatter"
+        :title-formatter="titleFormatter"
       />
 
       <template v-for="(category, i) in categories" :key="category">

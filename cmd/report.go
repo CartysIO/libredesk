@@ -3,6 +3,7 @@ package main
 import (
 	"strconv"
 
+	"github.com/abhinavxd/libredesk/internal/report"
 	"github.com/zerodha/fastglue"
 )
 
@@ -89,10 +90,17 @@ func handleIssuesReport(r *fastglue.Request) error {
 		app     = r.Context.(*App)
 		days, _ = strconv.Atoi(string(r.RequestCtx.QueryArgs().Peek("days")))
 		search  = string(r.RequestCtx.QueryArgs().Peek("account_search"))
+		start   = string(r.RequestCtx.QueryArgs().Peek("start_date"))
+		end     = string(r.RequestCtx.QueryArgs().Peek("end_date"))
 	)
-	report, err := app.report.GetIssuesReport(days, app.setting.GetAppTimezone(), search)
+	payload, err := app.report.GetIssuesReport(report.IssuesRangeInput{
+		Days:        days,
+		StartDate:   start,
+		EndDate:     end,
+		AppTimezone: app.setting.GetAppTimezone(),
+	}, search)
 	if err != nil {
 		return sendErrorEnvelope(r, err)
 	}
-	return r.SendEnvelope(report)
+	return r.SendEnvelope(payload)
 }

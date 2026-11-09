@@ -34,6 +34,8 @@ const props = defineProps({
   showLegend: { type: Boolean, required: false, default: true },
   showGridLine: { type: Boolean, required: false, default: true },
   customTooltip: { type: null, required: false },
+  valueFormatter: { type: Function, required: false },
+  titleFormatter: { type: Function, required: false },
   type: { type: String, required: false, default: 'grouped' },
   roundedCorners: { type: Number, required: false, default: 0 },
 });
@@ -88,6 +90,8 @@ const selectorsBar = computed(() =>
         :items="legendItems"
         :custom-tooltip="customTooltip"
         :index="index"
+        :value-formatter="valueFormatter"
+        :title-formatter="titleFormatter"
       />
 
       <VisBarComponent

@@ -387,10 +387,8 @@ SELECT
             FROM
                 conversations c
             WHERE
-                c.created_at >= CASE
-                    WHEN %d = 0 THEN DATE_TRUNC('day', NOW() AT TIME ZONE $1) AT TIME ZONE $1
-                    ELSE NOW() - INTERVAL '%d days'
-                END
+                c.created_at >= $2::timestamptz
+                AND c.created_at < $3::timestamptz
         ),
         'issues_solved',
         (
@@ -400,10 +398,8 @@ SELECT
                 conversations c
             WHERE
                 c.resolved_at IS NOT NULL
-                AND c.resolved_at >= CASE
-                    WHEN %d = 0 THEN DATE_TRUNC('day', NOW() AT TIME ZONE $1) AT TIME ZONE $1
-                    ELSE NOW() - INTERVAL '%d days'
-                END
+                AND c.resolved_at >= $2::timestamptz
+                AND c.resolved_at < $3::timestamptz
         ),
         'issues_unsolved',
         (
@@ -412,10 +408,8 @@ SELECT
             FROM
                 conversations c
             WHERE
-                c.created_at >= CASE
-                    WHEN %d = 0 THEN DATE_TRUNC('day', NOW() AT TIME ZONE $1) AT TIME ZONE $1
-                    ELSE NOW() - INTERVAL '%d days'
-                END
+                c.created_at >= $2::timestamptz
+                AND c.created_at < $3::timestamptz
                 AND c.resolved_at IS NULL
         ),
         'reopened',
@@ -430,10 +424,8 @@ SELECT
                         user_notifications un
                     WHERE
                         un.notification_type = 'conversation_reopened'
-                        AND un.created_at >= CASE
-                            WHEN %d = 0 THEN DATE_TRUNC('day', NOW() AT TIME ZONE $1) AT TIME ZONE $1
-                            ELSE NOW() - INTERVAL '%d days'
-                        END
+                        AND un.created_at >= $2::timestamptz
+                        AND un.created_at < $3::timestamptz
                         AND un.conversation_id IS NOT NULL
                     UNION
                     SELECT
@@ -457,10 +449,8 @@ SELECT
                             NULLIF(TRIM(m.meta->>'new_value'), '') IS NOT NULL
                             OR m.content ~ 'marked the conversation as '
                         )
-                        AND m.created_at >= CASE
-                            WHEN %d = 0 THEN DATE_TRUNC('day', NOW() AT TIME ZONE $1) AT TIME ZONE $1
-                            ELSE NOW() - INTERVAL '%d days'
-                        END
+                        AND m.created_at >= $2::timestamptz
+                        AND m.created_at < $3::timestamptz
                         AND c.last_resolved_at IS NOT NULL
                         AND m.created_at > c.last_resolved_at
                         AND s.category != 'resolved'
@@ -469,12 +459,10 @@ SELECT
     ) AS result;
 
 -- name: get-issues-charts
-WITH range_start AS (
+WITH range_bounds AS (
     SELECT
-        CASE
-            WHEN %d = 0 THEN DATE_TRUNC('day', NOW() AT TIME ZONE $1) AT TIME ZONE $1
-            ELSE NOW() - INTERVAL '%d days'
-        END AS starts_at
+        $2::timestamptz AS starts_at,
+        $3::timestamptz AS ends_at
 ),
 volume_by_day AS (
     SELECT
@@ -489,9 +477,10 @@ volume_by_day AS (
                             COUNT(*) AS count
                         FROM
                             conversations c,
-                            range_start rs
+                            range_bounds rb
                         WHERE
-                            c.created_at >= rs.starts_at
+                            c.created_at >= rb.starts_at
+                            AND c.created_at < rb.ends_at
                         GROUP BY
                             1
                     ) agg
@@ -514,9 +503,10 @@ volume_over_time AS (
                                 COUNT(*) AS count
                             FROM
                                 conversations c,
-                                range_start rs
+                                range_bounds rb
                             WHERE
-                                c.created_at >= rs.starts_at
+                                c.created_at >= rb.starts_at
+                            AND c.created_at < rb.ends_at
                             GROUP BY
                                 1
                         ) agg
@@ -535,10 +525,11 @@ volume_over_time AS (
                                 COUNT(*) AS count
                             FROM
                                 conversations c,
-                                range_start rs
+                                range_bounds rb
                             WHERE
                                 c.resolved_at IS NOT NULL
-                                AND c.resolved_at >= rs.starts_at
+                                AND c.resolved_at >= rb.starts_at
+                            AND c.resolved_at < rb.ends_at
                             GROUP BY
                                 1
                         ) agg
@@ -564,9 +555,10 @@ by_hour AS (
                             COUNT(*) AS count
                         FROM
                             conversations c,
-                            range_start rs
+                            range_bounds rb
                         WHERE
-                            c.created_at >= rs.starts_at
+                            c.created_at >= rb.starts_at
+                            AND c.created_at < rb.ends_at
                         GROUP BY
                             1
                     ) agg
@@ -592,9 +584,10 @@ by_dow AS (
                             COUNT(*) AS count
                         FROM
                             conversations c,
-                            range_start rs
+                            range_bounds rb
                         WHERE
-                            c.created_at >= rs.starts_at
+                            c.created_at >= rb.starts_at
+                            AND c.created_at < rb.ends_at
                         GROUP BY
                             1,
                             2
@@ -617,9 +610,10 @@ by_source AS (
                         FROM
                             conversations c
                             INNER JOIN inboxes i ON i.id = c.inbox_id,
-                            range_start rs
+                            range_bounds rb
                         WHERE
-                            c.created_at >= rs.starts_at
+                            c.created_at >= rb.starts_at
+                            AND c.created_at < rb.ends_at
                         GROUP BY
                             1
                     ) agg
@@ -646,9 +640,10 @@ tags_by_week AS (
                             conversations c
                             INNER JOIN conversation_tags ct ON ct.conversation_id = c.id
                             INNER JOIN tags t ON t.id = ct.tag_id,
-                            range_start rs
+                            range_bounds rb
                         WHERE
-                            c.created_at >= rs.starts_at
+                            c.created_at >= rb.starts_at
+                            AND c.created_at < rb.ends_at
                         GROUP BY
                             1,
                             2
@@ -707,9 +702,10 @@ median_sla_by_week AS (
                                     resolution_met_at
                                 FROM
                                     applied_slas a,
-                                    range_start rs
+                                    range_bounds rb
                                 WHERE
-                                    a.created_at >= rs.starts_at
+                                    a.created_at >= rb.starts_at
+                                    AND a.created_at < rb.ends_at
                                 ORDER BY
                                     conversation_id,
                                     created_at DESC,
@@ -745,10 +741,11 @@ solved_within_week AS (
                             ) AS over_week
                         FROM
                             conversations c,
-                            range_start rs
+                            range_bounds rb
                         WHERE
                             c.resolved_at IS NOT NULL
-                            AND c.resolved_at >= rs.starts_at
+                            AND c.resolved_at >= rb.starts_at
+                            AND c.resolved_at < rb.ends_at
                         GROUP BY
                             1
                     ) agg
@@ -775,7 +772,7 @@ mean_touches_by_source AS (
                         FROM
                             conversations c
                             INNER JOIN inboxes i ON i.id = c.inbox_id
-                            CROSS JOIN range_start rs
+                            CROSS JOIN range_bounds rb
                             LEFT JOIN LATERAL (
                                 SELECT
                                     COUNT(*) AS touches
@@ -785,10 +782,12 @@ mean_touches_by_source AS (
                                     m.conversation_id = c.id
                                     AND m.type IN ('incoming', 'outgoing')
                                     AND m.private = false
-                                    AND m.created_at >= rs.starts_at
+                                    AND m.created_at >= rb.starts_at
+                                    AND m.created_at < rb.ends_at
                             ) touch_counts ON true
                         WHERE
-                            c.created_at >= rs.starts_at
+                            c.created_at >= rb.starts_at
+                            AND c.created_at < rb.ends_at
                         GROUP BY
                             1
                     ) agg
@@ -934,11 +933,12 @@ median_time_in_status AS (
                                 FROM
                                     all_segments s
                             ) seg,
-                            range_start rs
+                            range_bounds rb
                         WHERE
                             seg.status_name IS NOT NULL
                             AND seg.segment_end > seg.segment_start
-                            AND seg.segment_start >= rs.starts_at
+                            AND seg.segment_start >= rb.starts_at
+                            AND seg.segment_start < rb.ends_at
                         GROUP BY
                             1,
                             2
@@ -1022,12 +1022,10 @@ SELECT
     ) AS result;
 
 -- name: get-issues-top-accounts
-WITH range_start AS (
+WITH range_bounds AS (
     SELECT
-        CASE
-            WHEN %d = 0 THEN DATE_TRUNC('day', NOW() AT TIME ZONE $1) AT TIME ZONE $1
-            ELSE NOW() - INTERVAL '%d days'
-        END AS starts_at
+        $2::timestamptz AS starts_at,
+        $3::timestamptz AS ends_at
 ),
 account_stats AS (
     SELECT
@@ -1064,7 +1062,7 @@ account_stats AS (
     FROM
         conversations c
         LEFT JOIN organizations o ON o.id = c.organization_id
-        CROSS JOIN range_start rs
+        CROSS JOIN range_bounds rb
         LEFT JOIN LATERAL (
             SELECT
                 COUNT(*) AS touches
@@ -1074,13 +1072,15 @@ account_stats AS (
                 m.conversation_id = c.id
                 AND m.type IN ('incoming', 'outgoing')
                 AND m.private = false
-                AND m.created_at >= rs.starts_at
+                AND m.created_at >= rb.starts_at
+                AND m.created_at < rb.ends_at
         ) touch_counts ON true
     WHERE
-        c.created_at >= rs.starts_at
+        c.created_at >= rb.starts_at
+        AND c.created_at < rb.ends_at
         AND (
-            $2 = ''
-            OR COALESCE(o.name, '') ILIKE '%%' || $2 || '%%'
+            $4 = ''
+            OR COALESCE(o.name, '') ILIKE '%%' || $4 || '%%'
         )
     GROUP BY
         o.id,
