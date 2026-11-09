@@ -10,23 +10,47 @@ import (
 )
 
 func TestValidateHistoricalCreatedAt(t *testing.T) {
-	convCreated := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	now := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name      string
-		createdAt time.Time
-		wantErr   error
+		name              string
+		conversationStart time.Time
+		createdAt         time.Time
+		wantErr           error
 	}{
-		{"ok mid timeline", time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC), nil},
-		{"ok equal conversation start", convCreated, nil},
-		{"future beyond skew", now.Add(5 * time.Minute), errBackdatedCreatedAtFuture},
-		{"before conversation", convCreated.Add(-time.Hour), errBackdatedCreatedAtBeforeTicket},
-		{"too old", now.Add(-11 * 365 * 24 * time.Hour), errBackdatedCreatedAtTooOld},
+		{
+			name:              "ok mid timeline",
+			conversationStart: time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC),
+			createdAt:         time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:              "ok equal conversation start",
+			conversationStart: time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC),
+			createdAt:         time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC),
+		},
+		{
+			name:              "future beyond skew",
+			conversationStart: time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC),
+			createdAt:         now.Add(5 * time.Minute),
+			wantErr:           errBackdatedCreatedAtFuture,
+		},
+		{
+			name:              "before conversation",
+			conversationStart: time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC),
+			createdAt:         time.Date(2026, 1, 1, 11, 0, 0, 0, time.UTC),
+			wantErr:           errBackdatedCreatedAtBeforeTicket,
+		},
+		{
+			// After ticket open but older than the 10-year window (ticket opened long ago).
+			name:              "too old",
+			conversationStart: time.Date(2010, 1, 1, 0, 0, 0, 0, time.UTC),
+			createdAt:         now.Add(-11 * 365 * 24 * time.Hour),
+			wantErr:           errBackdatedCreatedAtTooOld,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateHistoricalCreatedAt(tt.createdAt, convCreated, now)
+			err := validateHistoricalCreatedAt(tt.createdAt, tt.conversationStart, now)
 			if err != tt.wantErr {
 				t.Fatalf("validateHistoricalCreatedAt() = %v, want %v", err, tt.wantErr)
 			}
