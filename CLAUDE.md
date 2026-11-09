@@ -31,7 +31,7 @@ docker build -f Dockerfile.clyr -t libredesk-clyr:local .
 
 ## Clyr additions in this fork
 
-- `Dockerfile.clyr`, `deploy/start.sh`, `.github/workflows/clyr-image.yml`: the image is built from source and runs as a non-root user. On boot it installs the schema the first time, runs upgrades, and binds to `$PORT`. CI builds the image on PRs to `clyr`. On each push to `clyr` it publishes the private image `ghcr.io/cartysio/libredesk:clyr` and `:clyr-<sha>`.
+- `Dockerfile.clyr`, `deploy/start.sh`, `.github/workflows/clyr-image.yml`: the image is built from source and runs as a non-root user. On boot it installs the schema the first time, runs upgrades, and binds to `$PORT`. CI builds the image on PRs to `clyr`. On each push to `clyr` it publishes the private image `ghcr.io/cartysio/libredesk:clyr` and `:clyr-<sha>`, then (when GitHub environment secrets `RAILWAY_TOKEN` are set for `staging` and `production`) redeploys staging then production with `railway redeploy --from-source`. See `deploy/clyr-railway.md`. Manual: `./deploy/clyr-railway-redeploy.sh`.
 - Clerk sign-in (`internal/clerk`, `cmd/auth_clerk.go`, `frontend/apps/main/src/utils/clerk.js`, `views/auth/UserLoginView.vue`).
   - The login page mounts Clerk's drop-in `SignIn` component. It loads `@clerk/ui@1` and `@clerk/clerk-js@6` from the Clerk Frontend API at runtime; v6 needs both, through `Clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } })`.
   - `POST /api/v1/auth/clerk` checks the session token against the instance's JWKS. It checks the issuer, `exp`/`nbf`, and that `azp` equals the root URL origin. It then reads the user's verified primary email from the Clerk Backend API.
@@ -70,7 +70,7 @@ Config comes from environment variables: `LIBREDESK_<SECTION>__<KEY>`, for examp
   - The database and Redis connect through Railway reference variables (`${{Postgres.*}}`, `${{Redis.REDIS_URL}}`). They live only on Railway, because Doppler cannot store `${{…}}` values.
   - Production Postgres has daily, weekly and monthly backups. Better Stack monitor "Libredesk production" (id 5083974) checks the site every 3 minutes.
   - GHCR pull credentials are set on the service through GraphQL `serviceInstanceUpdate` (`registryCredentials`). The token is in Doppler `clyr-infra/prd` (`GHCR_PULL_USERNAME`, `GHCR_PULL_TOKEN`).
-  - Deploy after config changes with GraphQL `serviceInstanceDeployV2`. `railway redeploy` reuses the previous deploy's settings.
+  - Deploy after config changes with GraphQL `serviceInstanceDeployV2`. `railway redeploy` without `--from-source` reuses the cached image from the last deploy; after a new GHCR push use `--from-source` or CI (above). Optional Railway **image auto-updates** (Anytime) on tag `clyr` — see `deploy/clyr-railway.md`.
   - To prove a deploy landed, compare the deploy's image digest with `docker buildx imagetools inspect ghcr.io/cartysio/libredesk:clyr-<sha>`.
 - Doppler project `libredesk` (configs `stg`, `prd`) holds the app secrets. Each config syncs to the `Libredesk` service in its environment through the "Railway Connection" integration, and a change redeploys the service. Change secrets in Doppler, never on Railway.
   - The sync adds, updates, and removes the keys it owns. It leaves Railway-only variables alone.
