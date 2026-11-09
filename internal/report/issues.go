@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/abhinavxd/libredesk/internal/envelope"
@@ -12,9 +11,12 @@ import (
 )
 
 // GetIssuesReport returns Pylon-style issue analytics for the selected day range.
-func (m *Manager) GetIssuesReport(days int, timezone, accountSearch string) (json.RawMessage, error) {
-	days = clampDays(days)
-	tz := stringutil.NormalizeTimezone(timezone)
+func (m *Manager) GetIssuesReport(in IssuesRangeInput, accountSearch string) (json.RawMessage, error) {
+	bounds, err := ResolveIssuesRangeBounds(in)
+	if err != nil {
+		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+	tz := stringutil.NormalizeTimezone(in.AppTimezone)
 	accountSearch = strings.TrimSpace(accountSearch)
 
 	tx, err := m.db.BeginTxx(context.Background(), &sql.TxOptions{ReadOnly: true})
@@ -33,15 +35,7 @@ func (m *Manager) GetIssuesReport(days int, timezone, accountSearch string) (jso
 		accountsList []any
 	)
 
-	scalarQuery := fmt.Sprintf(
-		m.q.GetIssuesScalars,
-		days, days,
-		days, days,
-		days, days,
-		days, days,
-		days, days,
-	)
-	if err := tx.Get(&scalars, scalarQuery, tz); err != nil {
+	if err := tx.Get(&scalars, m.q.GetIssuesScalars, bounds.StartsAt, bounds.EndsAt); err != nil {
 		m.lo.Error("error fetching issues scalars", "error", err)
 		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
@@ -50,8 +44,7 @@ func (m *Manager) GetIssuesReport(days int, timezone, accountSearch string) (jso
 		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
 
-	chartQuery := fmt.Sprintf(m.q.GetIssuesCharts, days, days)
-	if err := tx.Get(&charts, chartQuery, tz); err != nil {
+	if err := tx.Get(&charts, m.q.GetIssuesCharts, tz, bounds.StartsAt, bounds.EndsAt); err != nil {
 		m.lo.Error("error fetching issues charts", "error", err)
 		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
@@ -60,8 +53,7 @@ func (m *Manager) GetIssuesReport(days int, timezone, accountSearch string) (jso
 		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
 
-	topQuery := fmt.Sprintf(m.q.GetIssuesTopAccounts, days, days)
-	if err := tx.Get(&topAccounts, topQuery, tz, accountSearch); err != nil {
+	if err := tx.Get(&topAccounts, m.q.GetIssuesTopAccounts, bounds.StartsAt, bounds.EndsAt, accountSearch); err != nil {
 		m.lo.Error("error fetching issues top accounts", "error", err)
 		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}

@@ -2,7 +2,6 @@ package report
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -11,19 +10,18 @@ import (
 	"github.com/zerodha/logf"
 )
 
-func TestGetIssuesTopAccountsQuerySprintf(t *testing.T) {
+func TestGetIssuesTopAccountsQueryParams(t *testing.T) {
 	db := testutil.NewDB(t, "report_issues_top_accounts_fmt")
 	lo := logf.New(logf.Opts{})
 	m, err := New(Opts{DB: db, Lo: &lo, I18n: testutil.NewI18n(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	q := fmt.Sprintf(m.q.GetIssuesTopAccounts, 7, 7)
-	if strings.Contains(q, "%!(") {
-		t.Fatalf("fmt.Sprintf broke the query: %s", q)
+	if !strings.Contains(m.q.GetIssuesTopAccounts, "ILIKE '%' || $3 || '%'") {
+		t.Fatalf("ILIKE should use $3 for search: %s", m.q.GetIssuesTopAccounts[strings.Index(m.q.GetIssuesTopAccounts, "ILIKE"):])
 	}
-	if !strings.Contains(q, "ILIKE '%' || $2 || '%'") {
-		t.Fatalf("ILIKE wildcards missing after fmt: %s", q[strings.Index(q, "ILIKE"):])
+	if !strings.Contains(m.q.GetIssuesTopAccounts, "$3 = ''") {
+		t.Fatal("account search empty check should use $3")
 	}
 }
 
@@ -58,7 +56,7 @@ func TestGetIssuesReportScalars(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	raw, err := m.GetIssuesReport(7, "UTC", "")
+	raw, err := m.GetIssuesReport(IssuesRangeInput{Days: 7, AppTimezone: "UTC"}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +121,7 @@ func TestIssuesTopAccountsOpenClosedByResolvedAt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	raw, err := m.GetIssuesReport(7, "UTC", "")
+	raw, err := m.GetIssuesReport(IssuesRangeInput{Days: 7, AppTimezone: "UTC"}, "")
 	if err != nil {
 		t.Fatal(err)
 	}

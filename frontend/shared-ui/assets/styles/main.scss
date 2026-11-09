@@ -178,6 +178,7 @@
     --vis-tooltip-shadow-color: none !important;
     --vis-tooltip-backdrop-filter: none !important;
     --vis-tooltip-padding: none !important;
+    --vis-tooltip-z-index: 80;
     --vis-primary-color: var(--primary);
     --vis-secondary-color: var(--success);
     --vis-text-color: var(--muted-foreground);
@@ -525,4 +526,11 @@
   .ai-generating::after {
     display: none;
   }
+}
+
+.unovis-tooltip,
+div[class*='vis-tooltip'] {
+  z-index: 80 !important;
+  overflow: visible !important;
+  pointer-events: none;
 }

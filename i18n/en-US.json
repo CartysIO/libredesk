@@ -1775,6 +1775,8 @@
   "report.issues.medianTimeInStatus": "Median time in each status by week",
   "report.issues.noAccount": "No account",
   "report.issues.noAccounts": "No accounts in this range.",
+  "report.issues.noSlaData": "No SLA response or resolution data in this range.",
+  "report.issues.noSourceData": "No issues by source in this range.",
   "report.issues.overWeek": "Over one week",
   "report.issues.reopened": "Reopened tickets",
   "report.issues.resolution": "Resolution",

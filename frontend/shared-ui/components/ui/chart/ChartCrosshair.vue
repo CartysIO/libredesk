@@ -8,7 +8,17 @@ const props = defineProps({
   colors: { type: Array, required: true, default: () => [] },
   index: { type: String, required: true },
   items: { type: Array, required: true },
-  customTooltip: { type: null, required: false }
+  customTooltip: { type: null, required: false },
+  valueFormatter: {
+    type: Function,
+    required: false,
+    default: (value) => (value == null ? '' : value)
+  },
+  titleFormatter: {
+    type: Function,
+    required: false,
+    default: (title) => (title == null ? '' : String(title))
+  }
 })
 
 // Use weakmap to store reference to each datapoint for Tooltip
@@ -24,8 +34,11 @@ function template(d) {
     })
     const TooltipComponent = props.customTooltip ?? ChartTooltip
     createApp(TooltipComponent, {
-      title: d[props.index].toString(),
-      data: omittedData
+      title: props.titleFormatter(d[props.index]),
+      data: omittedData.map((row) => ({
+        ...row,
+        value: props.valueFormatter(row.value)
+      }))
     }).mount(componentDiv)
     wm.set(d, componentDiv.innerHTML)
     return componentDiv.innerHTML
@@ -38,6 +51,6 @@ function color(d, i) {
 </script>
 
 <template>
-  <VisTooltip :horizontal-shift="20" :vertical-shift="20" />
+  <VisTooltip :horizontal-shift="20" :vertical-shift="20" class="unovis-tooltip !z-[80]" />
   <VisCrosshair :template="template" :color="color" />
 </template>

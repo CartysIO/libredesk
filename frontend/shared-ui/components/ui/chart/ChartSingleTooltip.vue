@@ -53,6 +53,7 @@ function template(d, i, elements) {
   <VisTooltip
     :horizontal-shift="20"
     :vertical-shift="20"
+    class="unovis-tooltip !z-[80]"
     :triggers="{
       [selector]: template
     }"
