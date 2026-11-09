@@ -2,12 +2,30 @@ package report
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/abhinavxd/libredesk/internal/testutil"
 	"github.com/zerodha/logf"
 )
+
+func TestGetIssuesTopAccountsQuerySprintf(t *testing.T) {
+	db := testutil.NewDB(t, "report_issues_top_accounts_fmt")
+	lo := logf.New(logf.Opts{})
+	m, err := New(Opts{DB: db, Lo: &lo, I18n: testutil.NewI18n(t)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := fmt.Sprintf(m.q.GetIssuesTopAccounts, 7, 7)
+	if strings.Contains(q, "%!(") {
+		t.Fatalf("fmt.Sprintf broke the query: %s", q)
+	}
+	if !strings.Contains(q, "ILIKE '%' || $2 || '%'") {
+		t.Fatalf("ILIKE wildcards missing after fmt: %s", q[strings.Index(q, "ILIKE"):])
+	}
+}
 
 func TestGetIssuesReportScalars(t *testing.T) {
 	db := testutil.NewDB(t, "report_issues")

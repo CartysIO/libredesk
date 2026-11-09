@@ -1080,7 +1080,7 @@ account_stats AS (
         c.created_at >= rs.starts_at
         AND (
             $2 = ''
-            OR COALESCE(o.name, '') ILIKE '%' || $2 || '%'
+            OR COALESCE(o.name, '') ILIKE '%%' || $2 || '%%'
         )
     GROUP BY
         o.id,
