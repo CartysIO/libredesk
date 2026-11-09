@@ -21,6 +21,8 @@ const (
 	PermMessagesWrite                   = "messages:write"
 	PermMessagesWritePrivate            = "messages:write_private"
 	PermMessagesWriteAsContact          = "messages:write_as_contact"
+	// Clyr fork: set conversation_messages.created_at on insert (migration/backfill API only).
+	PermMessagesWriteBackdated          = "messages:write_backdated"
 
 	// View
 	PermViewManage        = "view:manage"
@@ -122,6 +124,7 @@ var validPermissions = map[string]struct{}{
 	PermMessagesWrite:                   {},
 	PermMessagesWritePrivate:            {},
 	PermMessagesWriteAsContact:          {},
+	PermMessagesWriteBackdated:          {},
 	PermViewManage:                      {},
 	PermSharedViewsManage:               {},
 	PermStatusManage:                    {},

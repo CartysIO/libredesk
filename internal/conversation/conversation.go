@@ -430,6 +430,7 @@ type queries struct {
 	MessageExistsBySourceID            *sqlx.Stmt `query:"message-exists-by-source-id"`
 	GetConversationByMessageID         *sqlx.Stmt `query:"get-conversation-by-message-id"`
 	InsertMessage                      *sqlx.Stmt `query:"insert-message"`
+	InsertMessageWithTimestamps        *sqlx.Stmt `query:"insert-message-with-timestamps"`
 	UpdateMessageStatus                *sqlx.Stmt `query:"update-message-status"`
 	MarkMessagePendingForRetry         *sqlx.Stmt `query:"mark-message-pending-for-retry"`
 	ClearMessageHandoffFormPending     *sqlx.Stmt `query:"clear-message-handoff-form-pending"`

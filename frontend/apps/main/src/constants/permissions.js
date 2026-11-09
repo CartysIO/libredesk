@@ -17,6 +17,7 @@ export const permissions = {
   MESSAGES_WRITE: 'messages:write',
   MESSAGES_WRITE_PRIVATE: 'messages:write_private',
   MESSAGES_WRITE_AS_CONTACT: 'messages:write_as_contact',
+  MESSAGES_WRITE_BACKDATED: 'messages:write_backdated',
   VIEW_MANAGE: 'view:manage',
   SHARED_VIEWS_MANAGE: 'shared_views:manage',
   GENERAL_SETTINGS_MANAGE: 'general_settings:manage',

@@ -520,6 +520,7 @@
   "admin.role.messages.write": "Send messages in conversations",
   "admin.role.messages.writeAsContact": "Send messages as contact",
   "admin.role.messages.writePrivate": "Send private notes in conversations",
+  "admin.role.messages.writeBackdated": "Insert messages with a historical timestamp (migration API)",
   "admin.role.notificationSettings.manage": "Manage notification settings",
   "admin.role.oidc.manage": "Manage SSO configuration",
   "admin.role.reports.manage": "Manage reports",

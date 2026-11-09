@@ -1182,6 +1182,29 @@ inserted_msg AS (
 )
 SELECT * FROM inserted_msg;
 
+-- name: insert-message-with-timestamps
+WITH conversation_id AS (
+   SELECT id
+   FROM conversations
+   WHERE CASE
+       WHEN $3 > 0 THEN id = $3
+       ELSE uuid = $4
+   END
+),
+inserted_msg AS (
+   INSERT INTO conversation_messages (
+       created_at, updated_at, "type", status, conversation_id, "content",
+       text_content, sender_id, sender_type, private,
+       content_type, source_id, meta
+   )
+   VALUES (
+       $13, $13, $1, $2, (SELECT id FROM conversation_id),
+       $5, $6, $7, $8, $9, $10, $11, $12
+   )
+   RETURNING *
+)
+SELECT * FROM inserted_msg;
+
 -- name: message-exists-by-source-id
 SELECT conversation_id
 FROM conversation_messages
