@@ -3,6 +3,7 @@ package main
 import (
 	"slices"
 	"strings"
+	"time"
 
 	amodels "github.com/abhinavxd/libredesk/internal/auth/models"
 	authzModels "github.com/abhinavxd/libredesk/internal/authz/models"
@@ -31,6 +32,10 @@ type messageReq struct {
 	// WhatsApp-only. Set TemplateID to send an approved template. Omit for free-form.
 	WhatsAppTemplateID     int               `json:"whatsapp_template_id,omitempty"`
 	WhatsAppTemplateParams map[string]string `json:"whatsapp_template_params,omitempty"`
+
+	// Optional RFC3339 timestamp. Agent backfill/migration only; requires messages:write_backdated.
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+	Meta      map[string]any `json:"meta,omitempty"`
 }
 
 // handleGetMessages returns messages for a conversation.
@@ -249,12 +254,37 @@ func handleSendMessage(r *fastglue.Request) error {
 		}
 	}
 
+	if req.CreatedAt != nil {
+		if req.SenderType != umodels.UserTypeAgent {
+			return r.SendErrorEnvelope(fasthttp.StatusBadRequest, errBackdatedCreatedAtAgentOnly.Error(), nil, envelope.InputError)
+		}
+		if req.WhatsAppTemplateID > 0 || len(req.WhatsAppTemplateParams) > 0 {
+			return r.SendErrorEnvelope(fasthttp.StatusBadRequest, errBackdatedCreatedAtNoWhatsAppExtra.Error(), nil, envelope.InputError)
+		}
+		if !userCanWriteBackdated(user) {
+			return r.SendErrorEnvelope(fasthttp.StatusForbidden, app.i18n.T("status.deniedPermission"), nil, envelope.PermissionError)
+		}
+		if err := validateHistoricalCreatedAt(*req.CreatedAt, conv.CreatedAt, time.Now()); err != nil {
+			return r.SendErrorEnvelope(fasthttp.StatusBadRequest, err.Error(), nil, envelope.InputError)
+		}
+	}
+
 	media, err := getUnassociatedMedia(app, req.Attachments, auser.ID)
 	if err != nil {
 		return sendErrorEnvelope(r, err)
 	}
 
 	rootURL, _ := app.setting.GetAppRootURL()
+
+	if req.CreatedAt != nil {
+		message, err := app.conversation.InsertHistoricalAgentMessage(media, user.ID, cuuid, req.Message, req.Private, *req.CreatedAt, req.Meta, req.Mentions)
+		if err != nil {
+			return sendErrorEnvelope(r, err)
+		}
+		resolveQuotedCIDs(app, &message)
+		resolveAttachmentCIDs(&message, rootURL)
+		return r.SendEnvelope(message)
+	}
 
 	// Create contact message.
 	if req.SenderType == umodels.UserTypeContact {

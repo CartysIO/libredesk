@@ -700,6 +700,73 @@ func (m *Manager) SendPrivateNote(media []mmodels.Media, senderID int, conversat
 	return message, nil
 }
 
+// InsertHistoricalAgentMessage stores an outgoing agent message at a historical created_at without queuing outbound delivery.
+// It refreshes conversation summary columns in the same transaction and skips websocket/webhook side effects.
+func (m *Manager) InsertHistoricalAgentMessage(media []mmodels.Media, agentID int, conversationUUID, content string, private bool, createdAt time.Time, metaMap map[string]any, mentions []models.MentionInput) (models.Message, error) {
+	if data, err := m.BuildTemplateData(conversationUUID, agentID); err == nil {
+		content = m.template.RenderString(data, content)
+	}
+
+	if metaMap == nil {
+		metaMap = map[string]any{}
+	}
+	metaMap["migration_backfill"] = true
+	metaJSON, err := json.Marshal(metaMap)
+	if err != nil {
+		m.lo.Error("error marshalling historical message meta", "error", err)
+		return models.Message{}, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+
+	message := models.Message{
+		ConversationUUID: conversationUUID,
+		SenderID:         agentID,
+		UploadUserID:     agentID,
+		Type:             models.MessageOutgoing,
+		SenderType:       models.SenderTypeAgent,
+		Status:           models.MessageStatusSent,
+		Content:          content,
+		ContentType:      models.ContentTypeHTML,
+		Private:          private,
+		Media:            media,
+		CreatedAt:        createdAt,
+		UpdatedAt:        createdAt,
+		Meta:             metaJSON,
+	}
+
+	tx, err := m.db.Beginx()
+	if err != nil {
+		m.lo.Error("error beginning historical message transaction", "error", err)
+		return models.Message{}, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+	defer tx.Rollback()
+
+	if _, err := m.InsertMessageTx(tx, &message); err != nil {
+		return models.Message{}, err
+	}
+	if err := RefreshConversationSummaryFromMessages(tx, message.ConversationID); err != nil {
+		m.lo.Error("error refreshing conversation summary", "conversation_id", message.ConversationID, "error", err)
+		return models.Message{}, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+	if err := tx.Commit(); err != nil {
+		m.lo.Error("error committing historical message transaction", "error", err)
+		return models.Message{}, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+
+	m.addConversationParticipant(message.SenderID, message.ConversationUUID)
+	if private && len(mentions) > 0 {
+		if err := m.InsertMentions(message.ConversationID, message.ID, agentID, mentions); err != nil {
+			m.lo.Error("error inserting mentions on historical note", "error", err)
+		}
+	}
+
+	refetched, err := m.GetMessage(message.UUID)
+	if err != nil {
+		m.lo.Error("error fetching historical message after insert", "error", err)
+		return message, nil
+	}
+	return refetched, nil
+}
+
 // CreateContactMessage creates a contact message in a conversation.
 // sourceID is the bare RFC 5322 Message-ID of the inbound message; it is normalized and stored on the message so replies thread on it, mirroring the IMAP ingestion path. Empty leaves the column NULL.
 func (m *Manager) CreateContactMessage(media []mmodels.Media, contactID int, conversationUUID, content, contentType string, isNewConversation bool, sourceID string, actorUserID int) (models.Message, error) {
@@ -884,9 +951,16 @@ func (m *Manager) InsertMessageTx(tx *sqlx.Tx, message *models.Message) ([]strin
 		message.TextContent = stringutil.HTML2Text(message.Content)
 	}
 
-	if err := tx.Stmtx(m.q.InsertMessage).Get(message, message.Type, message.Status, message.ConversationID, message.ConversationUUID, message.Content, message.TextContent, message.SenderID, message.SenderType,
-		message.Private, message.ContentType, message.SourceID, message.Meta); err != nil {
-		m.lo.Error("error inserting message in db", "error", err)
+	var errInsert error
+	if message.CreatedAt.IsZero() {
+		errInsert = tx.Stmtx(m.q.InsertMessage).Get(message, message.Type, message.Status, message.ConversationID, message.ConversationUUID, message.Content, message.TextContent, message.SenderID, message.SenderType,
+			message.Private, message.ContentType, message.SourceID, message.Meta)
+	} else {
+		errInsert = tx.Stmtx(m.q.InsertMessageWithTimestamps).Get(message, message.Type, message.Status, message.ConversationID, message.ConversationUUID, message.Content, message.TextContent, message.SenderID, message.SenderType,
+			message.Private, message.ContentType, message.SourceID, message.Meta, message.CreatedAt)
+	}
+	if errInsert != nil {
+		m.lo.Error("error inserting message in db", "error", errInsert)
 		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
 

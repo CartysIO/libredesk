@@ -399,6 +399,16 @@ func (m *Message) IsContinuityMessage() bool {
 	return isContinuity
 }
 
+// IsMigrationBackfill returns true when the message was inserted through the backdated migration API path.
+func (m *Message) IsMigrationBackfill() bool {
+	var meta map[string]any
+	if err := json.Unmarshal(m.Meta, &meta); err != nil {
+		return false
+	}
+	v, _ := meta["migration_backfill"].(bool)
+	return v
+}
+
 // SendFrom returns the immutable sender address stored for an outgoing message.
 func (m *Message) SendFrom() string { return metaString(m.Meta, "send_from") }
 
