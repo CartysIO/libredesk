@@ -1050,15 +1050,17 @@ SELECT
                         COUNT(*) AS total,
                         COALESCE(
                             ROUND(
-                                AVG(
-                                    EXTRACT(
-                                        EPOCH
-                                        FROM
-                                            (c.resolved_at - c.created_at)
+                                (
+                                    AVG(
+                                        EXTRACT(
+                                            EPOCH
+                                            FROM
+                                                (c.resolved_at - c.created_at)
+                                        )
+                                    ) FILTER (
+                                        WHERE
+                                            c.resolved_at IS NOT NULL
                                     )
-                                ) FILTER (
-                                    WHERE
-                                        c.resolved_at IS NOT NULL
                                 )::numeric,
                                 0
                             ),
