@@ -82,3 +82,17 @@ func handleOverviewTagDistribution(r *fastglue.Request) error {
 	}
 	return r.SendEnvelope(tags)
 }
+
+// handleIssuesReport returns bundled Pylon-style issue analytics.
+func handleIssuesReport(r *fastglue.Request) error {
+	var (
+		app     = r.Context.(*App)
+		days, _ = strconv.Atoi(string(r.RequestCtx.QueryArgs().Peek("days")))
+		search  = string(r.RequestCtx.QueryArgs().Peek("account_search"))
+	)
+	report, err := app.report.GetIssuesReport(days, app.setting.GetAppTimezone(), search)
+	if err != nil {
+		return sendErrorEnvelope(r, err)
+	}
+	return r.SendEnvelope(report)
+}
