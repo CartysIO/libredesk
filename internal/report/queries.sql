@@ -1028,78 +1028,76 @@ WITH range_start AS (
             WHEN %d = 0 THEN DATE_TRUNC('day', NOW() AT TIME ZONE $1) AT TIME ZONE $1
             ELSE NOW() - INTERVAL '%d days'
         END AS starts_at
+),
+account_stats AS (
+    SELECT
+        COALESCE(o.name, '') AS account_name,
+        o.id AS organization_id,
+        COUNT(*) FILTER (
+            WHERE
+                c.resolved_at IS NULL
+        ) AS open,
+        COUNT(*) FILTER (
+            WHERE
+                c.resolved_at IS NOT NULL
+        ) AS closed,
+        COUNT(*) AS total,
+        COALESCE(
+            ROUND(
+                AVG(
+                    CASE
+                        WHEN c.resolved_at IS NOT NULL THEN EXTRACT(
+                            EPOCH
+                            FROM
+                                (c.resolved_at - c.created_at)
+                        )
+                    END
+                )::numeric,
+                0
+            ),
+            0
+        ) AS avg_resolution_sec,
+        COALESCE(
+            ROUND(AVG(touch_counts.touches)::numeric, 1),
+            0
+        ) AS avg_touches
+    FROM
+        conversations c
+        LEFT JOIN organizations o ON o.id = c.organization_id
+        CROSS JOIN range_start rs
+        LEFT JOIN LATERAL (
+            SELECT
+                COUNT(*) AS touches
+            FROM
+                conversation_messages m
+            WHERE
+                m.conversation_id = c.id
+                AND m.type IN ('incoming', 'outgoing')
+                AND m.private = false
+                AND m.created_at >= rs.starts_at
+        ) touch_counts ON true
+    WHERE
+        c.created_at >= rs.starts_at
+        AND (
+            $2 = ''
+            OR COALESCE(o.name, '') ILIKE '%' || $2 || '%'
+        )
+    GROUP BY
+        o.id,
+        o.name
+    ORDER BY
+        total DESC,
+        account_name
+    LIMIT
+        100
 )
 SELECT
     COALESCE(
         (
             SELECT
-                json_agg(row_to_json(agg) ORDER BY agg.total DESC, agg.account_name)
+                json_agg(row_to_json(account_stats))
             FROM
-                (
-                    SELECT
-                        COALESCE(o.name, '') AS account_name,
-                        o.id AS organization_id,
-                        COUNT(*) FILTER (
-                            WHERE
-                                c.resolved_at IS NULL
-                        ) AS open,
-                        COUNT(*) FILTER (
-                            WHERE
-                                c.resolved_at IS NOT NULL
-                        ) AS closed,
-                        COUNT(*) AS total,
-                        COALESCE(
-                            ROUND(
-                                (
-                                    AVG(
-                                        EXTRACT(
-                                            EPOCH
-                                            FROM
-                                                (c.resolved_at - c.created_at)
-                                        )
-                                    ) FILTER (
-                                        WHERE
-                                            c.resolved_at IS NOT NULL
-                                    )
-                                )::numeric,
-                                0
-                            ),
-                            0
-                        ) AS avg_resolution_sec,
-                        COALESCE(
-                            ROUND(
-                                AVG(touch_counts.touches)::numeric,
-                                1
-                            ),
-                            0
-                        ) AS avg_touches
-                    FROM
-                        conversations c
-                        LEFT JOIN organizations o ON o.id = c.organization_id
-                        CROSS JOIN range_start rs
-                        LEFT JOIN LATERAL (
-                            SELECT
-                                COUNT(*) AS touches
-                            FROM
-                                conversation_messages m
-                            WHERE
-                                m.conversation_id = c.id
-                                AND m.type IN ('incoming', 'outgoing')
-                                AND m.private = false
-                                AND m.created_at >= rs.starts_at
-                        ) touch_counts ON true
-                    WHERE
-                        c.created_at >= rs.starts_at
-                        AND (
-                            $2 = ''
-                            OR COALESCE(o.name, '') ILIKE '%' || $2 || '%'
-                        )
-                    GROUP BY
-                        o.id,
-                        o.name
-                    LIMIT
-                        100
-                ) agg
+                account_stats
         ),
         '[]'::json
     ) AS result;
