@@ -66,6 +66,12 @@ const routes = [
             name: 'overview',
             component: () => import('@main/views/reports/OverviewView.vue'),
             meta: { titleKey: 'globals.terms.overview' }
+          },
+          {
+            path: 'issues',
+            name: 'issues',
+            component: () => import('@main/views/reports/IssuesView.vue'),
+            meta: { titleKey: 'globals.terms.issues' }
           }
         ]
       },

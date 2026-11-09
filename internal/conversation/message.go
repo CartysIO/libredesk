@@ -1013,7 +1013,11 @@ func (m *Manager) InsertConversationActivity(activityType, conversationUUID, new
 	}
 
 	// Store the activity type structurally so callers can filter activities without parsing i18n content.
-	meta, _ := json.Marshal(map[string]string{"activity_type": activityType})
+	metaFields := map[string]string{"activity_type": activityType}
+	if newValue != "" {
+		metaFields["new_value"] = newValue
+	}
+	meta, _ := json.Marshal(metaFields)
 
 	message := models.Message{
 		Type:             models.MessageActivity,

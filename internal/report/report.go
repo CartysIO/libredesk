@@ -49,6 +49,9 @@ type queries struct {
 	GetOverviewCSAT            string `query:"get-overview-csat"`
 	GetOverviewMessageVolume   string `query:"get-overview-message-volume"`
 	GetOverviewTagDistribution string `query:"get-overview-tag-distribution"`
+	GetIssuesScalars           string `query:"get-issues-scalars"`
+	GetIssuesCharts            string `query:"get-issues-charts"`
+	GetIssuesTopAccounts       string `query:"get-issues-top-accounts"`
 }
 
 // New creates and returns a new instance of the Manager.
