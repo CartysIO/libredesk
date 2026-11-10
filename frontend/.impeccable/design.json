@@ -865,7 +865,7 @@
       "refersTo": "status-swatch",
       "description": "8px square in the status code colour; filled = someone must act, hollow = resolved.",
       "html": "<span class=\"ds-row\"><span class=\"ds-sw ds-new\"></span>New</span><span class=\"ds-row\"><span class=\"ds-sw ds-you\"></span>On you</span><span class=\"ds-row\"><span class=\"ds-sw ds-cust\"></span>On customer</span><span class=\"ds-row\"><span class=\"ds-sw ds-hold\"></span>On hold</span><span class=\"ds-row\"><span class=\"ds-sw ds-done ds-hollow\"></span>Resolved</span>",
-      "css": ".ds-row{display:inline-flex;align-items:center;gap:8px;margin-right:16px;font-family: Urbanist, ui-sans-serif, system-ui, sans-serif;font-size:14px;font-weight:600;color:#0F1F1A} .ds-sw{width:8px;height:8px;border-radius:1px;background:currentColor;display:inline-block} .ds-new{color:#2E8A48} .ds-you{color:#E63F19} .ds-cust{color:#246ADB} .ds-hold{color:#6E7D91} .ds-done{color:#96A69F} .ds-hollow{background:transparent;box-shadow:inset 0 0 0 1.5px currentColor}"
+      "css": ".ds-row{display:inline-flex;align-items:center;gap:8px;margin-right:16px;font-family: 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;font-size:14px;font-weight:600;color:#0F1F1A} .ds-sw{width:8px;height:8px;border-radius:1px;background:currentColor;display:inline-block} .ds-new{color:#2E8A48} .ds-you{color:#E63F19} .ds-cust{color:#246ADB} .ds-hold{color:#6E7D91} .ds-done{color:#96A69F} .ds-hollow{background:transparent;box-shadow:inset 0 0 0 1.5px currentColor}"
     },
     {
       "name": "Conversation list row",
@@ -873,7 +873,7 @@
       "refersTo": "list-row",
       "description": "Swatch cell, name and time, subject, snippet with a neutral unread count; hairline below.",
       "html": "<a class=\"ds-lr\" href=\"#\"><span class=\"ds-sw\"></span><span class=\"ds-lr-c\"><span class=\"ds-lr-1\"><b>Dana Levi</b><span class=\"ds-meta\">2m</span></span><span class=\"ds-lr-s\">Card declined at vendor</span><span class=\"ds-lr-3\"><span class=\"ds-snip\">Hi team, the card ending 4421 was declined again this morning</span><span class=\"ds-unread\">2</span></span></span></a>",
-      "css": ".ds-lr{display:flex;gap:10px;padding:8px 12px;border-bottom:1px solid rgba(224,230,227,.7);background:#fff;text-decoration:none;color:#0F1F1A;font-family: Urbanist, ui-sans-serif, system-ui, sans-serif;width:340px;transition:background-color .15s ease-in-out} .ds-lr:hover{background:rgba(235,241,238,.5)} .ds-lr:focus-visible{outline:2px solid #41AA5E;outline-offset:-2px} .ds-sw{width:8px;height:8px;border-radius:1px;background:#E63F19;margin:6px 4px 0;flex:none} .ds-lr-c{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px} .ds-lr-1,.ds-lr-3{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px} .ds-lr-1 b{font-weight:700} .ds-meta{font-size:12px;color:#54645F;font-variant-numeric:tabular-nums} .ds-lr-s{font-size:14px} .ds-snip{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .ds-unread{min-width:20px;height:20px;padding:0 4px;border-radius:9999px;background:#0F1F1A;color:#FCFDFC;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none}"
+      "css": ".ds-lr{display:flex;gap:10px;padding:8px 12px;border-bottom:1px solid rgba(224,230,227,.7);background:#fff;text-decoration:none;color:#0F1F1A;font-family: 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;width:340px;transition:background-color .15s ease-in-out} .ds-lr:hover{background:rgba(235,241,238,.5)} .ds-lr:focus-visible{outline:2px solid #41AA5E;outline-offset:-2px} .ds-sw{width:8px;height:8px;border-radius:1px;background:#E63F19;margin:6px 4px 0;flex:none} .ds-lr-c{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px} .ds-lr-1,.ds-lr-3{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px} .ds-lr-1 b{font-weight:700} .ds-meta{font-size:12px;color:#54645F;font-variant-numeric:tabular-nums} .ds-lr-s{font-size:14px} .ds-snip{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .ds-unread{min-width:20px;height:20px;padding:0 4px;border-radius:9999px;background:#0F1F1A;color:#FCFDFC;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none}"
     },
     {
       "name": "Folded thread row",
@@ -881,7 +881,7 @@
       "refersTo": "fold-row",
       "description": "One-line folded email: avatar, sender, snippet, time. Click expands.",
       "html": "<button class=\"ds-fold\" type=\"button\"><span class=\"ds-av\">DL</span><span class=\"ds-name\">Dana Levi</span><span class=\"ds-snip\">Thanks, that worked. One more question about the receipt sync</span><span class=\"ds-meta\">Oct 12</span></button>",
-      "css": ".ds-fold{display:flex;align-items:center;gap:12px;width:480px;padding:8px 16px;border:0;border-bottom:1px solid rgba(224,230,227,.7);background:#fff;text-align:left;font-family: Urbanist, ui-sans-serif, system-ui, sans-serif;cursor:pointer;transition:background-color .15s} .ds-fold:hover{background:rgba(235,241,238,.5)} .ds-fold:focus-visible{outline:none;background:#EBF1EE} .ds-av{width:24px;height:24px;border-radius:9999px;background:#F2F5F4;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none} .ds-name{width:144px;flex:none;font-size:14px;font-weight:600;color:#0F1F1A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .ds-snip{flex:1;min-width:0;font-size:14px;color:#54645F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .ds-meta{font-size:12px;color:#54645F;font-variant-numeric:tabular-nums}"
+      "css": ".ds-fold{display:flex;align-items:center;gap:12px;width:480px;padding:8px 16px;border:0;border-bottom:1px solid rgba(224,230,227,.7);background:#fff;text-align:left;font-family: 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;cursor:pointer;transition:background-color .15s} .ds-fold:hover{background:rgba(235,241,238,.5)} .ds-fold:focus-visible{outline:none;background:#EBF1EE} .ds-av{width:24px;height:24px;border-radius:9999px;background:#F2F5F4;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none} .ds-name{width:144px;flex:none;font-size:14px;font-weight:600;color:#0F1F1A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .ds-snip{flex:1;min-width:0;font-size:14px;color:#54645F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .ds-meta{font-size:12px;color:#54645F;font-variant-numeric:tabular-nums}"
     },
     {
       "name": "Ticket header",
@@ -889,7 +889,7 @@
       "refersTo": "status-trigger",
       "description": "#reference headline with the contact beside it, subject below, outline status trigger with swatch.",
       "html": "<div class=\"ds-hd\"><div><div class=\"ds-l1\"><span class=\"ds-ref\">#1042</span><span class=\"ds-meta\">Dana Levi</span></div><div class=\"ds-subj\">Card declined at vendor</div></div><button class=\"ds-st\" type=\"button\"><span class=\"ds-sw\"></span>On you</button></div>",
-      "css": ".ds-hd{display:flex;align-items:center;justify-content:space-between;gap:16px;width:480px;padding:8px 16px;border-bottom:1px solid #E0E6E3;background:#fff;font-family: Urbanist, ui-sans-serif, system-ui, sans-serif;color:#0F1F1A} .ds-l1{display:flex;align-items:baseline;gap:8px} .ds-ref{font-size:16px;font-weight:700;letter-spacing:-.025em;font-variant-numeric:tabular-nums} .ds-meta{font-size:12px;color:#54645F} .ds-subj{font-size:14px;font-weight:600} .ds-st{display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border:1px solid #CDD6D1;border-radius:4px;background:#FCFDFC;font-family: Urbanist, ui-sans-serif, system-ui, sans-serif;font-size:14px;font-weight:600;color:#0F1F1A;cursor:pointer;transition:background-color .15s} .ds-st:hover{background:#EBF1EE} .ds-st:focus-visible{outline:2px solid #41AA5E;outline-offset:2px} .ds-sw{width:8px;height:8px;border-radius:1px;background:#E63F19}"
+      "css": ".ds-hd{display:flex;align-items:center;justify-content:space-between;gap:16px;width:480px;padding:8px 16px;border-bottom:1px solid #E0E6E3;background:#fff;font-family: 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;color:#0F1F1A} .ds-l1{display:flex;align-items:baseline;gap:8px} .ds-ref{font-size:16px;font-weight:700;letter-spacing:-.025em;font-variant-numeric:tabular-nums} .ds-meta{font-size:12px;color:#54645F} .ds-subj{font-size:14px;font-weight:600} .ds-st{display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border:1px solid #CDD6D1;border-radius:4px;background:#FCFDFC;font-family: 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;font-size:14px;font-weight:600;color:#0F1F1A;cursor:pointer;transition:background-color .15s} .ds-st:hover{background:#EBF1EE} .ds-st:focus-visible{outline:2px solid #41AA5E;outline-offset:2px} .ds-sw{width:8px;height:8px;border-radius:1px;background:#E63F19}"
     },
     {
       "name": "Spec table",
@@ -897,7 +897,7 @@
       "refersTo": "desk-spec",
       "description": "Conversation details: one aligned label column, a hairline per row.",
       "html": "<div class=\"ds-spec\"><div><span class=\"ds-k\">Inbox</span><span>support@clyr.io</span></div><div><span class=\"ds-k\">Created</span><span>Oct 12, 2026 9:41 AM</span></div><div><span class=\"ds-k\">First reply</span><span>Oct 12, 2026 10:02 AM</span></div></div>",
-      "css": ".ds-spec{display:grid;grid-template-columns:max-content minmax(0,1fr);column-gap:12px;width:280px;font-family: Urbanist, ui-sans-serif, system-ui, sans-serif;font-size:14px;color:#0F1F1A} .ds-spec>div{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:baseline;padding:7px 0;border-bottom:1px solid rgba(224,230,227,.7)} .ds-spec>div:last-child{border-bottom:0} .ds-k{font-size:12px;font-weight:500;color:#54645F}"
+      "css": ".ds-spec{display:grid;grid-template-columns:max-content minmax(0,1fr);column-gap:12px;width:280px;font-family: 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;font-size:14px;color:#0F1F1A} .ds-spec>div{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:baseline;padding:7px 0;border-bottom:1px solid rgba(224,230,227,.7)} .ds-spec>div:last-child{border-bottom:0} .ds-k{font-size:12px;font-weight:500;color:#54645F}"
     },
     {
       "name": "Board lane",
@@ -905,7 +905,7 @@
       "refersTo": "board-card",
       "description": "Hairline lane with a swatch header and flat bordered cards.",
       "html": "<div class=\"ds-lane\"><div class=\"ds-lh\"><span class=\"ds-sw\"></span>On customer</div><div class=\"ds-bc\" tabindex=\"0\"><div class=\"ds-bc1\"><span class=\"ds-sw\"></span><b>#1038</b><span class=\"ds-dot\"></span></div><div class=\"ds-bcs\">Buildium sync stuck on bill</div></div></div>",
-      "css": ".ds-lane{width:288px;border-right:1px solid rgba(224,230,227,.7);padding:12px;font-family: Urbanist, ui-sans-serif, system-ui, sans-serif;color:#0F1F1A} .ds-lh{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;margin-bottom:8px} .ds-sw{width:8px;height:8px;border-radius:1px;background:#246ADB;flex:none} .ds-bc{border:1px solid #E0E6E3;border-radius:4px;background:#fff;padding:10px 12px;cursor:pointer;transition:background-color .15s,border-color .15s} .ds-bc:hover{border-color:#CDD6D1;background:rgba(235,241,238,.4)} .ds-bc:focus-visible{outline:2px solid #41AA5E;outline-offset:2px} .ds-bc1{display:flex;align-items:center;gap:8px;font-size:12px;font-variant-numeric:tabular-nums} .ds-dot{width:8px;height:8px;border-radius:9999px;background:#0F1F1A} .ds-bcs{font-size:14px;margin-top:4px}"
+      "css": ".ds-lane{width:288px;border-right:1px solid rgba(224,230,227,.7);padding:12px;font-family: 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;color:#0F1F1A} .ds-lh{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;margin-bottom:8px} .ds-sw{width:8px;height:8px;border-radius:1px;background:#246ADB;flex:none} .ds-bc{border:1px solid #E0E6E3;border-radius:4px;background:#fff;padding:10px 12px;cursor:pointer;transition:background-color .15s,border-color .15s} .ds-bc:hover{border-color:#CDD6D1;background:rgba(235,241,238,.4)} .ds-bc:focus-visible{outline:2px solid #41AA5E;outline-offset:2px} .ds-bc1{display:flex;align-items:center;gap:8px;font-size:12px;font-variant-numeric:tabular-nums} .ds-dot{width:8px;height:8px;border-radius:9999px;background:#0F1F1A} .ds-bcs{font-size:14px;margin-top:4px}"
     },
     {
       "name": "Rail",
@@ -921,7 +921,7 @@
       "refersTo": "button-primary",
       "description": "Deep Desk Green action, 4px radius.",
       "html": "<button class=\"ds-btn\" type=\"button\">Send reply</button>",
-      "css": ".ds-btn{height:36px;padding:0 16px;border:0;border-radius:4px;background:#1A6141;color:#fff;font-family: Urbanist, ui-sans-serif, system-ui, sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:opacity .15s} .ds-btn:hover{opacity:.9} .ds-btn:focus-visible{outline:2px solid #41AA5E;outline-offset:2px}"
+      "css": ".ds-btn{height:36px;padding:0 16px;border:0;border-radius:4px;background:#1A6141;color:#fff;font-family: 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:opacity .15s} .ds-btn:hover{opacity:.9} .ds-btn:focus-visible{outline:2px solid #41AA5E;outline-offset:2px}"
     }
   ],
   "narrative": {
@@ -930,7 +930,7 @@
     "keyCharacteristics": [
       "Deep green rail (48px) with the Clyr \"C\" mark; everything else is light panes on hairlines.",
       "One five-value whose-move code, shown as an 8px square swatch, filled or hollow.",
-      "Three type sizes (12 / 14 / 16), Urbanist only, rank by weight and case.",
+      "Lexend for display hierarchy; Source Sans 3 for body and UI; rank by weight and case on the desk type scale.",
       "Tabular figures for every number, time and reference.",
       "Gmail-style email thread: folded rows, newest open.",
       "Unread, priority and counts are neutral; they never borrow a code colour."
@@ -974,7 +974,7 @@
     ],
     "dos": [
       "Do show ticket state with `StatusSwatch` and `statusCode()`, filled for every status but Resolved.",
-      "Do keep chrome to 12, 14 and 16px Urbanist; rank with weight and case.",
+      "Do keep chrome on the desk type scale; Lexend vs Source Sans 3 by role.",
       "Do use `tabular-nums` on every reference, time, date and count.",
       "Do separate panes, rows and sections with one 1px `border` line.",
       "Do keep unread and priority neutral (`foreground` / `muted-foreground`).",

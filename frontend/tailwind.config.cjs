@@ -28,7 +28,19 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        sans: ['Geist', ...defaultTheme.fontFamily.sans]
+        sans: ['var(--font-sans, Geist)', ...defaultTheme.fontFamily.sans],
+        display: ['var(--desk-font-display, var(--font-sans, Geist))', ...defaultTheme.fontFamily.sans],
+        mono: ['var(--desk-font-mono, ui-monospace)', ...defaultTheme.fontFamily.mono]
+      },
+      fontSize: {
+        'desk-2xs': ['var(--desk-type-2xs)', { lineHeight: 'var(--desk-leading-2xs)' }],
+        'desk-xs': ['var(--desk-type-xs)', { lineHeight: 'var(--desk-leading-xs)' }],
+        'desk-sm': ['var(--desk-type-sm)', { lineHeight: 'var(--desk-leading-sm)' }],
+        'desk-base': ['var(--desk-type-base)', { lineHeight: 'var(--desk-leading-base)' }],
+        'desk-md': ['var(--desk-type-md)', { lineHeight: 'var(--desk-leading-md)' }],
+        'desk-lg': ['var(--desk-type-lg)', { lineHeight: 'var(--desk-leading-lg)' }],
+        'desk-xl': ['var(--desk-type-xl)', { lineHeight: 'var(--desk-leading-xl)' }],
+        'desk-2xl': ['var(--desk-type-2xl)', { lineHeight: 'var(--desk-leading-2xl)' }]
       },
       height: {
         screen: '100dvh'

@@ -164,7 +164,7 @@ onMounted(() => {
 <template>
   <SidebarProvider
     ref="sidebarProviderRef"
-    class="relative h-full min-h-0 gap-1 overflow-hidden has-[[data-collapsible=offcanvas]]:gap-0"
+    class="relative h-full min-h-0 gap-0 overflow-hidden"
     style="--sidebar-width: 14rem"
     :default-open="sidebarOpen"
     v-on:update:open="sidebarOpen = $event"
@@ -593,12 +593,22 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* Signal Console: inset nav column inside the main surface. */
+/*
+ * Secondary nav lives inside .desk-surface, beside the icon rail in App.vue.
+ * shadcn's sidebar uses position:fixed at viewport left:0; override so the panel
+ * and its width spacer both align within this provider (rail no longer covers it).
+ */
+:deep(.group.peer > div:first-child) {
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
 :deep(.sidebar-secondary) {
-  @apply ml-0 overflow-hidden border-r border-sidebar-border/80 bg-sidebar/50;
-  top: 0 !important;
-  bottom: 0 !important;
+  @apply z-10 ml-0 overflow-hidden border-r border-sidebar-border/80 bg-sidebar/50;
+  position: absolute !important;
+  inset: 0 auto 0 0 !important;
   height: auto !important;
+  max-height: 100%;
 }
 
 :deep(.group\/sidebar-wrapper) {
