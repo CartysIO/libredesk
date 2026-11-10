@@ -277,7 +277,7 @@
 </template>
 
 <script setup>
-const REPORT_ROW_CLASS = 'flex w-full flex-col gap-4 md:flex-row md:gap-px'
+const REPORT_ROW_CLASS = 'flex w-full flex-col gap-4 md:flex-row'
 const SLA_COUNT_GRID_CLASS = 'grid grid-cols-2 gap-4 text-center pt-2'
 
 import { ref, computed, watch, onMounted } from 'vue'

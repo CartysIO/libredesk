@@ -353,12 +353,7 @@ html[data-app='desk'] .desk-reports {
   }
 
   .desk-report-scalar-grid {
-    gap: 1px;
-    background: hsl(var(--border) / 0.7);
-
-    > * {
-      background: hsl(var(--card));
-    }
+    gap: 1rem;
   }
 
   .desk-report-metric,

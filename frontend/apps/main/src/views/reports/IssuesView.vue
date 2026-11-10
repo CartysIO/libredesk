@@ -180,8 +180,7 @@
 </template>
 
 <script setup>
-const REPORT_ROW_CLASS =
-  'flex w-full flex-col gap-4 md:flex-row md:flex-wrap md:gap-px'
+const REPORT_ROW_CLASS = 'flex w-full flex-col gap-4 md:flex-row md:flex-wrap'
 
 import { ref, computed, watch, onMounted } from 'vue'
 import { useIntervalFn, useDocumentVisibility, watchDebounced } from '@vueuse/core'
