@@ -4,11 +4,12 @@
       <router-link
         :to="conversationRoute"
         :aria-current="isCurrent ? 'page' : undefined"
-        class="group relative block cursor-pointer border-b border-border/70 px-3 py-2 transition-colors duration-150 ease-in-out focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        class="desk-list-row group relative block cursor-pointer px-3 py-2.5 transition-all duration-180 ease-out focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         :class="{
-          'bg-accent': isCurrent,
-          'bg-primary/5 can-hover:hover:bg-primary/10': isItemSelected && !isCurrent,
-          'can-hover:hover:bg-accent/50': !isCurrent && !isItemSelected
+          'ring-1 ring-primary/20': isCurrent,
+          'can-hover:hover:border-border/80 can-hover:hover:shadow-md': !isCurrent,
+          'border-primary/30 bg-primary/5': isItemSelected && !isCurrent,
+          'can-hover:hover:bg-accent/60': !isCurrent && !isItemSelected
         }"
       >
         <div class="flex items-start gap-2.5">

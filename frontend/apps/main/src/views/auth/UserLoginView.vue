@@ -1,12 +1,12 @@
 <template>
   <AuthLayout>
     <Card
-      class="bg-card box"
+      class="desk-auth-card bg-card overflow-visible"
       :class="{ 'animate-shake': shakeCard }"
       id="login-container"
       ref="cardRef"
     >
-      <CardContent class="p-6 space-y-5">
+      <CardContent class="space-y-5 p-6 pt-6">
         <div class="space-y-1 text-center">
           <CardTitle class="ui-display-heading">
             {{ appSettingsStore.public_config?.['app.site_name'] || 'libredesk' }}
@@ -15,7 +15,7 @@
         </div>
 
         <div v-if="clerkPublishableKey" class="space-y-3">
-          <div ref="clerkSignInRef" class="flex justify-center"></div>
+          <div ref="clerkSignInRef" class="desk-clerk-mount w-full min-w-0 overflow-visible"></div>
           <p v-if="clerkLoading" class="text-sm text-center text-muted-foreground">
             {{ t('auth.loggingIn') }}
           </p>
@@ -289,9 +289,10 @@ const mountClerkSignIn = async () => {
         borderRadius: 'var(--radius)'
       },
       elements: {
-        rootBox: 'w-full',
-        cardBox: 'w-full shadow-none border-0',
-        card: 'shadow-none px-0 py-2',
+        rootBox: 'w-full overflow-visible',
+        cardBox: 'w-full overflow-visible shadow-none border-0',
+        card: 'h-auto w-full overflow-visible shadow-none',
+        main: 'w-full gap-4',
         header: 'hidden',
         footer: 'hidden',
         formFieldInput: '!border !border-solid !border-input',

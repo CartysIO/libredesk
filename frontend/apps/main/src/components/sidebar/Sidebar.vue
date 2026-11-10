@@ -568,7 +568,7 @@ onMounted(() => {
     </template>
 
     <!-- Main Content Area -->
-    <SidebarInset class="bg-canvas !min-h-0 !h-full">
+    <SidebarInset class="!min-h-0 !h-full bg-background/40">
       <slot></slot>
     </SidebarInset>
   </SidebarProvider>
@@ -593,9 +593,9 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* Clyr desk: the column sits flush against the 3rem rail (plus its 1px rule), no floating card. */
+/* Signal Console: inset nav column inside the main surface. */
 :deep(.sidebar-secondary) {
-  @apply ml-[calc(3rem+1px)] overflow-hidden border-r border-sidebar-border;
+  @apply ml-0 overflow-hidden border-r border-sidebar-border/80 bg-sidebar/50;
   top: 0 !important;
   bottom: 0 !important;
   height: auto !important;

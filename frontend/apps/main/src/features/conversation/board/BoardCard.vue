@@ -18,7 +18,9 @@
     <!-- Line 1: whose-move swatch, reference, neutral unread dot (DESIGN.md board card). -->
     <div class="flex items-center gap-2 text-xs tabular-nums">
       <StatusSwatch :status="conversation.status" />
-      <span class="font-bold shrink-0">#{{ conversation.reference_number }}</span>
+      <span class="font-display shrink-0 font-bold tabular-nums tracking-tight"
+        >#{{ conversation.reference_number }}</span
+      >
       <span class="min-w-0 flex-1" />
       <span
         v-if="isUnread"

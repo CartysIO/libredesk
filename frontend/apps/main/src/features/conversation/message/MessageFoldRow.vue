@@ -1,7 +1,7 @@
 <template>
   <button
     type="button"
-    class="group/fold flex w-full items-center gap-3 border-b border-border/70 px-4 py-2 text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:bg-accent"
+    class="desk-fold-row group/fold flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     :class="{ 'bg-private/60': message.private }"
     :aria-expanded="false"
     @click="$emit('expand')"

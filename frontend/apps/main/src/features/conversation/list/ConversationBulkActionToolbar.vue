@@ -2,7 +2,7 @@
   <div
     role="toolbar"
     :aria-label="t('conversation.bulkActions.toolbar')"
-    class="p-2 flex flex-wrap items-center gap-1 bg-muted/30"
+    class="desk-bulk-toolbar flex flex-wrap items-center gap-1 p-2.5"
   >
     <Checkbox
       :checked="conversationStore.allSelected"

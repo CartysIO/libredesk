@@ -1,7 +1,7 @@
 <template>
   <aside
     ref="panel"
-    class="board-drawer absolute bottom-0 right-0 top-14 z-20 flex max-w-full flex-col border-l border-border/70 bg-background shadow-lg"
+    class="board-drawer absolute bottom-0 right-0 z-20 flex max-w-full flex-col border-l border-border/70 bg-card shadow-lg"
     :style="panelStyle"
     :aria-label="t('kanban.conversationDrawer')"
   >

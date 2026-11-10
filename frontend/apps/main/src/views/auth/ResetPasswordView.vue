@@ -1,6 +1,6 @@
 <template>
   <AuthLayout>
-    <Card class="bg-card box" id="reset-password-container">
+    <Card class="desk-auth-card bg-card overflow-visible" id="reset-password-container">
       <CardContent class="p-6 space-y-5">
         <div class="space-y-1 text-center">
           <CardTitle class="ui-display-heading">{{

@@ -1,7 +1,9 @@
 <template>
-  <SidebarHeader class="h-14 shrink-0 flex-row items-center justify-between gap-2 px-3">
+  <SidebarHeader
+    class="h-14 shrink-0 flex-row items-center justify-between gap-2 border-b border-sidebar-border/50 px-4"
+  >
     <div class="flex min-w-0 items-baseline gap-1.5">
-      <h2 class="ui-heading truncate">{{ title }}</h2>
+      <h2 class="ui-heading truncate text-sm font-semibold tracking-tight">{{ title }}</h2>
       <div v-if="$slots.suffix" class="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
         <slot name="suffix" />
       </div>

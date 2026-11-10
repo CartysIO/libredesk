@@ -1,6 +1,6 @@
 <template>
   <div class="flex min-h-full flex-col">
-    <div class="flex w-full flex-wrap items-center gap-3 pb-4">
+    <div class="desk-directory-toolbar mb-4 flex w-full flex-wrap items-center gap-3">
       <SearchInput
         v-model="searchTerm"
         class="min-w-0 max-w-sm flex-1"
@@ -66,7 +66,7 @@
       </Button>
     </div>
 
-    <div class="w-full border-t border-border/70">
+    <div class="desk-directory-stack w-full">
       <div v-if="loading" class="w-full">
         <div
           v-for="i in perPage"
@@ -125,10 +125,7 @@
             </div>
           </div>
         </router-link>
-        <div
-          v-if="contacts.length === 0"
-          class="flex h-32 w-full items-center justify-center border-b border-border/70"
-        >
+        <div v-if="contacts.length === 0" class="desk-empty-list flex h-32 w-full items-center justify-center">
           <p class="text-sm text-muted-foreground">{{ $t('contact.noContactsFound') }}</p>
         </div>
       </template>

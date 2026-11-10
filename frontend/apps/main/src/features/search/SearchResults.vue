@@ -2,8 +2,13 @@
   <div>
     <Tabs :model-value="activeTab" @update:model-value="emit('update:activeTab', $event)">
       <div class="mb-3 flex flex-wrap items-center gap-2">
-        <TabsList>
-          <TabsTrigger v-for="type in TYPES" :key="type" :value="type" class="gap-1.5">
+        <TabsList class="h-10 rounded-full border border-border/70 bg-muted/40 p-1">
+          <TabsTrigger
+            v-for="type in TYPES"
+            :key="type"
+            :value="type"
+            class="gap-1.5 rounded-full px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm"
+          >
             {{ t(tabLabelKeys[type], 2) }}
             <span class="text-xs tabular-nums text-muted-foreground">
               {{ knownResultCount(results[type]) }}
@@ -47,12 +52,12 @@
 
       <TabsContent v-for="type in TYPES" :key="type" :value="type" class="mt-0">
         <div
-          class="desk-search-panel overflow-hidden border-y border-border/70"
+          class="desk-search-panel border-y border-border/70"
           :class="{ 'border-dashed': results[type].results.length === 0 }"
         >
           <div
             v-if="results[type].results.length === 0"
-            class="p-8 text-center text-sm text-muted-foreground"
+            class="desk-empty-list p-8 text-center text-sm text-muted-foreground"
             role="status"
           >
             <Spinner v-if="loading" :absolute="false" :text="t('globals.terms.loading')" />

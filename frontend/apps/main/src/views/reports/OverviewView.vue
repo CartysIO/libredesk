@@ -22,7 +22,7 @@
               </Button>
             </template>
           </div>
-          <div class="flex flex-wrap items-center gap-1">
+          <div class="desk-report-range flex flex-wrap items-center gap-1">
             <Button
               v-for="option in rangeOptions"
               :key="option"

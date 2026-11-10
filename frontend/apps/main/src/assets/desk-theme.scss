@@ -1,147 +1,149 @@
-// Clyr Support desk theme (fork only).
-// Scoped to the agent app through html[data-app='desk'] (set in apps/main/index.html), so the chat
-// widget and the help center keep the upstream tokens from shared-ui/assets/styles/main.scss.
-// Every value is an HSL channel triple, like the upstream tokens. See frontend/DESIGN.md.
+// Clyr Support desk — Signal Console theme (fork only).
+// Scoped to the agent app through html[data-app='desk']. Widget and help center keep upstream tokens.
 
 html[data-app='desk'] {
-  --background: 150 20% 99%;
-  --foreground: 160 35% 9%;
-  --foreground-lighter: 158 10% 38%;
+  --background: 214 32% 96%;
+  --foreground: 222 47% 11%;
+  --foreground-lighter: 215 16% 40%;
 
   --card: 0 0% 100%;
-  --card-foreground: 160 35% 9%;
+  --card-foreground: 222 47% 11%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 160 35% 9%;
+  --popover-foreground: 222 47% 11%;
 
-  // Deep Clyr green carries actions; the brand green (#62C47A) is too light for white text.
-  --primary: 153 58% 24%;
+  --primary: 213 52% 24%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 150 14% 95.5%;
-  --secondary-foreground: 160 35% 9%;
+  --secondary: 214 28% 92%;
+  --secondary-foreground: 222 47% 11%;
 
-  --muted: 150 14% 95.5%;
-  --muted-foreground: 160 9% 36%;
+  --muted: 214 24% 94%;
+  --muted-foreground: 215 16% 42%;
 
-  --accent: 150 18% 93.5%;
-  --accent-foreground: 160 35% 9%;
+  --accent: 214 32% 90%;
+  --accent-foreground: 213 52% 20%;
 
-  --destructive: 4 68% 45%;
+  --destructive: 0 72% 46%;
   --destructive-foreground: 0 0% 100%;
 
-  --success: 147 60% 30%;
+  --success: 152 56% 32%;
   --success-foreground: 0 0% 100%;
 
-  --border: 150 12% 89%;
-  --input: 150 10% 82%;
-  --ring: 137 45% 46%;
-  --radius: 0.375rem;
-  --private: 42 92% 93%;
-  // The gutter between panes is the hairline colour, so panes meet on a 1px rule.
-  --canvas: 150 12% 89%;
+  --border: 214 22% 86%;
+  --input: 214 18% 78%;
+  --ring: 213 52% 38%;
+  --radius: 0.75rem;
+  --private: 43 90% 94%;
+  --canvas: 214 28% 92%;
 
-  // Clyr brand green, #62C47A.
   --brand: 135 45% 58%;
 
-  // Whose move it is. One code, used on list rows, board cards and the ticket header.
-  --code-new: 137 50% 36%;
-  --code-you: 11 80% 50%;
-  --code-customer: 217 72% 50%;
-  --code-hold: 215 14% 50%;
-  --code-done: 155 8% 62%;
+  --code-new: 152 55% 38%;
+  --code-you: 14 78% 48%;
+  --code-customer: 221 78% 52%;
+  --code-hold: 215 14% 48%;
+  --code-done: 215 12% 58%;
 
-  // Secondary navigation column (inbox, views): a tinted ground next to the white work panes.
-  --sidebar-background: 150 16% 97%;
-  --sidebar-foreground: 160 35% 9%;
-  --sidebar-primary: 153 58% 24%;
+  --sidebar-background: 0 0% 100%;
+  --sidebar-foreground: 222 47% 11%;
+  --sidebar-primary: 213 52% 24%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 150 18% 92%;
-  --sidebar-accent-foreground: 160 35% 9%;
-  --sidebar-border: 150 12% 89%;
-  --sidebar-ring: 137 45% 46%;
+  --sidebar-accent: 214 32% 94%;
+  --sidebar-accent-foreground: 222 47% 11%;
+  --sidebar-border: 214 22% 88%;
+  --sidebar-ring: 213 52% 38%;
 
-  --desk-font: 'Urbanist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --desk-font-display: 'Lexend', ui-sans-serif, system-ui, sans-serif;
+  --desk-font: 'Source Sans 3', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --desk-shadow-sm: 0 1px 2px hsl(222 47% 11% / 0.06);
+  --desk-shadow-md: 0 4px 12px hsl(222 47% 11% / 0.08), 0 1px 3px hsl(222 47% 11% / 0.04);
+  --desk-shadow-lg: 0 12px 28px hsl(222 47% 11% / 0.1), 0 4px 8px hsl(222 47% 11% / 0.05);
 }
 
 html[data-app='desk'].dark {
-  --background: 160 18% 7.5%;
-  --foreground: 140 12% 92%;
-  --foreground-lighter: 145 6% 62%;
+  --background: 222 28% 8%;
+  --foreground: 210 25% 96%;
+  --foreground-lighter: 215 12% 68%;
 
-  --card: 160 15% 10%;
-  --card-foreground: 140 12% 92%;
+  --card: 222 26% 11%;
+  --card-foreground: 210 25% 96%;
 
-  --popover: 160 14% 12%;
-  --popover-foreground: 140 12% 92%;
+  --popover: 222 24% 13%;
+  --popover-foreground: 210 25% 96%;
 
-  --primary: 136 45% 58%;
-  --primary-foreground: 156 54% 9%;
+  --primary: 211 70% 62%;
+  --primary-foreground: 222 47% 9%;
 
-  --secondary: 160 12% 13%;
-  --secondary-foreground: 140 12% 92%;
+  --secondary: 222 22% 15%;
+  --secondary-foreground: 210 25% 96%;
 
-  --muted: 160 12% 13%;
-  --muted-foreground: 145 7% 68%;
+  --muted: 222 22% 15%;
+  --muted-foreground: 215 12% 65%;
 
-  --accent: 160 12% 15.5%;
-  --accent-foreground: 140 12% 92%;
+  --accent: 222 20% 18%;
+  --accent-foreground: 210 25% 96%;
 
-  --destructive: 6 85% 70%;
-  --destructive-foreground: 6 50% 8%;
+  --destructive: 0 78% 62%;
+  --destructive-foreground: 0 40% 10%;
 
-  --success: 140 50% 58%;
-  --success-foreground: 150 50% 8%;
+  --success: 152 48% 48%;
+  --success-foreground: 150 40% 8%;
 
-  --border: 160 10% 17%;
-  --input: 160 10% 21%;
-  --ring: 137 40% 40%;
-  --private: 38 35% 17%;
-  --canvas: 160 10% 17%;
+  --border: 222 18% 20%;
+  --input: 222 16% 24%;
+  --ring: 211 70% 50%;
+  --private: 38 32% 18%;
+  --canvas: 222 26% 10%;
 
-  --code-new: 137 48% 56%;
-  --code-you: 12 85% 64%;
-  --code-customer: 217 85% 68%;
-  --code-hold: 215 12% 62%;
-  --code-done: 150 6% 46%;
+  --code-new: 152 50% 52%;
+  --code-you: 14 82% 60%;
+  --code-customer: 221 85% 65%;
+  --code-hold: 215 12% 58%;
+  --code-done: 215 8% 48%;
 
-  --sidebar-background: 160 16% 9%;
-  --sidebar-foreground: 140 12% 92%;
-  --sidebar-primary: 136 45% 58%;
-  --sidebar-primary-foreground: 156 54% 9%;
-  --sidebar-accent: 160 12% 15.5%;
-  --sidebar-accent-foreground: 140 12% 92%;
-  --sidebar-border: 160 10% 17%;
-  --sidebar-ring: 137 40% 40%;
+  --sidebar-background: 222 26% 11%;
+  --sidebar-foreground: 210 25% 96%;
+  --sidebar-primary: 211 70% 62%;
+  --sidebar-primary-foreground: 222 47% 9%;
+  --sidebar-accent: 222 20% 18%;
+  --sidebar-accent-foreground: 210 25% 96%;
+  --sidebar-border: 222 18% 20%;
+  --sidebar-ring: 211 70% 50%;
+
+  --desk-shadow-sm: 0 1px 2px hsl(0 0% 0% / 0.35);
+  --desk-shadow-md: 0 4px 16px hsl(0 0% 0% / 0.4);
+  --desk-shadow-lg: 0 16px 40px hsl(0 0% 0% / 0.45);
 }
 
-// The icon rail: Clyr green in both themes. Its own sidebar tokens cascade to the shadcn sidebar inside it.
+// Icon rail: floating light column; navy active pills, brand green on the mark only.
 html[data-app='desk'] .desk-rail {
-  --sidebar-background: 155 54% 12%;
-  --sidebar-foreground: 140 25% 92%;
-  --sidebar-primary: 135 45% 58%;
-  --sidebar-primary-foreground: 155 54% 10%;
-  --sidebar-accent: 153 42% 20%;
-  --sidebar-accent-foreground: 0 0% 100%;
-  --sidebar-border: 155 54% 12%;
-  --sidebar-ring: 135 45% 58%;
-  --foreground-lighter: 145 20% 74%;
-  --muted-foreground: 145 20% 74%;
-  --foreground: 140 25% 96%;
-  --accent: 153 42% 20%;
-  --accent-foreground: 0 0% 100%;
-  // Avatar fallbacks and badges inside the rail sit on green, not on a white chip.
-  --muted: 153 42% 20%;
-  --secondary: 153 42% 20%;
-  --background: 155 54% 12%;
-  --card: 153 42% 20%;
+  --sidebar-background: 0 0% 100%;
+  --sidebar-foreground: 222 47% 11%;
+  --sidebar-primary: 213 52% 24%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 214 32% 94%;
+  --sidebar-accent-foreground: 222 47% 11%;
+  --sidebar-border: 214 22% 88%;
+  --sidebar-ring: 213 52% 38%;
+  --foreground-lighter: 215 16% 42%;
+  --muted-foreground: 215 16% 42%;
+  --foreground: 222 47% 11%;
+  --accent: 214 32% 94%;
+  --accent-foreground: 222 47% 11%;
+  --muted: 214 24% 94%;
+  --secondary: 214 28% 92%;
+  --background: 0 0% 100%;
+  --card: 214 32% 94%;
+  box-shadow: var(--desk-shadow-md);
 }
 
 html[data-app='desk'].dark .desk-rail {
-  --sidebar-background: 156 52% 9%;
-  --sidebar-accent: 153 40% 16%;
-  --sidebar-border: 156 52% 9%;
-  --accent: 153 40% 16%;
+  --sidebar-background: 222 26% 11%;
+  --sidebar-accent: 222 20% 18%;
+  --sidebar-border: 222 18% 20%;
+  --accent: 222 20% 18%;
+  box-shadow: var(--desk-shadow-md);
 }
 
 html[data-app='desk'],
@@ -150,16 +152,24 @@ html[data-app='desk'] body {
   --vis-font-family: var(--desk-font);
 }
 
-// Type scale: 12 (meta), 14 (body), 16 (titles). Upstream's 20px panel titles step down to 16 here;
-// rank comes from weight and case, not size.
+// Auth routes render outside App.vue; allow the page shell to scroll when embeds grow.
+html[data-app='desk'] #app {
+  min-height: 100%;
+}
+
 html[data-app='desk'] {
-  .sidebar-secondary .text-xl,
-  .desk-title.text-xl {
-    font-size: 1rem;
-    line-height: 1.5rem;
+  :is(h1, h2, h3, h4, .desk-title, .ui-display-heading, .font-display) {
+    font-family: var(--desk-font-display);
+    letter-spacing: -0.02em;
   }
 
-  // Composer placeholder at the muted text colour (4.5:1), not the editor's #adb5bd.
+  .sidebar-secondary .text-xl,
+  .desk-title.text-xl {
+    font-size: 1.125rem;
+    line-height: 1.625rem;
+    font-weight: 600;
+  }
+
   .tiptap p.is-editor-empty:first-child::before {
     color: hsl(var(--muted-foreground));
   }
@@ -169,40 +179,54 @@ html[data-app='desk'] .font-sans {
   font-family: var(--desk-font);
 }
 
-// Browser surfaces carry the palette too.
 html[data-app='desk'] {
   accent-color: hsl(var(--primary));
   caret-color: hsl(var(--primary));
 
   ::selection {
-    background: hsl(var(--brand) / 0.35);
+    background: hsl(var(--primary) / 0.2);
     color: hsl(var(--foreground));
   }
 }
 
-// Email thread block (MessageBubble thread mode): full width on a hairline rule, not a floating bubble.
-html[data-app='desk'] .message-bubble.message-bubble--thread {
-  width: 100%;
-  min-width: 0;
-  border-width: 0 0 1px 0;
-  border-radius: 0;
-  box-shadow: none;
-  padding: 0.75rem 1rem 0.875rem;
+// App shell: padded canvas, elevated panes (see App.vue .desk-shell).
+html[data-app='desk'] .desk-shell {
+  background: linear-gradient(165deg, hsl(var(--background)) 0%, hsl(var(--canvas)) 100%);
+}
 
-  // Email bodies read at the desk's body size, not the 16px browser default. Inline email styles still win.
+html[data-app='desk'] .desk-surface {
+  border-radius: var(--radius);
+  border: 1px solid hsl(var(--border) / 0.85);
+  background: hsl(var(--card));
+  box-shadow: var(--desk-shadow-md);
+}
+
+html[data-app='desk'] .desk-page-header {
+  background: hsl(var(--card) / 0.85);
+  backdrop-filter: blur(10px);
+}
+
+// Email thread: stacked cards instead of full-width hairlines.
+html[data-app='desk'] .message-bubble.message-bubble--thread {
+  width: calc(100% - 1.5rem);
+  max-width: 100%;
+  margin: 0.375rem 0.75rem;
+  min-width: 0;
+  border-width: 1px;
+  border-radius: calc(var(--radius) - 2px);
+  box-shadow: var(--desk-shadow-sm);
+  padding: 0.875rem 1rem 1rem;
+
   .native-html {
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
     line-height: 1.55;
   }
 
   .email-light-canvas {
-    border-radius: calc(var(--radius) - 2px);
+    border-radius: calc(var(--radius) - 4px);
   }
 }
 
-// In a thread, "Show quoted text" also folds the sender's signature and the whole Gmail quote block,
-// including its "On ... wrote:" line. vue-letter prefixes classes and ids with "msg_XYZ_", hence the
-// suffix matching (see .hide-quoted-text in shared-ui main.scss).
 html[data-app='desk'] .message-bubble--thread.hide-quoted-text {
   [class*='_gmail_signature'],
   [data-smartmail='gmail_signature'],
@@ -212,14 +236,14 @@ html[data-app='desk'] .message-bubble--thread.hide-quoted-text {
   }
 }
 
-// Conversation details as a two-column spec table: label left, value right, one hairline per row.
-// One label column for every row (subgrid), so values line up. Subject and reference number already
-// head the ticket, so the desk does not repeat them here.
 html[data-app='desk'] .desk-spec {
   display: grid;
-  // The label track grows to the widest label but never past 8rem; longer labels wrap.
   grid-template-columns: fit-content(8rem) minmax(0, 1fr);
-  column-gap: 0.75rem;
+  column-gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: calc(var(--radius) - 2px);
+  background: hsl(var(--muted) / 0.35);
+  border: 1px solid hsl(var(--border) / 0.6);
 
   > * + * {
     margin-top: 0;
@@ -229,21 +253,20 @@ html[data-app='desk'] .desk-spec {
     display: none;
   }
 
-  // Custom attributes keep their own stacked layout across the full width.
   > .desk-spec-full {
     grid-column: 1 / -1;
-    padding: 0.4375rem 0;
-    border-bottom: 1px solid hsl(var(--border) / 0.7);
+    padding: 0.5rem 0;
+    border-bottom: 1px solid hsl(var(--border) / 0.5);
   }
 
   > div:not(.desk-spec-full, .desk-redundant) {
     grid-column: 1 / -1;
     display: grid;
     grid-template-columns: subgrid;
-    column-gap: 0.75rem;
+    column-gap: 1rem;
     align-items: baseline;
-    padding: 0.4375rem 0;
-    border-bottom: 1px solid hsl(var(--border) / 0.7);
+    padding: 0.5rem 0;
+    border-bottom: 1px solid hsl(var(--border) / 0.45);
 
     > :not(:first-child) {
       grid-column: 2;
@@ -256,11 +279,10 @@ html[data-app='desk'] .desk-spec {
 
   .sidebar-label {
     font-size: 0.75rem;
-    font-weight: 500;
+    font-weight: 600;
+    font-family: var(--desk-font-display);
   }
 
-  // Values wrap at word boundaries; an unbroken string (a long email, URL or inbox name) may break
-  // mid-word, and 'anywhere' lets it shrink the column instead of overflowing it.
   .break-all,
   .sidebar-value {
     word-break: normal;
@@ -268,82 +290,77 @@ html[data-app='desk'] .desk-spec {
   }
 }
 
-// Reply composer: flush to the work pane; upstream `.box` is border + shadow + radius.
 html[data-app='desk'] .box {
-  margin: 0;
-  border-radius: 0;
-  box-shadow: none;
-  border-width: 1px 0 0;
+  margin: 0.75rem;
+  border-radius: calc(var(--radius) - 2px);
+  box-shadow: var(--desk-shadow-sm);
+  border: 1px solid hsl(var(--border) / 0.7);
 }
 
-// Juno panel: flat in-pane blocks; chat bubbles keep a modest radius, not card elevation.
-html[data-app='desk'] .desk-copilot-approval {
-  border-radius: 0;
-  box-shadow: none;
-}
-
-html[data-app='desk'] .desk-copilot-compose {
-  border-radius: 4px;
-  box-shadow: none;
-}
-
+html[data-app='desk'] .desk-copilot-approval,
+html[data-app='desk'] .desk-copilot-compose,
 html[data-app='desk'] .assign-self-nudge__panel {
-  border-radius: 4px;
-  box-shadow: none;
+  border-radius: calc(var(--radius) - 2px);
+  box-shadow: var(--desk-shadow-sm);
+  border: 1px solid hsl(var(--border) / 0.65);
 }
 
-// Kanban: 288px hairline lanes, flat bordered cards (DESIGN.md Board).
 html[data-app='desk'] .board-lane {
-  width: 18rem;
-  background: transparent;
+  width: 19rem;
+  background: hsl(var(--muted) / 0.25);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 0.5rem;
 }
 
 html[data-app='desk'] .board-card {
-  box-shadow: none;
+  box-shadow: var(--desk-shadow-sm);
+  border-radius: calc(var(--radius) - 4px);
 }
 
 html[data-app='desk'] .board-drawer {
-  // Overlays may lift; keep elevation modest on the hairline grid.
-  box-shadow: 0 10px 15px -3px hsl(var(--foreground) / 0.08), 0 4px 6px -4px hsl(var(--foreground) / 0.06);
+  box-shadow: var(--desk-shadow-lg);
+  border-radius: var(--radius);
 }
 
-// Search, contacts and organizations: hairline rows, not floating cards.
 html[data-app='desk'] .desk-directory-row {
   display: block;
   color: inherit;
   text-decoration: none;
-  border-bottom: 1px solid hsl(var(--border) / 0.7);
-  transition: background-color 150ms ease-in-out;
+  border-radius: calc(var(--radius) - 4px);
+  margin: 0.125rem 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid transparent;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
 
   &:hover {
-    background-color: hsl(var(--accent) / 0.5);
+    background-color: hsl(var(--accent));
+    border-color: hsl(var(--border) / 0.6);
+    box-shadow: var(--desk-shadow-sm);
   }
 
   &:focus-visible {
     outline: 2px solid hsl(var(--ring));
-    outline-offset: -2px;
+    outline-offset: 2px;
   }
 }
 
-html[data-app='desk'] .desk-search-panel {
-  border-radius: 0;
-  box-shadow: none;
-  background: transparent;
-}
-
+html[data-app='desk'] .desk-search-panel,
 html[data-app='desk'] .desk-directory-stack {
-  border-radius: 0;
-  box-shadow: none;
+  border-radius: calc(var(--radius) - 2px);
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border) / 0.65);
+  box-shadow: var(--desk-shadow-sm);
 }
 
 html[data-app='desk'] .desk-directory-page,
 html[data-app='desk'] .desk-directory-surface {
   .box {
-    border-width: 1px;
-    border-style: solid;
-    border-color: hsl(var(--border) / 0.7);
-    border-radius: 0;
-    box-shadow: none;
+    border: 1px solid hsl(var(--border) / 0.7);
+    border-radius: var(--radius);
+    box-shadow: var(--desk-shadow-md);
     background: hsl(var(--card));
   }
 }
@@ -351,63 +368,45 @@ html[data-app='desk'] .desk-directory-surface {
 html[data-app='desk'] .desk-admin-panel--dashed {
   border-radius: var(--radius);
   box-shadow: none;
-  background: hsl(var(--muted) / 0.2);
+  background: hsl(var(--muted) / 0.35);
+  border: 1px dashed hsl(var(--border));
 }
 
 html[data-app='desk'] .desk-search-pagination {
-  border-radius: 0;
-  box-shadow: none;
+  border-radius: calc(var(--radius) - 2px);
 }
 
 html[data-app='desk'] .ui-display-heading {
-  font-size: 1rem;
+  font-size: 1.125rem;
   line-height: 1.5rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
-// Reports: flat panels on the work pane (not floating .box cards).
 html[data-app='desk'] .desk-reports {
-  .desk-report-sections > * {
-    min-width: 0;
-  }
-
   .desk-report-panel,
   .box {
-    margin: 0;
-    border-radius: 0;
-    box-shadow: none;
+    margin: 0.5rem 0;
+    border-radius: var(--radius);
+    box-shadow: var(--desk-shadow-sm);
     border: 1px solid hsl(var(--border) / 0.7);
     background: hsl(var(--card));
   }
 
-  .desk-report-scalar-grid {
-    gap: 1rem;
-  }
-
   .desk-report-metric,
   .metric-value {
-    font-size: 1rem;
-    line-height: 1.5rem;
+    font-size: 1.25rem;
+    line-height: 1.75rem;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-  }
-
-  .text-2xl.font-semibold {
-    font-size: 1rem;
-    line-height: 1.5rem;
-  }
-
-  .text-lg.font-medium {
-    font-size: 0.875rem;
-    line-height: 1.25rem;
+    font-family: var(--desk-font-display);
   }
 }
 
-// Admin: same hairline panes as the agent desk (lists are DataTable / SimpleTable).
 html[data-app='desk'] .desk-admin {
   .desk-admin-table {
-    border-radius: 0;
-    box-shadow: none;
+    border-radius: var(--radius);
+    box-shadow: var(--desk-shadow-sm);
+    border: 1px solid hsl(var(--border) / 0.7);
   }
 
   .admin-split > :first-child {
@@ -416,132 +415,543 @@ html[data-app='desk'] .desk-admin {
   }
 
   .admin-help {
-    border-radius: 0;
-    background: hsl(var(--background));
-    border-left: 1px solid hsl(var(--border) / 0.7);
-    padding-left: 1rem;
-    box-shadow: none;
+    border-radius: calc(var(--radius) - 2px);
+    background: hsl(var(--muted) / 0.4);
+    border: 1px solid hsl(var(--border) / 0.6);
+    padding: 1rem;
+    box-shadow: var(--desk-shadow-sm);
   }
 
   .admin-preview {
-    border-radius: 0;
-    box-shadow: none;
-  }
-
-  .box {
-    margin: 0;
-    border-radius: 0;
-    box-shadow: none;
-    border: 1px solid hsl(var(--border) / 0.7);
-    border-width: 1px;
-    background: hsl(var(--card));
-  }
-
-  // In-page section panels (roles, webhooks, macros, inbox widget config).
-  .desk-admin-panel {
-    border-radius: 0;
-    box-shadow: none;
-    background: hsl(var(--card));
-  }
-
-  .desk-admin-panel--dashed {
     border-radius: var(--radius);
-    box-shadow: none;
-    background: hsl(var(--muted) / 0.2);
+    box-shadow: var(--desk-shadow-md);
+    border: 1px solid hsl(var(--border) / 0.7);
   }
 
-  // Legacy nested cards inside admin forms — flat, no lift on hover.
-  :where(.border.rounded-md, .border.rounded-lg):not(
-      :where(input, textarea, button, [role='combobox'], [data-radix-collection-item]) *
-    ) {
-    &:where(.p-4, .p-5, .p-6, .py-8, .py-12) {
-      border-radius: 0;
-      box-shadow: none;
-    }
+  .box,
+  .desk-admin-panel {
+    margin: 0.5rem 0;
+    border-radius: var(--radius);
+    box-shadow: var(--desk-shadow-sm);
+    border: 1px solid hsl(var(--border) / 0.7);
+    background: hsl(var(--card));
   }
 }
 
-// Filter groups (admin automations, shared views, agent views).
 html[data-app='desk'] .desk-filter-group {
-  border-radius: 0;
-  box-shadow: none;
+  border-radius: var(--radius);
+  border: 1px solid hsl(var(--border) / 0.65);
+  box-shadow: var(--desk-shadow-sm);
+  background: hsl(var(--card));
 }
 
-// The whose-move swatch: a solid square in a fixed cell. Filled = someone must act, hollow = resolved.
 .code-swatch {
   display: inline-block;
   flex: none;
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 1px;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 9999px;
   background: currentColor;
 }
 
 .code-swatch[data-hollow='true'] {
   background: transparent;
-  box-shadow: inset 0 0 0 1.5px currentColor;
+  box-shadow: inset 0 0 0 2px currentColor;
 }
 
-// ─── Desk redesign layer: token-first overrides (see frontend/DESIGN.md) ───
-
-// Sign-in / password reset: flat card on tinted ground, not a floating shadcn panel.
 html[data-app='desk'] .desk-auth-shell {
-  background: hsl(var(--background));
+  background: linear-gradient(160deg, hsl(var(--background)) 0%, hsl(213 52% 24% / 0.08) 50%, hsl(var(--canvas)) 100%);
 }
 
-html[data-app='desk'] .desk-auth-shell .auth-content {
-  :is(.rounded-lg, .box) {
-    border-radius: var(--radius);
-    box-shadow: none;
-    border-color: hsl(var(--border) / 0.85);
-  }
+html[data-app='desk'] .desk-auth-card {
+  margin: 0;
+  border-radius: var(--radius);
+  box-shadow: var(--desk-shadow-lg);
+  border-color: hsl(var(--border) / 0.85);
+  overflow: visible;
 }
 
-// Work panes inside resizable splits: reuse upstream panel markup, enforce hairlines.
+html[data-app='desk'] .desk-auth-shell .auth-content,
+html[data-app='desk'] .desk-clerk-mount {
+  overflow: visible;
+}
+
+// Clerk (and similar embeds): never clip internal controls inside our card chrome.
+html[data-app='desk'] :where(.cl-rootBox, .cl-cardBox, .cl-card, .cl-main, .cl-scrollBox) {
+  overflow: visible !important;
+  max-height: none !important;
+  height: auto !important;
+}
+
+// Panels that need internal scrolling should opt in; default visible so popovers and embeds are not clipped.
+html[data-app='desk'] .desk-scroll {
+  overflow: auto;
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+
+html[data-app='desk'] .desk-clip-chrome {
+  overflow: hidden;
+}
+
 html[data-app='desk'] .desk-pane {
   min-width: 0;
   overflow: hidden;
   border-radius: 0;
-  box-shadow: none;
 }
 
-// In-page cards (.box) outside scoped sections already flatten above; catch stragglers.
-html[data-app='desk'] :where(.rounded-xl, .rounded-2xl):not(
-    [data-radix-popper-content-wrapper] *,
-    [data-sonner-toaster] *,
-    [role='dialog'] *,
-    .board-drawer *,
-    .libredesk-widget-preview *
-  ) {
-  border-radius: var(--radius);
-  box-shadow: none;
-}
-
-// Primary controls stay flat; overlays keep elevation from upstream.
-html[data-app='desk'] :where(button, a[role='button']).shadow-sm {
-  box-shadow: none;
-}
-
-// Data tables and admin lists: hairline frame, no float.
-html[data-app='desk'] .desk-admin-table,
-html[data-app='desk'] [data-table] {
-  border-radius: 0;
-  box-shadow: none;
-}
-
-// Command palette & pickers are overlays — keep shadow; only soften radius to md.
-html[data-app='desk'] [cmdk-root] {
-  border-radius: var(--radius);
-}
-
-// Inputs: crisp 4px corners, visible focus ring (ring token).
 html[data-app='desk'] :where(input, textarea, select):not([type='checkbox'], [type='radio']) {
-  border-radius: var(--radius);
+  border-radius: calc(var(--radius) - 4px);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+
+  &:focus-visible {
+    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25);
+  }
 }
 
-// Sidebar section labels: sentence case per desk typography (drop tracked uppercase).
 html[data-app='desk'] .sidebar-section-label {
-  letter-spacing: 0.02em;
-  text-transform: none;
-  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  font-family: var(--desk-font-display);
+  color: hsl(var(--muted-foreground));
+}
+
+// ─── Inbox list + conversation detail ───
+
+html[data-app='desk'] .desk-inbox-pane {
+  background: hsl(var(--muted) / 0.35);
+  border-right: 1px solid hsl(var(--border) / 0.5);
+}
+
+html[data-app='desk'] .desk-detail-pane {
+  background: hsl(var(--card));
+}
+
+html[data-app='desk'] .desk-inbox-list-header {
+  background: hsl(var(--card) / 0.9);
+  backdrop-filter: blur(8px);
+}
+
+html[data-app='desk'] .desk-inbox-filters {
+  background: hsl(var(--card) / 0.65);
+}
+
+html[data-app='desk'] .desk-inbox-filters :where(button) {
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--border) / 0.65);
+  background: hsl(var(--background));
+}
+
+html[data-app='desk'] .desk-list-row {
+  border-radius: calc(var(--radius) - 2px);
+  border: 1px solid transparent;
+  box-shadow: var(--desk-shadow-sm);
+  background: hsl(var(--card));
+}
+
+html[data-app='desk'] .desk-list-row[aria-current='page'] {
+  border-color: hsl(var(--primary) / 0.35);
+  background: hsl(var(--primary) / 0.06);
+  box-shadow: var(--desk-shadow-md);
+}
+
+html[data-app='desk'] .desk-conversation-header {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--card)) 0%,
+    hsl(var(--muted) / 0.45) 100%
+  );
+}
+
+html[data-app='desk'] .desk-conversation-header .desk-ticket-ref {
+  font-family: var(--desk-font-display);
+  font-size: 1.125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+
+html[data-app='desk'] .desk-status-chip {
+  border-radius: 9999px;
+  box-shadow: var(--desk-shadow-sm);
+}
+
+html[data-app='desk'] .desk-thread {
+  background: radial-gradient(ellipse 120% 80% at 50% 0%, hsl(var(--muted) / 0.5), transparent 55%);
+}
+
+html[data-app='desk'] .desk-fold-row {
+  margin: 0.25rem 0.75rem;
+  border-radius: calc(var(--radius) - 2px);
+  border: 1px solid hsl(var(--border) / 0.65);
+  box-shadow: var(--desk-shadow-sm);
+  background: hsl(var(--card));
+}
+
+html[data-app='desk'] .desk-detail-sidebar {
+  border-left: 1px solid hsl(var(--border) / 0.55);
+  background: hsl(var(--muted) / 0.2);
+}
+
+html[data-app='desk'] .desk-detail-sidebar .desk-spec {
+  margin: 0.75rem;
+}
+
+html[data-app='desk'] .desk-bulk-toolbar {
+  background: hsl(var(--primary) / 0.08);
+  border-bottom: 1px solid hsl(var(--primary) / 0.2);
+}
+
+html[data-app='desk'] .desk-reply-surface.box {
+  margin: 0.75rem;
+  border-radius: var(--radius);
+  box-shadow: var(--desk-shadow-md);
+}
+
+html[data-app='desk'] .desk-empty-list {
+  background: hsl(var(--card) / 0.6);
+  border-radius: var(--radius);
+  border: 1px dashed hsl(var(--border));
+  margin: 1rem;
+  padding: 2rem 1.5rem;
+}
+
+// ─── Kanban board ───
+
+html[data-app='desk'] .desk-board-header {
+  background: hsl(var(--card) / 0.92);
+  backdrop-filter: blur(8px);
+}
+
+html[data-app='desk'] .desk-board-lane {
+  background: hsl(var(--muted) / 0.3);
+  border-right-color: hsl(var(--border) / 0.45);
+}
+
+html[data-app='desk'] .desk-board-lane header {
+  font-family: var(--desk-font-display);
+}
+
+html[data-app='desk'] .board-card {
+  border-radius: calc(var(--radius) - 2px);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+html[data-app='desk'] .board-card--active {
+  border-color: hsl(var(--primary) / 0.4);
+  box-shadow: var(--desk-shadow-md);
+}
+
+html[data-app='desk'] .board-drawer {
+  top: 4rem;
+  border-radius: var(--radius) 0 0 var(--radius);
+  border-top: 1px solid hsl(var(--border) / 0.65);
+}
+
+html[data-app='desk'] .desk-view-toggle {
+  border-radius: 9999px;
+  background: hsl(var(--muted) / 0.5);
+  border-color: hsl(var(--border) / 0.7);
+  padding: 0.125rem;
+
+  button[aria-pressed='true'] {
+    border-radius: 9999px;
+    background: hsl(var(--card));
+    box-shadow: var(--desk-shadow-sm);
+  }
+}
+
+// ─── Search ───
+
+html[data-app='desk'] .desk-search-header {
+  background: hsl(var(--card) / 0.9);
+  backdrop-filter: blur(8px);
+}
+
+html[data-app='desk'] .desk-search-toolbar {
+  margin: 0 -0.25rem;
+  padding: 1rem;
+  border-radius: var(--radius);
+  border: 1px solid hsl(var(--border) / 0.65);
+  background: hsl(var(--card));
+  box-shadow: var(--desk-shadow-sm);
+}
+
+html[data-app='desk'] .desk-search-panel {
+  border-radius: var(--radius);
+  overflow: visible;
+}
+
+// ─── Directory (contacts, orgs) ───
+
+html[data-app='desk'] .desk-directory-page {
+  background: radial-gradient(ellipse 100% 40% at 50% 0%, hsl(var(--primary) / 0.04), transparent 55%);
+}
+
+html[data-app='desk'] .desk-directory-toolbar {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid hsl(var(--border) / 0.65);
+  background: hsl(var(--card));
+  box-shadow: var(--desk-shadow-sm);
+}
+
+html[data-app='desk'] .desk-directory-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.5rem 0;
+  border: 0;
+}
+
+html[data-app='desk'] .desk-directory-row {
+  display: block;
+}
+
+// ─── Admin ───
+
+html[data-app='desk'] .desk-admin {
+  .admin-content {
+    gap: 1rem;
+  }
+}
+
+html[data-app='desk'] .desk-admin-empty {
+  margin: 2rem auto;
+  max-width: 24rem;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  border-radius: var(--radius);
+  border: 1px dashed hsl(var(--border));
+  background: hsl(var(--card) / 0.7);
+  color: hsl(var(--muted-foreground));
+  font-size: 0.9375rem;
+}
+
+html[data-app='desk'] .desk-admin-toolbar {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid hsl(var(--border) / 0.6);
+  background: hsl(var(--card) / 0.85);
+  box-shadow: var(--desk-shadow-sm);
+}
+
+html[data-app='desk'] .desk-admin-table {
+  border-radius: var(--radius);
+
+  thead th {
+    font-family: var(--desk-font-display);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  tbody tr {
+    transition: background-color 120ms ease;
+  }
+
+  tbody tr:hover {
+    background: hsl(var(--accent) / 0.45);
+  }
+}
+
+html[data-app='desk'] .desk-admin-split {
+  gap: 1rem;
+}
+
+// ─── Reports ───
+
+html[data-app='desk'] .desk-reports .desk-report-panel {
+  padding: 1.25rem 1.5rem;
+
+  .ui-heading {
+    font-family: var(--desk-font-display);
+    font-weight: 600;
+  }
+}
+
+html[data-app='desk'] .desk-report-range button {
+  border-radius: 9999px;
+}
+
+// ─── Account + pagination ───
+
+html[data-app='desk'] .desk-account-shell {
+  background: hsl(var(--background));
+}
+
+html[data-app='desk'] .desk-pagination-bar {
+  border-radius: var(--radius) var(--radius) 0 0;
+  border: 1px solid hsl(var(--border) / 0.65);
+  border-bottom: 0;
+  box-shadow: var(--desk-shadow-sm);
+  backdrop-filter: blur(8px);
+  background: hsl(var(--card) / 0.92);
+}
+
+html[data-app='desk'] .ui-heading,
+html[data-app='desk'] .ui-subheading {
+  font-family: var(--desk-font-display);
+}
+
+// ─── Command palette ───
+
+html[data-app='desk'] [data-radix-dialog-overlay] {
+  background: hsl(var(--foreground) / 0.22);
+  backdrop-filter: blur(4px);
+}
+
+html[data-app='desk'] .desk-command-dialog {
+  border-radius: var(--radius);
+  box-shadow: var(--desk-shadow-lg);
+  overflow-x: clip;
+  overflow-y: visible;
+
+  [cmdk-list] {
+    overflow-y: auto;
+    overflow-x: visible;
+  }
+}
+
+html[data-app='desk'] .desk-command-palette {
+  [cmdk-input-wrapper] {
+    height: 3.5rem;
+    border-bottom: 1px solid hsl(var(--border) / 0.65);
+    background: hsl(var(--muted) / 0.35);
+    padding-inline: 1rem;
+
+    svg {
+      color: hsl(var(--muted-foreground));
+    }
+  }
+
+  [cmdk-input] {
+    height: 3.5rem;
+    padding-right: 2.5rem;
+    font-family: var(--desk-font-display);
+    font-size: 1rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  [cmdk-group] {
+    padding-block: 0.5rem;
+  }
+
+  [cmdk-group-heading] {
+    padding: 0.5rem 0.75rem 0.375rem;
+    font-family: var(--desk-font-display);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  [cmdk-item] {
+    margin-inline: 0.375rem;
+    border-radius: calc(var(--radius) - 4px);
+    padding: 0.5rem 0.75rem;
+    transition:
+      background-color 140ms ease,
+      box-shadow 140ms ease;
+  }
+
+  [cmdk-item][data-highlighted],
+  [cmdk-item][data-selected='true'] {
+    background: hsl(var(--primary) / 0.1);
+    box-shadow: inset 0 0 0 1px hsl(var(--primary) / 0.15);
+  }
+}
+
+html[data-app='desk'] .desk-command-footer {
+  font-family: var(--desk-font);
+}
+
+// ─── Toasts (vue-sonner) ───
+
+html[data-app='desk'] [data-sonner-toaster] {
+  font-family: var(--desk-font);
+  --width: 24rem;
+}
+
+html[data-app='desk'] [data-sonner-toaster][data-x-position='center'] {
+  top: 0.75rem;
+}
+
+html[data-app='desk'] [data-sonner-toast].desk-toast,
+html[data-app='desk'] [data-sonner-toast] {
+  border-radius: var(--radius);
+  box-shadow: var(--desk-shadow-lg);
+  border: 1px solid hsl(var(--border) / 0.8);
+  padding: 0.875rem 1rem;
+  background: hsl(var(--popover));
+
+  &[data-type='success'] {
+    border-left: 4px solid hsl(var(--success));
+  }
+
+  &[data-type='error'] {
+    border-left: 4px solid hsl(var(--destructive));
+  }
+
+  &[data-type='warning'] {
+    border-left: 4px solid hsl(var(--warning, 39 85% 43%));
+  }
+
+  &[data-type='info'] {
+    border-left: 4px solid hsl(var(--primary));
+  }
+
+  [data-title] {
+    font-family: var(--desk-font-display);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  [data-description] {
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+
+  [data-close-button] {
+    border-radius: 9999px;
+    border: 1px solid hsl(var(--border) / 0.7);
+    background: hsl(var(--card));
+    box-shadow: var(--desk-shadow-sm);
+  }
+}
+
+html[data-app='desk'] [data-sonner-toast][data-type='success'] [data-icon] {
+  color: hsl(var(--success));
+}
+
+html[data-app='desk'] [data-sonner-toast][data-type='error'] [data-icon] {
+  color: hsl(var(--destructive));
+}
+
+html[data-app='desk'] [data-sonner-toast][data-type='info'] [data-icon] {
+  color: hsl(var(--primary));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-app='desk'] .board-card:hover {
+    transform: none;
+  }
+
+  html[data-app='desk'] * {
+    transition-duration: 0.01ms !important;
+  }
 }

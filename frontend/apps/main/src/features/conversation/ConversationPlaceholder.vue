@@ -45,8 +45,16 @@
           </div>
         </div>
       </div>
-      <div v-else class="flex max-w-sm flex-col items-center gap-3 px-6 text-center">
-        <p class="text-sm text-muted-foreground">{{ $t('conversation.placeholder') }}</p>
+      <div v-else class="desk-empty-state flex max-w-md flex-col items-center gap-4 px-8 text-center">
+        <div
+          class="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary"
+          aria-hidden="true"
+        >
+          <Circle class="h-7 w-7" />
+        </div>
+        <p class="font-display text-base font-semibold leading-relaxed tracking-tight text-foreground">
+          {{ $t('conversation.placeholder') }}
+        </p>
       </div>
     </template>
   </div>
@@ -81,7 +89,8 @@ const showGettingStarted = computed(() => !hasInboxes.value || !hasAgents.value)
 
 <style scoped>
 .placeholder-container {
-  @apply relative flex h-full min-h-0 w-full min-w-0 items-center justify-center rounded-none border-0 bg-card shadow-none;
+  @apply relative flex h-full w-full min-w-0 items-center justify-center border-0 bg-transparent;
+  background: radial-gradient(ellipse 80% 60% at 50% 40%, hsl(var(--primary) / 0.06), transparent 70%);
 }
 
 .getting-started-wrapper {
@@ -89,7 +98,7 @@ const showGettingStarted = computed(() => !hasInboxes.value || !hasAgents.value)
 }
 
 .checklist-item {
-  @apply flex items-center justify-between py-3 px-4 rounded-md border border-border shadow-none;
+  @apply flex items-center justify-between rounded-xl border border-border/80 bg-card px-4 py-3 shadow-sm;
 }
 
 .checklist-item.completed {

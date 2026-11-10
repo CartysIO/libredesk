@@ -1,10 +1,15 @@
 <template>
-  <div class="flex flex-col items-center justify-center h-64 px-6 text-center select-none">
-    <component :is="icon" :stroke-width="1" :size="40" class="text-muted-foreground opacity-40" />
-    <p class="text-sm font-medium text-foreground mt-5">
+  <div class="desk-empty-list flex h-auto min-h-48 flex-col items-center justify-center text-center select-none">
+    <div
+      class="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground"
+      aria-hidden="true"
+    >
+      <component :is="icon" :stroke-width="1.5" :size="24" />
+    </div>
+    <p class="font-display text-sm font-semibold tracking-tight text-foreground">
       {{ title }}
     </p>
-    <p class="text-sm text-muted-foreground mt-1.5 max-w-[15rem] leading-relaxed">
+    <p class="mt-2 max-w-[16rem] text-sm leading-relaxed text-muted-foreground">
       {{ message }}
     </p>
   </div>

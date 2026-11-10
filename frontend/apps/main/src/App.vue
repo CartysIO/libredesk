@@ -1,11 +1,14 @@
 <template>
-  <div class="flex w-full h-dvh text-foreground bg-canvas gap-px">
-    <SidebarProvider v-if="!isMobile" style="--sidebar-width: 3rem" class="w-auto z-50">
-      <ShadcnSidebar collapsible="none" class="desk-rail overflow-hidden">
+  <div class="desk-shell flex w-full h-dvh gap-2 p-2 text-foreground">
+    <SidebarProvider v-if="!isMobile" style="--sidebar-width: 3.25rem" class="w-auto z-50 shrink-0">
+      <ShadcnSidebar
+        collapsible="none"
+        class="desk-rail desk-surface !h-[calc(100dvh-1rem)] overflow-hidden"
+      >
         <SidebarHeader class="items-center pt-3 pb-1">
           <router-link
             :to="{ name: 'inboxes' }"
-            class="flex h-8 w-8 items-center justify-center rounded-md text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+            class="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/60 text-brand transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
             :aria-label="t('globals.terms.inbox')"
           >
             <ClyrMark class="h-6 w-auto" />
@@ -41,7 +44,7 @@
     </SidebarProvider>
 
     <!-- Main sidebar that collapses -->
-    <div class="flex-1 min-w-0">
+    <div class="desk-surface flex min-w-0 flex-1 overflow-hidden">
       <Sidebar
         :userTeams="userStore.teams"
         :userViews="viewStore.views"
@@ -51,7 +54,7 @@
         @delete-view="deleteView"
         @create-conversation="openCreateConversation()"
       >
-        <div class="flex flex-col h-full min-h-0 overflow-hidden bg-background">
+        <div class="flex h-full min-h-0 flex-col overflow-hidden bg-background/50">
           <ConnectionBanner />
 
           <!-- Show admin banner only in admin routes -->
