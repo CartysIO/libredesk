@@ -523,13 +523,27 @@ func (im *Importer) load(d Data) error {
 		SourceID string `db:"source_id"`
 		ConvID   int    `db:"conversation_id"`
 	}
-	if err := im.DB.Select(&used, `SELECT DISTINCT ON (source_id) source_id, conversation_id FROM conversation_messages
-		WHERE source_id = ANY($1) ORDER BY source_id, id`, pq.Array(ids)); err != nil {
+	// Libredesk stores source_id without brackets; inbound mail may still have angle brackets in the row.
+	const normSourceID = `trim(both '<>' from trim(source_id))`
+	if err := im.DB.Select(&used, `SELECT DISTINCT ON (`+normSourceID+`) `+normSourceID+` AS source_id, conversation_id
+		FROM conversation_messages
+		WHERE `+normSourceID+` = ANY($1)
+		ORDER BY `+normSourceID+`, conversation_id, id`, pq.Array(ids)); err != nil {
 		return fmt.Errorf("message ids: %w", err)
 	}
 	im.usedSourceIDs = map[string]int{}
 	for _, u := range used {
-		im.usedSourceIDs[u.SourceID] = u.ConvID
+		key := stringutil.NormalizeMessageID(u.SourceID)
+		if key == "" {
+			continue
+		}
+		if prev, ok := im.usedSourceIDs[key]; ok && prev != u.ConvID {
+			if u.ConvID < prev {
+				im.usedSourceIDs[key] = u.ConvID
+			}
+			continue
+		}
+		im.usedSourceIDs[key] = u.ConvID
 	}
 	return nil
 }
@@ -587,16 +601,29 @@ func (im *Importer) matchDuplicates(issues []Issue, msgs map[string][]Message) (
 		if im.imported[is.ID] > 0 {
 			continue
 		}
+		var best *ExistingConversation
+		var bestAt time.Time
 		for _, m := range orderedMessages(is, msgs[is.ID]) {
 			if m.EmailInfo == nil {
 				continue
 			}
 			convID := im.usedSourceIDs[stringutil.NormalizeMessageID(m.EmailInfo.MessageID)]
-			if c, ok := byID[convID]; ok && !claimed[convID] {
-				claimed[convID] = true
-				out[is.ID] = duplicate{conv: c, by: "same email Message-ID"}
-				break
+			if convID == 0 {
+				continue
 			}
+			c, ok := byID[convID]
+			if !ok || claimed[convID] {
+				continue
+			}
+			if best == nil || m.Timestamp.Before(bestAt) {
+				cp := c
+				best = &cp
+				bestAt = m.Timestamp
+			}
+		}
+		if best != nil {
+			claimed[best.ID] = true
+			out[is.ID] = duplicate{conv: *best, by: "same email Message-ID"}
 		}
 	}
 	for _, is := range issues {
@@ -604,12 +631,19 @@ func (im *Importer) matchDuplicates(issues []Issue, msgs map[string][]Message) (
 			continue
 		}
 		email := im.issueContactEmail(is, msgs[is.ID])
-		for _, c := range existing {
-			if !claimed[c.ID] && SameThread(email, is.Title, is.CreatedAt, c.ContactEmail, c.Subject, c.CreatedAt) {
-				claimed[c.ID] = true
-				out[is.ID] = duplicate{conv: c, by: "same contact, subject and day"}
-				break
+		var pick *ExistingConversation
+		for i := range existing {
+			c := &existing[i]
+			if claimed[c.ID] || !SameThread(email, is.Title, is.CreatedAt, c.ContactEmail, c.Subject, c.CreatedAt) {
+				continue
 			}
+			if pick == nil || c.ID < pick.ID {
+				pick = c
+			}
+		}
+		if pick != nil {
+			claimed[pick.ID] = true
+			out[is.ID] = duplicate{conv: *pick, by: "same contact, subject and day"}
 		}
 	}
 	return out, nil

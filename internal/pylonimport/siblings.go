@@ -206,7 +206,7 @@ func (im *Importer) reconcileLiveMessage(tx *sqlx.Tx, convID int, m Message) err
 	res, err := tx.Exec(`UPDATE conversation_messages SET
 			created_at = $3, updated_at = $3,
 			meta = meta || $4::jsonb
-		WHERE conversation_id = $1 AND source_id = $2`,
+		WHERE conversation_id = $1 AND trim(both '<>' from trim(source_id)) = $2`,
 		convID, sourceID, m.Timestamp, metaJSON)
 	if err != nil {
 		return err
