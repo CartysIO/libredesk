@@ -296,10 +296,10 @@ func TestImportAbsorbsEmailThreadFragments(t *testing.T) {
 	db.Get(&c113, `INSERT INTO conversations (reference_number, contact_id, inbox_id, status_id, subject, created_at, last_message_at)
 		VALUES ('113', $1, $2, (SELECT id FROM conversation_statuses WHERE name = 'Open'), 'RE: missing charge', $3, $3) RETURNING id`, cust, inbox, t0.Add(30*time.Minute))
 	liveFirst := t0.Add(2 * time.Hour)
-	db.MustExec(`INSERT INTO conversation_messages (type, status, conversation_id, sender_id, sender_type, content, source_id, created_at)
-		VALUES ('incoming', 'received', $1, $2, 'contact', 'hello missing charge', 'first@mail', $3)`, c112, cust, liveFirst)
-	db.MustExec(`INSERT INTO conversation_messages (type, status, conversation_id, sender_id, sender_type, content, source_id, created_at)
-		VALUES ('incoming', 'received', $1, $2, 'contact', 'thank you', 'thank@mail', $3)`, c113, cust, t0.Add(30*time.Minute))
+	db.MustExec(`INSERT INTO conversation_messages (type, status, conversation_id, sender_id, sender_type, content, text_content, source_id, created_at)
+		VALUES ('incoming', 'received', $1, $2, 'contact', 'hello missing charge', 'hello missing charge', 'first@mail', $3)`, c112, cust, liveFirst)
+	db.MustExec(`INSERT INTO conversation_messages (type, status, conversation_id, sender_id, sender_type, content, text_content, source_id, created_at)
+		VALUES ('incoming', 'received', $1, $2, 'contact', 'thank you', 'thank you', 'thank@mail', $3)`, c113, cust, t0.Add(30*time.Minute))
 
 	contact := &Ref{ID: "pc1", Email: "emily@example.com"}
 	d := Data{
