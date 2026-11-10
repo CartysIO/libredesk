@@ -15,7 +15,7 @@
   src: url('/static/public/static/fonts/Geist-Italic-Variable.woff2') format('woff2');
 }
 
-/* Urbanist (SIL OFL 1.1) - see fonts/LICENSE-Urbanist.txt. Used by the agent app only. */
+/* Urbanist (SIL OFL 1.1) - see fonts/LICENSE-Urbanist.txt. Legacy / design fixtures; desk app uses Google Fonts (Lexend + Source Sans 3). */
 @font-face {
   font-family: 'Urbanist';
   font-style: normal;

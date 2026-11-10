@@ -15,7 +15,7 @@ Avoid (user): marketing-site feel, dark hacker look, too dense to scan.
 
 ## Direction contract
 
-THESIS: Clyr's identity manual applied to the desk: one strict grid, flush-left Urbanist, colour only as a code for whose move it is. Refuses the grey shadcn admin with one green accent.
+THESIS: Clyr's identity manual applied to the desk: Lexend + Source Sans 3, colour only as a code for whose move it is. Refuses the grey shadcn admin with one green accent.
 
 OWN-WORLD: Deep Clyr-green rail (#0E2F22) with light type; tinted neutral ground; white work panes on hairline rules, no floating cards. Clyr green #62C47A is identity; a darker green carries text-on-light. Whose-move code: On you = signal vermilion, On customer = blue, New = green, On hold = slate, Resolved = muted. Three type sizes (12/13/15), rank by weight and case. Tabular figures.
 

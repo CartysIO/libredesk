@@ -54,14 +54,14 @@ colors:
 typography:
   title:
     fontFamily: "Lexend, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "16px"
+    fontSize: "18px"
     fontWeight: 600
-    lineHeight: "24px"
+    lineHeight: "26px"
   reference:
-    fontFamily: "Urbanist, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
-    fontSize: "16px"
+    fontFamily: "Lexend, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "18px"
     fontWeight: 700
-    letterSpacing: "-0.025em"
+    letterSpacing: "-0.03em"
     fontFeature: "tnum"
   body:
     fontFamily: "Source Sans 3, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
@@ -69,26 +69,26 @@ typography:
     fontWeight: 400
     lineHeight: "20px"
   body-strong:
-    fontFamily: "Urbanist, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
+    fontFamily: "Source Sans 3, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
     fontSize: "14px"
     fontWeight: 600
     lineHeight: "20px"
   email-body:
-    fontFamily: "Urbanist, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
-    fontSize: "14px"
+    fontFamily: "Source Sans 3, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
+    fontSize: "15px"
     fontWeight: 400
     lineHeight: 1.55
   meta:
-    fontFamily: "Urbanist, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
+    fontFamily: "Source Sans 3, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
     fontSize: "12px"
-    fontWeight: 400
+    fontWeight: 500
     lineHeight: "16px"
     fontFeature: "tnum"
   label:
-    fontFamily: "Urbanist, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
-    fontSize: "12px"
-    fontWeight: 600
-    letterSpacing: "0.05em"
+    fontFamily: "Lexend, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "11px"
+    fontWeight: 700
+    letterSpacing: "0.04em"
 rounded:
   swatch: "1px"
   sm: "2px"
@@ -151,11 +151,12 @@ This file covers two systems in one codebase.
 **Source of truth for the desk:**
 - Tokens: `apps/main/src/assets/desk-theme.scss`. Every rule is scoped to `html[data-app='desk']`, set in `apps/main/index.html`, so nothing leaks into the widget or help center.
 - Tailwind mapping: `tailwind.config.cjs` (`brand` and `code.{new,you,customer,hold,done}`, both read `hsl(var(--x))`).
-- Font: `static/public/static/fonts.css` (Urbanist variable, roman and italic, weights 100 to 900, SIL OFL), preloaded in `apps/main/index.html`.
+- Typography tokens: `apps/main/src/assets/desk-typography.scss` (families, scale, weights). Theme surface rules: `desk-theme.scss`.
+- Fonts: Google Fonts in `apps/main/index.html` — **Lexend** (display) and **Source Sans 3** (body/UI). Upstream widget/help center keep **Geist** via `static/public/static/fonts.css`.
 - Brand pieces: `apps/main/src/components/brand/ClyrMark.vue`, `StatusSwatch.vue`.
 - Behaviour: `apps/main/src/utils/conversationCode.js`, `threadFold.js`, `initials.js` (each with a `.test.js`).
 
-The desk overrides the upstream token names (`--primary`, `--border`, `--canvas` ...) rather than inventing new ones, so every shadcn primitive and upstream screen picks up the desk palette with no markup change. New desk-only tokens are `--brand`, `--code-*` and `--desk-font`. Values are HSL channel triples, like upstream; the frontmatter writes them as `hsl()`.
+The desk overrides the upstream token names (`--primary`, `--border`, `--canvas` ...) rather than inventing new ones, so every shadcn primitive and upstream screen picks up the desk palette with no markup change. New desk-only tokens are `--brand`, `--code-*`, `--desk-font`, `--desk-font-display`, and the `--desk-type-*` / `--desk-leading-*` scale in `desk-typography.scss`. Values are HSL channel triples, like upstream; the frontmatter writes them as `hsl()`.
 
 ## Overview
 
@@ -170,7 +171,7 @@ The system rejects the grey shadcn admin with one green accent. Green is identit
 **Key Characteristics:**
 - Deep green rail (48px) with the Clyr "C" mark; everything else is light panes on hairlines.
 - One five-value whose-move code, shown as an 8px square swatch, filled or hollow.
-- Three type sizes (12 / 14 / 16), Urbanist only, rank by weight and case.
+- Lexend for headings and chrome emphasis; Source Sans 3 for body, forms, and tables. Rank by weight and case on a stepped scale (11–20px).
 - Tabular figures for every number, time and reference.
 - Gmail-style email thread: folded rows, newest open.
 - Unread, priority and counts are neutral; they never borrow a code colour.
@@ -216,24 +217,32 @@ The rail (`.desk-rail`) redefines its own tokens so shadcn sidebar parts, avatar
 
 ## Typography
 
-**Display Font:** none. The desk has no display tier.
-**Body Font:** Urbanist (fallback `ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif`), via `--desk-font`.
-**Label/Mono Font:** none; labels are Urbanist too.
+**Display font:** Lexend (`--desk-font-display`, Tailwind `font-display`). Headings, pane titles, ticket references, command palette input, toast titles, table headers, and metric values.
 
-**Character:** Urbanist is Clyr's own face from clyr.io: geometric, open, friendly at small sizes. It replaces upstream Geist on `html`, `body`, `.font-sans`, chart text (`--vis-font-family`) and form controls (`fonts.css` makes buttons and inputs inherit the page font).
+**Body / UI font:** Source Sans 3 (`--desk-font`, `--font-sans`, Tailwind `font-sans`). Paragraphs, list rows, form fields, buttons, sidebar items, descriptions, and chart labels (`--vis-font-family`).
+
+**Mono:** system UI stack (`--desk-font-mono`, Tailwind `font-mono`) for kbd hints and shortcuts only.
+
+**Character:** Lexend is tuned for reading proficiency and gives headings a calm, modern voice. Source Sans 3 is Adobe's workhorse for dense UI and long shifts at the desk. Together they replace upstream Geist inside `html[data-app='desk']` without forking components.
+
+**Source file:** `apps/main/src/assets/desk-typography.scss` defines families, `--desk-type-*` sizes, `--desk-leading-*`, weights, and tracking tokens. Tailwind exposes `text-desk-*` utilities when those variables are in scope.
 
 ### Hierarchy
-- **Title** (600, 16px, 24px line): page and panel titles. Upstream `text-xl` titles marked `desk-title`, and every `text-xl` in the secondary nav column, are stepped down to 16px.
-- **Reference** (700, 16px, `tracking-tight`, tabular): the `#reference` in the ticket header. It is the ticket's headline; the contact name sits beside it at 12px muted and the subject on the second line at 14px semibold.
-- **Body** (400, 14px): list snippets, values, messages. Email HTML in a thread reads at 14px with a 1.55 line height; inline email styles still win.
-- **Body Strong** (600, 14px): sender names on list rows, fold rows and thread headers, the ticket subject. Unread list rows go to 700 on the name and 500 `foreground` on the snippet.
-- **Meta** (400, 12px, tabular): times, recipients summary, channel and counts.
-- **Label** (600, 12px, uppercase, `tracking-wider`, muted): the right sidebar's section headers (accordion triggers). Spec-table field labels are 12px at 500, sentence case.
+- **Page / pane title** (Lexend 600, 18px / 26px): `.desk-title`, list headers, dialog titles (`ui-dialog-heading`).
+- **Reference** (Lexend 700, 18px, `tracking-tighter`, tabular): `.desk-ticket-ref` in the conversation header.
+- **Section heading** (Lexend 600, 16px / 24px): `.ui-heading`, `h3`.
+- **Subheading / subject** (Lexend or Source 600, 14px / 20px): `.ui-subheading`, ticket subject line.
+- **Body** (Source 400, 14px / 20px): default UI copy, list snippets, sidebar values.
+- **Body strong** (Source 600–700, 14px): sender names, unread rows, emphasis in lists.
+- **Prose / email** (Source 400, 15px / ~1.55): `.native-html` in thread bubbles (inline email styles still win).
+- **Meta** (Source 500, 12px, tabular): timestamps, counts, secondary lines.
+- **Micro label** (Lexend 700, 11px, uppercase, `tracking-wider`): `.sidebar-section-label`, command group headings, admin table headers.
+- **Caption** (Source 500, 12px, muted): `.desk-type-caption`, spec sidebar labels.
 
 ### Named Rules
-**The Three Sizes Rule.** The desk uses 12, 14 and 16px. Rank comes from weight (400 / 500 / 600 / 700) and case, not size.
+**The Two-Family Rule.** Lexend carries hierarchy; Source Sans 3 carries everything else. Do not introduce a third UI face on the desk.
 
-**The Tabular Rule.** Every reference number, time, count and date uses `tabular-nums`.
+**The Tabular Rule.** Every reference number, time, count and date uses `tabular-nums` (or `data-desk-numeric`).
 
 ## Layout
 
@@ -306,7 +315,7 @@ Upstream shadcn primitives, recoloured by the desk tokens: primary buttons in De
 
 ### Do:
 - **Do** show ticket state with `StatusSwatch` and `statusCode()`, filled for every status but Resolved.
-- **Do** keep chrome to 12, 14 and 16px Urbanist; rank with weight and case.
+- **Do** keep chrome on the `--desk-type-*` scale; rank with Lexend vs Source Sans 3, weight, and case.
 - **Do** use `tabular-nums` on every reference, time, date and count.
 - **Do** separate panes, rows and sections with one 1px `border` line.
 - **Do** keep unread and priority neutral (`foreground` / `muted-foreground`).

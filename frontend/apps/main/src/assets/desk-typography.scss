@@ -1,0 +1,200 @@
+// Clyr Support Desk — typography system (scoped to html[data-app='desk']).
+// Display: Lexend. Body / UI: Source Sans 3. Loaded via apps/main/index.html (Google Fonts).
+
+html[data-app='desk'] {
+  // ─── Families ───
+  --desk-font: 'Source Sans 3', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --desk-font-display: 'Lexend', ui-sans-serif, system-ui, sans-serif;
+  --desk-font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --font-sans: var(--desk-font);
+
+  // ─── Type scale (size) ───
+  --desk-type-2xs: 0.6875rem; // 11px — kbd chips, command group headings
+  --desk-type-xs: 0.75rem; // 12px — meta, captions, spec labels
+  --desk-type-sm: 0.875rem; // 14px — default UI copy
+  --desk-type-base: 1rem; // 16px — body default
+  --desk-type-md: 0.9375rem; // 15px — email / long-form in chrome
+  --desk-type-lg: 1.125rem; // 18px — pane titles, ticket ref
+  --desk-type-xl: 1.25rem; // 20px — metrics, emphasis
+  --desk-type-2xl: 1.5rem; // 24px — rare hero / empty states
+
+  // ─── Line heights ───
+  --desk-leading-2xs: 1rem;
+  --desk-leading-xs: 1rem;
+  --desk-leading-sm: 1.25rem;
+  --desk-leading-base: 1.5rem;
+  --desk-leading-md: 1.4375rem;
+  --desk-leading-lg: 1.625rem;
+  --desk-leading-xl: 1.75rem;
+  --desk-leading-2xl: 2rem;
+  --desk-leading-prose: 1.55;
+
+  // ─── Weights ───
+  --desk-weight-regular: 400;
+  --desk-weight-medium: 500;
+  --desk-weight-semibold: 600;
+  --desk-weight-bold: 700;
+
+  // ─── Letter spacing ───
+  --desk-tracking-tighter: -0.03em;
+  --desk-tracking-tight: -0.02em;
+  --desk-tracking-snug: -0.01em;
+  --desk-tracking-normal: 0;
+  --desk-tracking-wide: 0.04em;
+  --desk-tracking-wider: 0.06em;
+
+  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
+  text-rendering: optimizeLegibility;
+}
+
+html[data-app='desk'],
+html[data-app='desk'] body {
+  font-family: var(--desk-font);
+  font-size: var(--desk-type-base);
+  line-height: var(--desk-leading-base);
+  font-weight: var(--desk-weight-regular);
+  --vis-font-family: var(--desk-font);
+}
+
+html[data-app='desk'] :where(button, input, select, textarea, optgroup) {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+html[data-app='desk'] .font-sans {
+  font-family: var(--desk-font);
+}
+
+html[data-app='desk'] .font-display {
+  font-family: var(--desk-font-display);
+  letter-spacing: var(--desk-tracking-tight);
+}
+
+html[data-app='desk'] .font-mono {
+  font-family: var(--desk-font-mono);
+}
+
+// Heading stack — display family, tight tracking
+html[data-app='desk'] {
+  :is(h1, h2, h3, h4, h5, h6, .desk-title, .ui-display-heading, .font-display) {
+    font-family: var(--desk-font-display);
+    letter-spacing: var(--desk-tracking-tight);
+  }
+
+  h1 {
+    font-size: var(--desk-type-xl);
+    line-height: var(--desk-leading-xl);
+    font-weight: var(--desk-weight-bold);
+  }
+
+  h2 {
+    font-size: var(--desk-type-lg);
+    line-height: var(--desk-leading-lg);
+    font-weight: var(--desk-weight-semibold);
+  }
+
+  h3,
+  .ui-heading {
+    font-size: var(--desk-type-base);
+    line-height: var(--desk-leading-base);
+    font-weight: var(--desk-weight-semibold);
+  }
+
+  h4,
+  .ui-subheading {
+    font-size: var(--desk-type-sm);
+    line-height: var(--desk-leading-sm);
+    font-weight: var(--desk-weight-semibold);
+  }
+
+  .ui-dialog-heading {
+    font-size: var(--desk-type-lg);
+    line-height: var(--desk-leading-lg);
+    font-weight: var(--desk-weight-semibold);
+  }
+
+  .ui-display-heading {
+    font-size: var(--desk-type-lg);
+    line-height: var(--desk-leading-lg);
+    font-weight: var(--desk-weight-semibold);
+  }
+
+  .ui-description {
+    font-size: var(--desk-type-sm);
+    line-height: var(--desk-leading-sm);
+    font-weight: var(--desk-weight-regular);
+  }
+
+  .sidebar-secondary .text-xl,
+  .desk-title.text-xl {
+    font-size: var(--desk-type-lg);
+    line-height: var(--desk-leading-lg);
+    font-weight: var(--desk-weight-semibold);
+  }
+}
+
+// Labels & metadata
+html[data-app='desk'] .sidebar-label {
+  font-size: var(--desk-type-sm);
+  line-height: var(--desk-leading-sm);
+  font-weight: var(--desk-weight-regular);
+}
+
+html[data-app='desk'] .sidebar-value {
+  font-size: var(--desk-type-sm);
+  line-height: var(--desk-leading-sm);
+  font-weight: var(--desk-weight-medium);
+}
+
+html[data-app='desk'] .sidebar-section-label {
+  font-family: var(--desk-font-display);
+  font-size: var(--desk-type-2xs);
+  line-height: var(--desk-leading-2xs);
+  font-weight: var(--desk-weight-bold);
+  letter-spacing: var(--desk-tracking-wide);
+  text-transform: uppercase;
+}
+
+html[data-app='desk'] .text-sm-muted {
+  font-size: var(--desk-type-sm);
+  line-height: var(--desk-leading-sm);
+}
+
+// Data-dense: tables, IDs, amounts
+html[data-app='desk'] :is(.tabular-nums, [data-desk-numeric]) {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+html[data-app='desk'] .desk-type-caption {
+  font-size: var(--desk-type-xs);
+  line-height: var(--desk-leading-xs);
+  font-weight: var(--desk-weight-medium);
+  color: hsl(var(--muted-foreground));
+}
+
+html[data-app='desk'] .desk-type-label {
+  font-size: var(--desk-type-xs);
+  line-height: var(--desk-leading-xs);
+  font-weight: var(--desk-weight-semibold);
+  letter-spacing: var(--desk-tracking-wide);
+  text-transform: uppercase;
+  font-family: var(--desk-font-display);
+}
+
+// shadcn primitives — consistent control typography
+html[data-app='desk'] {
+  label,
+  [data-slot='label'] {
+    font-size: var(--desk-type-sm);
+    line-height: var(--desk-leading-sm);
+    font-weight: var(--desk-weight-medium);
+  }
+
+  [data-slot='form-message'],
+  .text-destructive.text-sm {
+    font-size: var(--desk-type-sm);
+    line-height: var(--desk-leading-sm);
+    font-weight: var(--desk-weight-medium);
+  }
+}
