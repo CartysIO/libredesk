@@ -1274,6 +1274,14 @@ type msgPlan struct {
 
 // prepareMessagePlans reads idempotency state and uploads attachments before any write transaction opens.
 func (im *Importer) prepareMessagePlans(db getter, convID int, msgs []Message, merge bool) ([]msgPlan, error) {
+	sourceByID := im.usedSourceIDs
+	if merge && convID > 0 {
+		var err error
+		sourceByID, err = im.effectiveSourceIDsForImport(msgs, convID)
+		if err != nil {
+			return nil, err
+		}
+	}
 	pending := map[string]bool{}
 	var plans []msgPlan
 	for _, m := range msgs {
@@ -1290,12 +1298,12 @@ func (im *Importer) prepareMessagePlans(db getter, convID int, msgs []Message, m
 		if m.EmailInfo != nil {
 			sourceID = stringutil.NormalizeMessageID(m.EmailInfo.MessageID)
 		}
-		if sourceID != "" && (im.usedSourceIDs[sourceID] > 0 || pending[sourceID]) {
-			if merge && im.usedSourceIDs[sourceID] == convID {
+		if sourceID != "" && (sourceByID[sourceID] > 0 || pending[sourceID]) {
+			if merge && sourceByID[sourceID] == convID {
 				plans = append(plans, msgPlan{kind: msgPlanReconcile, m: m})
 				continue
 			}
-			if merge && im.usedSourceIDs[sourceID] > 0 && im.usedSourceIDs[sourceID] != convID {
+			if merge && sourceByID[sourceID] > 0 && sourceByID[sourceID] != convID {
 				im.rep.SkippedMessages++
 				continue
 			}

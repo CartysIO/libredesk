@@ -16,6 +16,34 @@ import (
 // conversations.meta: sibling conversation absorbed into the merge target of a Pylon issue.
 const MetaAbsorbedInto = "pylon_absorbed_into_conversation_id"
 
+// effectiveSourceIDsForImport returns usedSourceIDs after sibling absorption would remove
+// duplicate issue emails from fragment conversations, matching in-tx behavior for message planning.
+func (im *Importer) effectiveSourceIDsForImport(msgs []Message, targetID int) (map[string]int, error) {
+	eff := make(map[string]int, len(im.usedSourceIDs))
+	for k, v := range im.usedSourceIDs {
+		eff[k] = v
+	}
+	if targetID <= 0 {
+		return eff, nil
+	}
+	issueIDs := issueEmailMessageIDs(msgs)
+	for _, sibID := range im.siblingConversationIDs(msgs, targetID) {
+		var rows []struct {
+			SourceID sql.NullString `db:"source_id"`
+		}
+		if err := im.DB.Select(&rows, `SELECT source_id FROM conversation_messages WHERE conversation_id = $1`, sibID); err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			sid := stringutil.NormalizeMessageID(row.SourceID.String)
+			if sid != "" && issueIDs[sid] {
+				delete(eff, sid)
+			}
+		}
+	}
+	return eff, nil
+}
+
 // issueEmailMessageIDs returns normalized Message-IDs from a Pylon issue's messages.
 func issueEmailMessageIDs(msgs []Message) map[string]bool {
 	out := map[string]bool{}
