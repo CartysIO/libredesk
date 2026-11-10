@@ -55,10 +55,9 @@ jobs:
     needs: image
     if: github.ref == 'refs/heads/clyr' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    environment: staging
     container: ghcr.io/railwayapp/cli:latest
     env:
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
     steps:
       - name: Redeploy Libredesk
         if: env.RAILWAY_TOKEN != ''
@@ -70,17 +69,16 @@ jobs:
       - name: Skip (no token)
         if: env.RAILWAY_TOKEN == ''
         run: |
-          echo "::warning::RAILWAY_TOKEN is not set on GitHub environment staging. See deploy/clyr-railway.md"
+          echo "::warning::RAILWAY_TOKEN_STAGING is not set. See deploy/clyr-railway.md"
 
   deploy-production:
     name: Railway production
     needs: deploy-staging
     if: github.ref == 'refs/heads/clyr' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    environment: production
     container: ghcr.io/railwayapp/cli:latest
     env:
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PRODUCTION }}
     steps:
       - name: Redeploy Libredesk
         if: env.RAILWAY_TOKEN != ''
@@ -92,4 +90,4 @@ jobs:
       - name: Skip (no token)
         if: env.RAILWAY_TOKEN == ''
         run: |
-          echo "::warning::RAILWAY_TOKEN is not set on GitHub environment production. See deploy/clyr-railway.md"
+          echo "::warning::RAILWAY_TOKEN_PRODUCTION is not set. See deploy/clyr-railway.md"
