@@ -235,6 +235,11 @@ func main() {
 		os.Exit(0)
 	}
 
+	if ko.Bool("pylon-wipe") {
+		runPylonWipe(ctx, db, fs, settings)
+		os.Exit(0)
+	}
+
 	startPprof()
 
 	// Fallback for config typo. Logs a warning but continues to work with the incorrect key.

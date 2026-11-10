@@ -162,6 +162,10 @@ func initFlags() {
 	f.Bool("pylon-allow-missing-files", false, "with --pylon-import: import even when some files cannot be downloaded (their URLs stay in message meta)")
 	f.StringSlice("pylon-agent-alias", []string{"omer.menashe@gmail.com=omer@clyr.io"}, "with --pylon-import: pylon-user-email=libredesk-agent-email")
 
+	// Clyr fork: wipe all conversations before re-running --pylon-import (cmd/pylon_wipe.go).
+	f.Bool("pylon-wipe", false, "delete every conversation and related Libredesk data and exit (does not touch users or organizations)")
+	f.Bool("confirm", false, "with --pylon-wipe: execute the wipe (default is dry-run counts only)")
+
 	if err := f.Parse(os.Args[1:]); err != nil {
 		log.Fatalf("loading flags: %v", err)
 	}
