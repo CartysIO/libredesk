@@ -50,8 +50,8 @@ func TestWipeRemovesConversationsAndMessageMedia(t *testing.T) {
 	if n := count(t, db, `SELECT COUNT(*) FROM media WHERE model_type = 'messages'`); n != 0 {
 		t.Fatalf("message media left: %d", n)
 	}
-	if n := count(t, db, `SELECT COUNT(*) FROM users WHERE type = 'agent'`); n < 1 {
-		t.Fatal("agents should remain")
+	if n := count(t, db, `SELECT COUNT(*) FROM users WHERE email = 'wipe@example.com'`); n != 1 {
+		t.Fatalf("contact should remain: count %d", n)
 	}
 	seq := str(t, db, `SELECT last_value FROM conversation_reference_number_sequence`)
 	if seq != "100" {
@@ -81,6 +81,7 @@ func TestWipeDryRunLeavesData(t *testing.T) {
 	if !rep.DryRun {
 		t.Fatal("expected dry run")
 	}
+	rep.Print(&buf)
 	if n := count(t, db, `SELECT COUNT(*) FROM conversations`); n != 1 {
 		t.Fatalf("dry run deleted conversations: %d left", n)
 	}
