@@ -1,5 +1,5 @@
 <template>
-  <div data-admin-toolbar class="flex min-w-0 flex-wrap items-center justify-between gap-3">
+  <div data-admin-toolbar class="desk-admin-toolbar flex min-w-0 flex-wrap items-center justify-between gap-3">
     <div v-if="$slots.left" class="min-w-0 max-w-full overflow-x-auto p-1 -m-1">
       <slot name="left" />
     </div>

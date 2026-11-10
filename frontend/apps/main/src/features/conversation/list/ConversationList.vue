@@ -1,17 +1,27 @@
 <template>
-  <div class="flex h-full min-h-0 flex-col">
+  <div class="desk-inbox-list flex h-full min-h-0 flex-col">
     <!-- Header -->
-    <div class="flex h-14 shrink-0 items-center gap-3 border-b border-border px-3">
-      <SidebarTrigger class="cursor-pointer" />
-      <h1 class="desk-title text-xl font-semibold min-w-0 truncate" :title="title">{{ title }}</h1>
-      <ConversationViewToggle class="ml-auto" />
+    <div class="desk-inbox-list-header flex h-16 shrink-0 items-center gap-3 border-b border-border/60 px-4">
+      <SidebarTrigger
+        class="cursor-pointer rounded-lg border border-border/70 bg-background p-1 shadow-sm"
+      />
+      <h1
+        class="desk-title font-display min-w-0 flex-1 truncate text-lg font-semibold tracking-tight"
+        :title="title"
+      >
+        {{ title }}
+      </h1>
+      <ConversationViewToggle class="ml-auto shrink-0" />
     </div>
 
     <!-- Bulk Action Toolbar (when items selected) -->
     <ConversationBulkActionToolbar v-if="hasSelection && canBulkAct" />
 
     <!-- Filters (hidden when bulk selecting) -->
-    <div v-else class="flex shrink-0 items-center justify-between gap-2 border-b border-border p-2">
+    <div
+      v-else
+      class="desk-inbox-filters flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-3 py-2.5"
+    >
       <!-- Status dropdown-menu, hidden when a view is selected as views are pre-filtered -->
       <!-- Board mode: the list shows one column, so the status is fixed. -->
       <div v-if="isBoard && !route.params.viewID">
@@ -83,7 +93,7 @@
     </div>
 
     <!-- Content -->
-    <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+    <div class="desk-scroll min-h-0 flex-1 overscroll-contain">
       <EmptyList
         v-if="showEmpty"
         key="empty"
@@ -104,8 +114,7 @@
 
       <div
         v-if="!hasErrored && !conversationStore.conversations.loading"
-        class="divide-y divide-border"
-        :class="{ 'border-b border-border': hasConversations }"
+        class="space-y-1.5 px-2 py-2"
       >
         <ConversationListItem
           v-for="conversation in conversationStore.conversationsList"

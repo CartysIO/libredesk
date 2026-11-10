@@ -3,7 +3,7 @@
     <SearchHeader />
     <div ref="scrollRef" class="flex-1 min-h-0 overflow-y-auto">
       <div class="px-3 pb-6">
-        <div class="search-toolbar sticky top-0 z-20 space-y-3 border-b border-border/70 bg-background py-4">
+        <div class="desk-search-toolbar search-toolbar sticky top-2 z-20 space-y-3">
           <SearchInput
             ref="inputRef"
             v-model="term"

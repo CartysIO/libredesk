@@ -1,6 +1,6 @@
 <template>
   <section
-    class="board-lane flex h-full w-72 shrink-0 flex-col border-r border-border/70 transition-colors"
+    class="board-lane desk-board-lane flex h-full w-72 shrink-0 flex-col border-r border-border/70 transition-colors"
     :class="{ 'bg-accent/50': isOver }"
     :aria-label="t(column.labelKey)"
     @dragover.prevent="onDragOver"

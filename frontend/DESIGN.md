@@ -1,12 +1,12 @@
 ---
 name: Clyr Support desk
-description: Clyr's support desk (a Libredesk fork). The agent app wears the Clyr desk system; the chat widget and help center keep the upstream Libredesk system.
+description: Clyr's support desk (Signal Console visual system). Agent app only; widget and help center keep upstream Libredesk tokens.
 colors:
   brand: "hsl(135 45% 58%)"
-  primary: "hsl(153 58% 24%)"
+  primary: "hsl(213 52% 24%)"
   primary-foreground: "hsl(0 0% 100%)"
-  background: "hsl(150 20% 99%)"
-  foreground: "hsl(160 35% 9%)"
+  background: "hsl(214 32% 96%)"
+  foreground: "hsl(222 47% 11%)"
   foreground-lighter: "hsl(158 10% 38%)"
   card: "hsl(0 0% 100%)"
   muted: "hsl(150 14% 95.5%)"
@@ -53,7 +53,7 @@ colors:
   dark-rail-raised: "hsl(153 40% 16%)"
 typography:
   title:
-    fontFamily: "Urbanist, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
+    fontFamily: "Lexend, ui-sans-serif, system-ui, sans-serif"
     fontSize: "16px"
     fontWeight: 600
     lineHeight: "24px"
@@ -64,7 +64,7 @@ typography:
     letterSpacing: "-0.025em"
     fontFeature: "tnum"
   body:
-    fontFamily: "Urbanist, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
+    fontFamily: "Source Sans 3, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
     fontSize: "14px"
     fontWeight: 400
     lineHeight: "20px"
@@ -159,9 +159,9 @@ The desk overrides the upstream token names (`--primary`, `--border`, `--canvas`
 
 ## Overview
 
-**Creative North Star: "The Identity Manual Desk"**
+**Creative North Star: "Signal Console"**
 
-Clyr's identity manual applied to a support desk: one strict grid, flush-left Urbanist, and colour used only as a code for whose move it is. A deep Clyr-green rail holds navigation. Next to it, white work panes meet on 1px hairlines over a faintly green-tinted ground. Nothing floats: no gutters, no rounded pane cards, no pane shadows.
+A calm operations console for support agents: cool slate grounds, Lexend headings, Source Sans 3 body copy, and navy for primary chrome. Clyr green remains identity on the mark and selection accents only. Panes float as rounded cards with light elevation on a soft gradient canvas—not a hairline grid. The whose-move code still carries ticket state on circular swatches.
 
 Density is high but scannable. The agent reads rows by their coded swatch, opens a ticket whose reference number is the headline, and reads the newest email first, with older messages folded to one-line rows. Chrome (headers, recipients, quoted history, signatures) stays out of view until asked for.
 

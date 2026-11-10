@@ -10,7 +10,7 @@
 
     <div
       ref="scrollContainer"
-      class="desk-admin-table relative overflow-auto border border-border/70 bg-background"
+      class="desk-admin-table desk-scroll relative border border-border/70 bg-background"
       :style="{ maxHeight }"
       :aria-busy="loading"
     >

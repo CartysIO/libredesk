@@ -5,7 +5,7 @@
         class="flex flex-col items-center justify-center flex-grow"
         v-if="$route.name === 'admin'"
       >
-        <div>{{ $t('admin.empty') }}</div>
+        <div class="desk-admin-empty">{{ $t('admin.empty') }}</div>
       </div>
       <div class="flex-grow flex flex-col">
         <router-view />

@@ -1,8 +1,12 @@
 <template>
   <div ref="root" class="relative h-full flex flex-col overflow-hidden">
-    <div class="flex h-14 shrink-0 items-center gap-4 border-b border-border/70 px-3">
-      <SidebarTrigger class="cursor-pointer" />
-      <span class="desk-title truncate text-xl font-semibold">{{ title }}</span>
+    <div class="desk-board-header flex h-16 shrink-0 items-center gap-4 border-b border-border/60 px-4">
+      <SidebarTrigger
+        class="cursor-pointer rounded-lg border border-border/70 bg-background p-1 shadow-sm"
+      />
+      <span class="desk-title font-display truncate text-lg font-semibold tracking-tight">{{
+        title
+      }}</span>
       <div class="ml-auto">
         <ConversationViewToggle />
       </div>

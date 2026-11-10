@@ -1,6 +1,6 @@
 <template>
   <div class="flex min-h-full flex-col">
-    <div class="mb-4 flex w-full items-center gap-4">
+    <div class="desk-directory-toolbar mb-4 flex w-full items-center gap-4">
       <Input
         v-model="searchTerm"
         type="text"
@@ -19,7 +19,7 @@
       </Button>
     </div>
 
-    <div class="w-full border-t border-border/70">
+    <div class="desk-directory-stack w-full">
       <div v-if="loading" class="w-full">
         <div
           v-for="i in perPage"
@@ -63,7 +63,7 @@
         </router-link>
         <div
           v-if="organizations.length === 0"
-          class="flex h-32 w-full items-center justify-center border-b border-border/70"
+          class="desk-empty-list flex h-32 w-full items-center justify-center"
         >
           <p class="text-sm text-muted-foreground">{{ $t('organization.noneFound') }}</p>
         </div>

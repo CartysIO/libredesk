@@ -6,14 +6,14 @@
     :filter-function="filterFunction"
     @update:open="onOpenChange"
     :class="[
-      'z-[51] !top-[44%] !w-[calc(100%-1.5rem)] !min-w-0 gap-0 rounded-lg border-border/80 bg-popover shadow-lg [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-md [&>button]:bg-muted/70 [&>button]:opacity-60 [&>button]:hover:opacity-100',
+      'desk-command-dialog z-[51] !top-[42%] !w-[calc(100%-1.5rem)] !min-w-0 gap-0 border-border/80 bg-popover shadow-lg [&>button]:right-4 [&>button]:top-4 [&>button]:rounded-full [&>button]:border [&>button]:border-border/70 [&>button]:bg-card [&>button]:opacity-80 [&>button]:shadow-sm [&>button]:hover:opacity-100',
       isMacroMode ? '!max-w-5xl' : '!max-w-2xl'
     ]"
-    command-class="rounded-lg bg-popover [&_[cmdk-input-wrapper]]:h-14 [&_[cmdk-input-wrapper]]:border-border/70 [&_[cmdk-input-wrapper]]:px-4 [&_[cmdk-input-wrapper]_svg]:text-muted-foreground [&_[cmdk-input]]:h-14 [&_[cmdk-input]]:pr-10 [&_[cmdk-input]]:text-base [&_[cmdk-group]]:py-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pb-2 [&_[cmdk-group-heading]]:pt-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-item]]:mx-0.5 [&_[cmdk-item]]:rounded-md [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2 [&_[cmdk-item]]:transition-colors [&_[cmdk-item]]:duration-150"
+    command-class="desk-command-palette rounded-lg bg-popover"
   >
     <div
       v-if="breadcrumb"
-      class="flex items-center gap-2 border-b border-border/70 px-4 py-2 text-xs text-muted-foreground"
+      class="desk-command-breadcrumb flex items-center gap-2 border-b border-border/60 bg-muted/25 px-4 py-2.5 text-xs text-muted-foreground"
     >
       <button
         type="button"
@@ -88,7 +88,7 @@
     </CommandList>
 
     <div
-      class="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/70 bg-muted/30 px-4 py-2"
+      class="desk-command-footer flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/60 bg-muted/35 px-4 py-2.5"
     >
       <span class="flex items-center gap-1 text-xs text-muted-foreground">
         <kbd :class="KBD_CLASS">Enter</kbd>
@@ -114,7 +114,7 @@
 
 <script setup>
 const KBD_CLASS =
-  'inline-flex h-5 items-center rounded-sm border bg-background px-1.5 font-mono text-xs font-medium text-foreground shadow-sm'
+  'desk-command-kbd inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-border/70 bg-card px-1.5 font-mono text-[0.6875rem] font-semibold text-foreground shadow-sm'
 const ASYNC_SEARCH_DEBOUNCE = 250
 
 import { computed, ref, watch } from 'vue'

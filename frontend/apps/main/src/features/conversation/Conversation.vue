@@ -1,8 +1,10 @@
 <template>
   <div class="flex h-full min-h-0 flex-col">
     <!-- Header -->
-    <div class="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
-      <div class="flex items-center gap-1 min-w-0">
+    <div
+      class="desk-conversation-header flex min-h-[4.25rem] shrink-0 items-center justify-between gap-3 border-b border-border/60 px-4 py-3"
+    >
+      <div class="flex min-w-0 items-center gap-2">
         <Button
           v-if="isMobile"
           variant="ghost"
@@ -17,11 +19,16 @@
           <div class="flex min-w-0 items-baseline gap-2">
             <span
               v-if="conversationStore.current?.reference_number"
-              class="shrink-0 text-base font-bold tabular-nums tracking-tight"
+              class="desk-ticket-ref shrink-0 text-primary"
             >#{{ conversationStore.current.reference_number }}</span>
-            <span class="truncate text-xs text-muted-foreground">{{ conversationStore.currentContactName }}</span>
+            <span class="truncate text-xs font-medium text-muted-foreground">{{
+              conversationStore.currentContactName
+            }}</span>
           </div>
-          <div v-if="conversationStore.current?.subject" class="truncate text-sm font-semibold">
+          <div
+            v-if="conversationStore.current?.subject"
+            class="font-display truncate text-sm font-semibold tracking-tight"
+          >
             {{ conversationStore.current.subject }}
           </div>
         </div>
@@ -56,7 +63,7 @@
               class="flex h-11 lg:h-8 items-center cursor-pointer"
             >
               <span
-                class="inline-flex items-center gap-2 rounded-md border border-input bg-background px-2.5 py-1 text-xs lg:text-sm font-semibold hover:bg-accent transition-colors"
+                class="desk-status-chip inline-flex items-center gap-2 border border-input bg-background px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-accent lg:text-sm"
               >
                 <StatusSwatch :status="conversationStore.current?.status" />
                 {{ conversationStore.current?.status }}

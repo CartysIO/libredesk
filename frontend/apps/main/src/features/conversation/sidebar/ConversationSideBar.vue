@@ -1,7 +1,11 @@
 <template>
-  <Tabs v-model="activeTab" class="flex h-full min-h-0 flex-col" @keydown.capture="copilotPointerOpened = false">
-    <div class="flex h-14 shrink-0 items-center border-b border-border px-3">
-      <TabsList class="h-full w-full justify-start gap-6 rounded-none bg-transparent p-0">
+  <Tabs
+    v-model="activeTab"
+    class="desk-detail-sidebar flex h-full min-h-0 flex-col"
+    @keydown.capture="copilotPointerOpened = false"
+  >
+    <div class="flex h-14 shrink-0 items-center border-b border-border/60 bg-card/60 px-4 backdrop-blur-sm">
+      <TabsList class="h-full w-full justify-start gap-2 rounded-none bg-transparent p-0">
         <TabsTrigger value="details" :class="SIDEBAR_TAB_CLASS">{{ $t('copilot.details') }}</TabsTrigger>
         <TabsTrigger value="copilot" :class="SIDEBAR_TAB_CLASS" @pointerdown="copilotPointerOpened = activeTab !== 'copilot'">{{ COPILOT_NAME }}</TabsTrigger>
       </TabsList>
@@ -228,7 +232,8 @@ import SelectTagCombobox from '@main/components/combobox/SelectTagCombobox.vue'
 import { TAG_ACTION } from '@/constants/conversation'
 import api from '@/api'
 
-const SIDEBAR_TAB_CLASS = 'h-full rounded-none border-b-2 border-transparent px-0 text-xs font-normal focus-visible:ring-inset focus-visible:ring-offset-0 data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:font-medium data-[state=active]:shadow-none'
+const SIDEBAR_TAB_CLASS =
+  'h-9 rounded-full border border-transparent px-4 text-xs font-medium shadow-none transition-colors data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:shadow-sm focus-visible:ring-2 focus-visible:ring-ring'
 
 const customAttributeStore = useCustomAttributeStore()
 const emitter = useEmitter()
