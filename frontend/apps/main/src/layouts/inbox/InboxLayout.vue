@@ -16,7 +16,7 @@
       :default-size="panelSizes[0]"
       :min-size="listMinSize"
       :max-size="45"
-      class="min-w-0 overflow-hidden rounded-xl border border-border bg-background"
+      class="min-w-0 overflow-hidden rounded-none border-0 border-r border-border/70 bg-background shadow-none"
     >
       <ConversationList />
     </ResizablePanel>
@@ -31,7 +31,7 @@
     <ConversationList
       v-if="isMobile"
       v-show="isListRoute"
-      class="h-full w-full overflow-hidden rounded-xl border border-border bg-background"
+      class="h-full w-full overflow-hidden rounded-none border-0 bg-background shadow-none"
     />
 
     <!-- Conversation Detail Panel -->

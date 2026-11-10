@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col min-h-0">
+  <div class="desk-directory-page flex min-h-0 flex-col">
     <SearchHeader />
     <div ref="scrollRef" class="flex-1 min-h-0 overflow-y-auto">
       <div class="px-3 pb-6">

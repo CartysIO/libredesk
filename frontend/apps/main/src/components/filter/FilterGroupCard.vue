@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-3 rounded-lg border border-border bg-muted/30 p-3" data-cy="filter-group">
+  <div class="desk-filter-group space-y-3 border border-border/70 bg-muted/30 p-3" data-cy="filter-group">
     <div class="flex items-center justify-between gap-3 border-b border-border pb-2">
       <div class="flex items-center gap-2 text-sm font-medium text-foreground">
         <span>{{ t('admin.automation.matchTheseRules') }}</span>

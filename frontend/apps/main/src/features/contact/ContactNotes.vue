@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full space-y-4 relative">
+  <div class="desk-directory-surface w-full space-y-4 relative">
     <!-- Header -->
     <div class="flex items-center mb-4" :class="compact ? 'justify-end' : 'justify-between'">
       <span v-if="!compact" class="ui-heading">
@@ -54,13 +54,13 @@
       <Card
         v-for="note in visibleNotes"
         :key="note.id"
-        class="overflow-hidden hover:border-border transition-[border-color,box-shadow] duration-200 box hover:shadow-md"
+        class="overflow-hidden transition-[border-color,background-color] duration-150 box hover:border-border/90 hover:bg-accent/30"
       >
         <!-- Header -->
         <CardHeader :class="compact ? 'p-3 pb-2' : 'bg-background border-b p-2'">
           <div class="flex items-center justify-between">
             <div class="flex items-center" :class="compact ? 'space-x-2 min-w-0' : 'space-x-3'">
-              <Avatar :class="compact ? 'h-5 w-5' : 'border shadow-sm'">
+              <Avatar :class="compact ? 'h-5 w-5' : 'border'">
                 <AvatarImage :src="note.avatar_url" />
                 <AvatarFallback :class="{ 'text-[10px]': compact }">
                   {{ getInitials(note.first_name, note.last_name) }}
@@ -155,7 +155,10 @@
       <div v-if="compact" class="text-center text-sm text-muted-foreground py-4">
         {{ $t('contact.notes.empty') }}
       </div>
-      <div v-else class="box border-dashed p-10 text-center bg-muted/50 mt-6">
+      <div
+        v-else
+        class="desk-admin-panel--dashed mt-6 border border-dashed border-border/80 bg-muted/30 p-10 text-center"
+      >
         <div class="flex flex-col items-center">
           <h3 class="ui-heading mt-2">
             {{ $t('contact.notes.empty') }}

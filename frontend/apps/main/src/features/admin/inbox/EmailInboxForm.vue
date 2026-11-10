@@ -35,7 +35,10 @@
       </div>
     </div>
     <div v-show="showFormFields" class="space-y-6">
-      <div v-show="isOAuthInbox" class="flex flex-wrap items-start gap-3 rounded-md border p-4">
+      <div
+        v-show="isOAuthInbox"
+        class="desk-admin-panel flex flex-wrap items-start gap-3 border border-border/70 p-4"
+      >
         <CheckCircle2 class="size-5 shrink-0 text-success" aria-hidden="true" />
         <div class="min-w-0 flex-1">
           <p class="font-semibold text-foreground">

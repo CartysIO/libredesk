@@ -345,7 +345,7 @@ onMounted(async () => {
         >
           <template #item="{ element: item, index }">
             <div
-              class="flex items-center gap-3 border rounded-md hover:bg-accent/50 transition-colors"
+              class="desk-admin-panel flex items-center gap-3 border border-border/70 transition-colors can-hover:hover:bg-accent/40"
             >
               <div
                 v-if="modelValue.length > 1"

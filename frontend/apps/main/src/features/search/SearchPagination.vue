@@ -1,8 +1,6 @@
 <template>
-  <div class="sticky bottom-0 mt-auto bg-card pb-4 pt-3">
-    <div
-      class="flex items-center justify-between gap-4 rounded-md border border-border px-4 py-3 shadow-sm"
-    >
+  <div class="sticky bottom-0 mt-auto border-t border-border/70 bg-background pb-4 pt-0">
+    <div class="desk-search-pagination flex items-center justify-between gap-4 px-3 py-3">
       <Select :model-value="perPage" @update:model-value="handlePerPageChange">
         <SelectTrigger class="h-10 w-[70px] sm:h-8">
           <SelectValue :placeholder="String(perPage)" />

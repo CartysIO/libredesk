@@ -81,7 +81,7 @@ const showGettingStarted = computed(() => !hasInboxes.value || !hasAgents.value)
 
 <style scoped>
 .placeholder-container {
-  @apply relative flex h-full min-h-0 w-full min-w-0 items-center justify-center rounded-xl border border-border bg-card;
+  @apply relative flex h-full min-h-0 w-full min-w-0 items-center justify-center rounded-none border-0 bg-card shadow-none;
 }
 
 .getting-started-wrapper {
@@ -89,7 +89,7 @@ const showGettingStarted = computed(() => !hasInboxes.value || !hasAgents.value)
 }
 
 .checklist-item {
-  @apply flex items-center justify-between py-3 px-4 rounded-lg border border-border;
+  @apply flex items-center justify-between py-3 px-4 rounded-md border border-border shadow-none;
 }
 
 .checklist-item.completed {

@@ -331,6 +331,34 @@ html[data-app='desk'] .desk-search-panel {
   background: transparent;
 }
 
+html[data-app='desk'] .desk-directory-stack {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-app='desk'] .desk-directory-page,
+html[data-app='desk'] .desk-directory-surface {
+  .box {
+    border-width: 1px;
+    border-style: solid;
+    border-color: hsl(var(--border) / 0.7);
+    border-radius: 0;
+    box-shadow: none;
+    background: hsl(var(--card));
+  }
+}
+
+html[data-app='desk'] .desk-admin-panel--dashed {
+  border-radius: var(--radius);
+  box-shadow: none;
+  background: hsl(var(--muted) / 0.2);
+}
+
+html[data-app='desk'] .desk-search-pagination {
+  border-radius: 0;
+  box-shadow: none;
+}
+
 html[data-app='desk'] .ui-display-heading {
   font-size: 1rem;
   line-height: 1.5rem;
@@ -382,11 +410,22 @@ html[data-app='desk'] .desk-admin {
     box-shadow: none;
   }
 
+  .admin-split > :first-child {
+    min-height: 100%;
+    background: hsl(var(--background));
+  }
+
   .admin-help {
     border-radius: 0;
-    background: transparent;
+    background: hsl(var(--background));
     border-left: 1px solid hsl(var(--border) / 0.7);
     padding-left: 1rem;
+    box-shadow: none;
+  }
+
+  .admin-preview {
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .box {
@@ -397,6 +436,35 @@ html[data-app='desk'] .desk-admin {
     border-width: 1px;
     background: hsl(var(--card));
   }
+
+  // In-page section panels (roles, webhooks, macros, inbox widget config).
+  .desk-admin-panel {
+    border-radius: 0;
+    box-shadow: none;
+    background: hsl(var(--card));
+  }
+
+  .desk-admin-panel--dashed {
+    border-radius: var(--radius);
+    box-shadow: none;
+    background: hsl(var(--muted) / 0.2);
+  }
+
+  // Legacy nested cards inside admin forms — flat, no lift on hover.
+  :where(.border.rounded-md, .border.rounded-lg):not(
+      :where(input, textarea, button, [role='combobox'], [data-radix-collection-item]) *
+    ) {
+    &:where(.p-4, .p-5, .p-6, .py-8, .py-12) {
+      border-radius: 0;
+      box-shadow: none;
+    }
+  }
+}
+
+// Filter groups (admin automations, shared views, agent views).
+html[data-app='desk'] .desk-filter-group {
+  border-radius: 0;
+  box-shadow: none;
 }
 
 // The whose-move swatch: a solid square in a fixed cell. Filled = someone must act, hollow = resolved.
@@ -412,4 +480,68 @@ html[data-app='desk'] .desk-admin {
 .code-swatch[data-hollow='true'] {
   background: transparent;
   box-shadow: inset 0 0 0 1.5px currentColor;
+}
+
+// ─── Desk redesign layer: token-first overrides (see frontend/DESIGN.md) ───
+
+// Sign-in / password reset: flat card on tinted ground, not a floating shadcn panel.
+html[data-app='desk'] .desk-auth-shell {
+  background: hsl(var(--background));
+}
+
+html[data-app='desk'] .desk-auth-shell .auth-content {
+  :is(.rounded-lg, .box) {
+    border-radius: var(--radius);
+    box-shadow: none;
+    border-color: hsl(var(--border) / 0.85);
+  }
+}
+
+// Work panes inside resizable splits: reuse upstream panel markup, enforce hairlines.
+html[data-app='desk'] .desk-pane {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+// In-page cards (.box) outside scoped sections already flatten above; catch stragglers.
+html[data-app='desk'] :where(.rounded-xl, .rounded-2xl):not(
+    [data-radix-popper-content-wrapper] *,
+    [data-sonner-toaster] *,
+    [role='dialog'] *,
+    .board-drawer *,
+    .libredesk-widget-preview *
+  ) {
+  border-radius: var(--radius);
+  box-shadow: none;
+}
+
+// Primary controls stay flat; overlays keep elevation from upstream.
+html[data-app='desk'] :where(button, a[role='button']).shadow-sm {
+  box-shadow: none;
+}
+
+// Data tables and admin lists: hairline frame, no float.
+html[data-app='desk'] .desk-admin-table,
+html[data-app='desk'] [data-table] {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+// Command palette & pickers are overlays — keep shadow; only soften radius to md.
+html[data-app='desk'] [cmdk-root] {
+  border-radius: var(--radius);
+}
+
+// Inputs: crisp 4px corners, visible focus ring (ring token).
+html[data-app='desk'] :where(input, textarea, select):not([type='checkbox'], [type='radio']) {
+  border-radius: var(--radius);
+}
+
+// Sidebar section labels: sentence case per desk typography (drop tracked uppercase).
+html[data-app='desk'] .sidebar-section-label {
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-weight: 600;
 }
