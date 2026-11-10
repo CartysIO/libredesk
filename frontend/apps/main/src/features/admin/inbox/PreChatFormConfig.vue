@@ -70,7 +70,10 @@
                 class="space-y-3"
               >
                 <template #item="{ element: field, index }">
-                  <div :key="field.key || `field-${index}`" class="group/reorder border rounded-lg p-4 space-y-4">
+                  <div
+                    :key="field.key || `field-${index}`"
+                    class="desk-admin-panel group/reorder border border-border/70 p-4 space-y-4"
+                  >
                     <div class="flex items-center justify-between">
                       <div class="flex items-center space-x-3">
                         <div class="drag-handle cursor-move text-muted-foreground">

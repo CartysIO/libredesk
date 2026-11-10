@@ -65,7 +65,7 @@ onMounted(async () => {
   <p v-else-if="isLoading" role="status" :class="MUTED_TEXT_CLASS">
     {{ t('globals.terms.loading') }}
   </p>
-  <div v-else class="space-y-3 rounded-md border border-dashed p-4">
+  <div v-else class="desk-admin-panel--dashed space-y-3 border border-dashed border-border/80 p-4">
     <p :class="MUTED_TEXT_CLASS">
       {{ t('widget.campaignContactAttributesEmpty') }}
     </p>

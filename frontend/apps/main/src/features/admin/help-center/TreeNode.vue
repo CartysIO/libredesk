@@ -2,7 +2,7 @@
   <Collapsible v-if="item.type === 'collection'" v-model:open="isOpen" as-child>
     <section
       class="motion-reduce:transition-opacity motion-reduce:duration-100 motion-reduce:ease-out"
-      :class="depth === 0 ? 'overflow-hidden rounded-lg border bg-card' : 'border-t'"
+      :class="depth === 0 ? 'desk-admin-panel overflow-hidden border border-border/70 bg-card' : 'border-t'"
     >
       <div
         class="group tree-node tree-node--collection"

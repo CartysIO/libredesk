@@ -170,7 +170,7 @@
 
       <!-- API Key Display -->
       <div v-if="apiKeyData.api_key" class="space-y-3">
-        <div class="flex items-center justify-between p-3 bg-background border rounded-md">
+        <div class="desk-admin-panel flex items-center justify-between border border-border/70 bg-background p-3">
           <div class="flex items-center gap-3">
             <Key class="w-4 h-4 text-muted-foreground" />
             <div>

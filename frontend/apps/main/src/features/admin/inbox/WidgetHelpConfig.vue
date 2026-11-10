@@ -102,7 +102,7 @@ const unusedArticles = computed(() =>
             v-for="audience in AUDIENCES"
             :key="audience"
             :data-help-audience="audience"
-            class="space-y-4 border rounded-md p-4"
+            class="desk-admin-panel space-y-4 border border-border/70 p-4"
           >
             <p class="text-sm font-medium text-foreground">
               {{ t(audience === 'visitors' ? 'globals.terms.visitor' : 'globals.terms.users', 2) }}
@@ -136,7 +136,7 @@ const unusedArticles = computed(() =>
           class="space-y-2"
         >
           <template #item="{ element: item, index }">
-            <div class="group/reorder flex items-center gap-2 p-2 border rounded-md">
+            <div class="desk-admin-panel group/reorder flex items-center gap-2 border border-border/70 p-2">
               <div class="drag-handle cursor-move text-muted-foreground">
                 <GripVertical class="size-4" aria-hidden="true" />
               </div>

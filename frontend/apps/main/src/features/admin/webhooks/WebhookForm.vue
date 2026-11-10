@@ -49,7 +49,7 @@
             <div
               v-for="group in webhookEvents"
               :key="group.name"
-              class="rounded-md border border-border bg-card"
+              class="desk-admin-panel border border-border/70 bg-card"
             >
               <div class="border-b border-border bg-muted/30 px-5 py-3">
                 <h4 class="ui-subheading">{{ group.name }}</h4>

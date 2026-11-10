@@ -240,7 +240,7 @@
       <!-- Empty State -->
       <div
         v-else
-        class="flex flex-col items-center justify-center p-8 space-y-3 rounded-md bg-muted/30 border border-dashed"
+        class="desk-admin-panel--dashed flex flex-col items-center justify-center space-y-3 border border-dashed border-border/80 bg-muted/30 p-8"
       >
         <Bell class="w-8 h-8 text-muted-foreground" />
         <p class="ui-description">{{ t('admin.sla.noAlertsConfigured') }}</p>

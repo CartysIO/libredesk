@@ -3,7 +3,7 @@
     <!-- Empty State -->
     <div
       v-if="!model.length"
-      class="text-center py-12 px-6 border-2 border-dashed border-muted rounded-lg"
+      class="desk-admin-panel--dashed text-center py-12 px-6 border-2 border-dashed border-border/80"
     >
       <h3 class="ui-heading mb-2">
         {{ $t('actions.noActions') }}
@@ -24,7 +24,7 @@
     <div v-else class="space-y-6">
       <div v-for="(action, index) in model" :key="index" class="relative">
         <!-- Action Card -->
-        <div class="border rounded-md p-6 shadow-sm hover:shadow-md transition-shadow">
+        <div class="desk-admin-panel border border-border/70 p-6 transition-colors can-hover:hover:bg-accent/20">
           <div class="flex items-start justify-between gap-4">
             <div class="flex-1 space-y-4">
               <!-- Action Type Selection -->

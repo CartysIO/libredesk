@@ -1,6 +1,6 @@
 <template>
   <div
-    class="admin-split desk-admin-split grid w-full flex-1 min-h-0 items-start gap-4"
+    class="admin-split desk-admin-split grid w-full flex-1 min-h-0 items-start gap-0"
     :class="{ 'admin-split-preview': fixedHelp }"
   >
     <div class="relative min-w-0">
