@@ -46,7 +46,7 @@ SELECT
     users.created_at as "contact.created_at",
     users.updated_at as "contact.updated_at",
     users.first_name as "contact.first_name",
-    users.last_name as "contact.last_name",
+    COALESCE(users.last_name, '') as "contact.last_name",
     users.email as "contact.email",
     users.avatar_url as "contact.avatar_url",
     inboxes.channel as inbox_channel,
@@ -132,7 +132,7 @@ SELECT
     users.created_at as "contact.created_at",
     users.updated_at as "contact.updated_at",
     users.first_name as "contact.first_name",
-    users.last_name as "contact.last_name",
+    COALESCE(users.last_name, '') as "contact.last_name",
     users.email as "contact.email",
     users.avatar_url as "contact.avatar_url",
     inboxes.channel as inbox_channel,
@@ -232,7 +232,7 @@ SELECT
    ct.created_at as "contact.created_at",
    ct.updated_at as "contact.updated_at",
    ct.first_name as "contact.first_name",
-   ct.last_name as "contact.last_name", 
+   COALESCE(ct.last_name, '') as "contact.last_name", 
    ct.email as "contact.email",
    ct.type as "contact.type",
    ct.availability_status as "contact.availability_status",
@@ -311,7 +311,7 @@ SELECT
     c.uuid,
     c.subject,
     u.first_name AS "contact.first_name",
-    u.last_name AS "contact.last_name",
+    COALESCE(u.last_name, '') AS "contact.last_name",
     u.avatar_url AS "contact.avatar_url",
     c.last_message as last_message,
     c.last_message_at as last_message_at
@@ -428,7 +428,7 @@ SELECT
     c.uuid AS conversation_uuid,
     u.id AS "author.id",
     u.first_name AS "author.first_name",
-    u.last_name AS "author.last_name",
+    COALESCE(u.last_name, '') AS "author.last_name",
     u.email AS "author.email",
     u.avatar_url AS "author.avatar_url",
     u.availability_status AS "author.availability_status",
@@ -618,7 +618,7 @@ WHERE CASE
 END
 
 -- name: get-conversation-participants
-SELECT users.id as id, first_name, last_name, avatar_url 
+SELECT users.id as id, first_name, COALESCE(last_name, '') AS last_name, avatar_url 
 FROM conversation_participants
 INNER JOIN users ON users.id = conversation_participants.user_id
 WHERE conversation_id =
@@ -627,7 +627,7 @@ WHERE conversation_id =
 );
 
 -- name: get-conversation-participant-agents
-SELECT users.id, users.first_name, users.last_name, users.email
+SELECT users.id, users.first_name, COALESCE(users.last_name, '') AS last_name, users.email
 FROM conversation_participants
 INNER JOIN users ON users.id = conversation_participants.user_id
 WHERE conversation_participants.conversation_id = (SELECT id FROM conversations WHERE uuid = $1)
@@ -896,7 +896,7 @@ SELECT
     c.uuid as conversation_uuid,
     u.id AS "author.id",
     u.first_name AS "author.first_name",
-    u.last_name AS "author.last_name",
+    COALESCE(u.last_name, '') AS "author.last_name",
     u.email AS "author.email",
     u.avatar_url AS "author.avatar_url",
     u.availability_status AS "author.availability_status",
@@ -945,7 +945,7 @@ SELECT
    $1::uuid AS conversation_uuid,
    u.id AS "author.id",
    u.first_name AS "author.first_name",
-   u.last_name AS "author.last_name",
+   COALESCE(u.last_name, '') AS "author.last_name",
    u.email AS "author.email",
    u.avatar_url AS "author.avatar_url",
    u.availability_status AS "author.availability_status",
