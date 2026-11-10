@@ -105,7 +105,7 @@ func seedConversationWithAttachment(t *testing.T, db *sqlx.DB, mm *media.Manager
 		t.Fatal(err)
 	}
 	body := strings.NewReader("hello")
-	_, err := mm.UploadAndInsert("note.txt", "text/plain", "", null.StringFrom(mmodels.ModelMessages), null.IntFrom(int64(msg)),
+	_, err := mm.UploadAndInsert("note.txt", "text/plain", "", null.StringFrom(mmodels.ModelMessages), null.IntFrom(msg),
 		body, 5, null.StringFrom(mmodels.DispositionAttachment), []byte(`{}`), true)
 	if err != nil {
 		t.Fatal(err)
