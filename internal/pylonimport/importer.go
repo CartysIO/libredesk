@@ -562,8 +562,9 @@ func (im *Importer) existingConversations() ([]ExistingConversation, error) {
 }
 
 // matchDuplicates finds the existing Libredesk conversations that hold a Pylon issue already (both tools read
-// support@clyr.io). An issue matches a conversation that has one of its email Message-IDs, else a conversation of
-// the same contact with the same subject that started within DuplicateWindow. Each conversation matches one issue.
+// support@clyr.io). An issue matches a conversation that has one of its email Message-IDs (oldest Pylon message first,
+// so the opening email wins over a later reply in another inbox thread), else a conversation of the same contact with
+// the same subject that started within DuplicateWindow. Each conversation matches one issue.
 func (im *Importer) matchDuplicates(issues []Issue, msgs map[string][]Message) (map[string]duplicate, error) {
 	existing, err := im.existingConversations()
 	if err != nil {
@@ -586,7 +587,7 @@ func (im *Importer) matchDuplicates(issues []Issue, msgs map[string][]Message) (
 		if im.imported[is.ID] > 0 {
 			continue
 		}
-		for _, m := range msgs[is.ID] {
+		for _, m := range orderedMessages(is, msgs[is.ID]) {
 			if m.EmailInfo == nil {
 				continue
 			}
