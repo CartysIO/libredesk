@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-1 flex-col gap-4 box p-5">
+  <div class="desk-report-panel flex flex-1 flex-col gap-4 p-5">
     <div class="flex items-center justify-between">
       <h3 class="ui-heading">{{ title }}</h3>
       <slot name="header-right"></slot>
@@ -45,8 +45,8 @@ const gridClass = computed(() => {
 
 const valueClass = computed(() => {
   const sizes = {
-    default: 'text-2xl font-bold tabular-nums',
-    large: 'text-3xl font-bold tracking-tight tabular-nums'
+    default: 'text-sm font-bold tabular-nums',
+    large: 'desk-report-metric tracking-tight'
   }
   return sizes[props.size] || sizes.default
 })

@@ -1,13 +1,13 @@
 <template>
-  <div class="overflow-y-auto">
+  <div class="min-h-0 flex-1 overflow-y-auto">
     <div
-      class="p-4 md:p-6 w-full md:w-[calc(100%-3rem)]"
+      class="desk-reports w-full px-3 py-4"
       :class="{ 'opacity-50 transition-opacity duration-300': isLoading }"
     >
       <Spinner v-if="isLoading" />
 
-      <div class="space-y-6">
-        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div class="space-y-4">
+        <div class="mb-1 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div class="flex items-center gap-3">
             <span class="text-sm text-muted-foreground">
               {{ $t('globals.terms.lastUpdated') }}: {{ lastUpdateFormatted }}
@@ -277,7 +277,7 @@
 </template>
 
 <script setup>
-const REPORT_ROW_CLASS = 'flex flex-col w-full gap-4 md:flex-row'
+const REPORT_ROW_CLASS = 'flex w-full flex-col gap-px md:flex-row'
 const SLA_COUNT_GRID_CLASS = 'grid grid-cols-2 gap-4 text-center pt-2'
 
 import { ref, computed, watch, onMounted } from 'vue'
@@ -570,7 +570,7 @@ onMounted(loadDashboardData)
 
 <style scoped>
 .metric-value {
-  @apply text-3xl font-bold tracking-tight tabular-nums;
+  @apply text-base font-bold tracking-tight tabular-nums;
 }
 
 .metric-label {
