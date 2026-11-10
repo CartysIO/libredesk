@@ -175,7 +175,8 @@ func (f *Fetcher) Fetch(ctx context.Context) (Data, error) {
 	for n, is := range d.Issues {
 		var msgs []Message
 		name := filepath.Join("messages", is.ID+".json")
-		if err := f.cached(ctx, name, "/issues/"+is.ID+"/messages", nil, &msgs); err != nil {
+		// limit=1000: up to 1000 messages per page (Pylon max). Omitting limit paginates at 100.
+		if err := f.cached(ctx, name, "/issues/"+is.ID+"/messages", url.Values{"limit": {"1000"}}, &msgs); err != nil {
 			return d, fmt.Errorf("messages of issue #%d: %w", is.Number, err)
 		}
 		d.Messages[is.ID] = msgs

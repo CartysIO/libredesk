@@ -50,7 +50,7 @@ func (im *Importer) siblingConversationIDs(msgs []Message, primaryID int) []int 
 func (im *Importer) planSiblingAbsorption(msgs []Message, primaryID int, primaryRef string) {
 	for _, sibID := range im.siblingConversationIDs(msgs, primaryID) {
 		ref := strconv.Itoa(sibID)
-		if r, err := im.conversationReference(sibID); err == nil && r != "" {
+		if r, err := im.conversationReference(im.DB, sibID); err == nil && r != "" {
 			ref = r
 		}
 		im.rep.Absorbed = append(im.rep.Absorbed, fmt.Sprintf("Libredesk #%s -> merge target #%s (Pylon email fragment)", ref, primaryRef))
@@ -58,9 +58,9 @@ func (im *Importer) planSiblingAbsorption(msgs []Message, primaryID int, primary
 	sort.Strings(im.rep.Absorbed)
 }
 
-func (im *Importer) conversationReference(id int) (string, error) {
+func (im *Importer) conversationReference(g getter, id int) (string, error) {
 	var ref string
-	err := im.DB.Get(&ref, `SELECT reference_number FROM conversations WHERE id = $1`, id)
+	err := g.Get(&ref, `SELECT reference_number FROM conversations WHERE id = $1`, id)
 	return ref, err
 }
 
@@ -97,8 +97,8 @@ func (im *Importer) absorbSiblingConversations(tx *sqlx.Tx, targetID int, msgs [
 		if imported {
 			continue
 		}
-		ref, _ := im.conversationReference(sibID)
-		targetRef, _ := im.conversationReference(targetID)
+		ref, _ := im.conversationReference(tx, sibID)
+		targetRef, _ := im.conversationReference(tx, targetID)
 		if ref == "" {
 			ref = strconv.Itoa(sibID)
 		}

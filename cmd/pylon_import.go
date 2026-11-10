@@ -68,6 +68,10 @@ func runPylonImport(ctx context.Context, db *sqlx.DB, fs stuffbin.FileSystem, se
 	}
 	log.Printf("pylon: %d users, %d accounts, %d contacts, %d issues (%s)", len(data.Users), len(data.Accounts), len(data.Contacts), len(data.Issues), time.Since(started).Round(time.Second))
 
+	if _, err := db.Exec(`SET lock_timeout = '60s'; SET idle_in_transaction_session_timeout = '5min'; SET statement_timeout = '30min'`); err != nil {
+		log.Fatalf("pylon import: database session: %v", err)
+	}
+
 	im := &pylonimport.Importer{DB: db, Opt: opt, Out: os.Stdout, Files: fetcher.ReadFile}
 	if !opt.DryRun {
 		im.Download = func(urls []string) map[string]error { return fetcher.DownloadFiles(ctx, urls) }

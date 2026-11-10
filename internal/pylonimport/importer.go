@@ -286,7 +286,11 @@ func (im *Importer) Run(ctx context.Context, d Data) (*Report, error) {
 		if m, ok := matches[is.ID]; ok {
 			target = &m.conv
 		}
+		if n == 0 || (n+1)%10 == 0 {
+			fmt.Fprintf(im.Out, "pylon import: Pylon #%d (%d/%d, %s elapsed)\n", is.Number, n+1, len(selected), time.Since(start).Round(time.Second))
+		}
 		counts := *im.rep
+		issueStart := time.Now()
 		if err := im.importIssue(is, d.Messages[is.ID], target); err != nil {
 			// The transaction rolled back: so do its counts.
 			im.rep.Messages, im.rep.PublicMessages, im.rep.Notes = counts.Messages, counts.PublicMessages, counts.Notes
@@ -294,6 +298,9 @@ func (im *Importer) Run(ctx context.Context, d Data) (*Report, error) {
 			im.rep.FailedConversations = append(im.rep.FailedConversations, fmt.Sprintf("Pylon #%d: %v", is.Number, err))
 			fmt.Fprintf(im.Out, "pylon import: #%d failed: %v\n", is.Number, err)
 			continue
+		}
+		if d := time.Since(issueStart); d >= 30*time.Second {
+			fmt.Fprintf(im.Out, "pylon import: Pylon #%d took %s (%d messages)\n", is.Number, d.Round(time.Second), len(d.Messages[is.ID]))
 		}
 		if (n+1)%100 == 0 {
 			fmt.Fprintf(im.Out, "pylon import: %d of %d conversations (%s)\n", n+1, len(selected), time.Since(start).Round(time.Second))
@@ -315,7 +322,7 @@ func (im *Importer) planReconcile(issues []Issue, msgs map[string][]Message) {
 		if convID == 0 {
 			continue
 		}
-		ref, err := im.conversationReference(convID)
+		ref, err := im.conversationReference(im.DB, convID)
 		if err != nil {
 			ref = strconv.Itoa(convID)
 		}
@@ -525,11 +532,21 @@ func (im *Importer) load(d Data) error {
 	}
 	// Libredesk stores source_id without brackets; inbound mail may still have angle brackets in the row.
 	const normSourceID = `trim(both '<>' from trim(source_id))`
-	if err := im.DB.Select(&used, `SELECT DISTINCT ON (`+normSourceID+`) `+normSourceID+` AS source_id, conversation_id
-		FROM conversation_messages
-		WHERE `+normSourceID+` = ANY($1)
-		ORDER BY `+normSourceID+`, conversation_id, id`, pq.Array(ids)); err != nil {
-		return fmt.Errorf("message ids: %w", err)
+	const idBatch = 4000
+	for i := 0; i < len(ids); i += idBatch {
+		end := min(i+idBatch, len(ids))
+		batch := ids[i:end]
+		var part []struct {
+			SourceID string `db:"source_id"`
+			ConvID   int    `db:"conversation_id"`
+		}
+		if err := im.DB.Select(&part, `SELECT DISTINCT ON (`+normSourceID+`) `+normSourceID+` AS source_id, conversation_id
+			FROM conversation_messages
+			WHERE `+normSourceID+` = ANY($1)
+			ORDER BY `+normSourceID+`, conversation_id, id`, pq.Array(batch)); err != nil {
+			return fmt.Errorf("message ids: %w", err)
+		}
+		used = append(used, part...)
 	}
 	im.usedSourceIDs = map[string]int{}
 	for _, u := range used {
@@ -1042,10 +1059,18 @@ func (im *Importer) countIssue(is Issue, msgs []Message, merge bool) {
 	}
 }
 
-// importIssue writes one issue in one transaction: a new conversation, or new messages in the conversation it duplicates.
+// importMediaUploadTimeout caps one file upload so a stuck object store cannot block the import for hours.
+const importMediaUploadTimeout = 3 * time.Minute
+
+// importIssue writes one issue: media uploads run before the database transaction so row locks are not held during S3 I/O.
 func (im *Importer) importIssue(is Issue, msgs []Message, target *ExistingConversation) (err error) {
 	msgs = orderedMessages(is, msgs)
-	// Message-IDs, content ids and stored files of this transaction; they count only once it commits.
+	merge := target != nil
+	previewConvID := 0
+	if target != nil {
+		previewConvID = target.ID
+	}
+	// Message-IDs, content ids and stored files of this issue; they count only once the transaction commits.
 	im.pendingSourceIDs = map[string]int{}
 	im.convFiles = map[string]string{}
 	im.convUploads = nil
@@ -1057,23 +1082,11 @@ func (im *Importer) importIssue(is Issue, msgs []Message, target *ExistingConver
 			}
 		}
 	}()
-	tx, err := im.DB.Beginx()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
 
 	req := im.requester(is, msgs)
 	contactID, err := im.contactFor(im.DB, req)
 	if err != nil {
 		return err
-	}
-	var orgID sql.NullInt64
-	if is.Account != nil && im.orgByAccount[is.Account.ID] > 0 {
-		orgID = sql.NullInt64{Int64: int64(im.orgByAccount[is.Account.ID]), Valid: true}
-		if _, err := tx.Exec(`INSERT INTO contact_organizations (contact_id, organization_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, contactID, orgID); err != nil {
-			return err
-		}
 	}
 	var assignee sql.NullInt64
 	if is.Assignee != nil && is.Assignee.ID != "" {
@@ -1088,6 +1101,25 @@ func (im *Importer) importIssue(is Issue, msgs []Message, target *ExistingConver
 		// An open conversation stays unassigned rather than with a disabled agent, whom no reply would notify.
 		if im.agentEnabled[id] || MapStatus(is.State) == StatusResolved {
 			assignee = sql.NullInt64{Int64: int64(id), Valid: true}
+		}
+	}
+
+	plans, err := im.prepareMessagePlans(im.DB, previewConvID, msgs, merge)
+	if err != nil {
+		return err
+	}
+
+	tx, err := im.DB.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var orgID sql.NullInt64
+	if is.Account != nil && im.orgByAccount[is.Account.ID] > 0 {
+		orgID = sql.NullInt64{Int64: int64(im.orgByAccount[is.Account.ID]), Valid: true}
+		if _, err := tx.Exec(`INSERT INTO contact_organizations (contact_id, organization_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, contactID, orgID); err != nil {
+			return err
 		}
 	}
 
@@ -1157,14 +1189,12 @@ func (im *Importer) importIssue(is Issue, msgs []Message, target *ExistingConver
 	if assignee.Valid {
 		participants[int(assignee.Int64)] = true
 	}
-	for _, m := range msgs {
-		agentID, err := im.writeMessage(tx, convID, m, target != nil)
-		if err != nil {
-			return fmt.Errorf("message %s: %w", m.ID, err)
-		}
-		if agentID > 0 {
-			participants[agentID] = true
-		}
+	msgParticipants, err := im.applyMessagePlans(tx, convID, plans)
+	if err != nil {
+		return err
+	}
+	for id := range msgParticipants {
+		participants[id] = true
 	}
 
 	for _, t := range is.Tags {
@@ -1174,7 +1204,7 @@ func (im *Importer) importIssue(is Issue, msgs []Message, target *ExistingConver
 		t = clip(strings.TrimSpace(t), 140)
 		tagID := im.tagIDs[t]
 		if tagID == 0 {
-			if err := im.DB.Get(&tagID, `WITH ins AS (INSERT INTO tags (name) VALUES ($1) ON CONFLICT (name) DO NOTHING RETURNING id)
+			if err := tx.Get(&tagID, `WITH ins AS (INSERT INTO tags (name) VALUES ($1) ON CONFLICT (name) DO NOTHING RETURNING id)
 				SELECT id FROM ins UNION ALL SELECT id FROM tags WHERE name = $1 LIMIT 1`, t); err != nil {
 				return fmt.Errorf("tag %s: %w", t, err)
 			}
@@ -1223,121 +1253,192 @@ func (im *Importer) importIssue(is Issue, msgs []Message, target *ExistingConver
 	return nil
 }
 
-// writeMessage inserts one Pylon message with its files. It returns the agent id when an agent wrote it.
-// In a merge, a message whose Message-ID is already in the conversation is skipped: it is the same email.
-func (im *Importer) writeMessage(tx *sqlx.Tx, convID int, m Message, merge bool) (int, error) {
-	var exists bool
-	if err := tx.Get(&exists, `SELECT EXISTS (SELECT 1 FROM conversation_messages WHERE conversation_id = $1 AND meta->>'`+MetaMessageID+`' = $2)`, convID, m.ID); err != nil {
-		return 0, err
+type msgPlanKind int
+
+const (
+	msgPlanSkip msgPlanKind = iota
+	msgPlanReconcile
+	msgPlanInsert
+)
+
+type msgPlan struct {
+	kind                              msgPlanKind
+	m                                 Message
+	sourceID, msgType, status         string
+	senderType                        string
+	senderID, agentID                 int
+	content                           string
+	files                             []uploaded
+	metaJSON                          []byte
+}
+
+// prepareMessagePlans reads idempotency state and uploads attachments before any write transaction opens.
+func (im *Importer) prepareMessagePlans(db getter, convID int, msgs []Message, merge bool) ([]msgPlan, error) {
+	pending := map[string]bool{}
+	var plans []msgPlan
+	for _, m := range msgs {
+		if convID > 0 {
+			var exists bool
+			if err := db.Get(&exists, `SELECT EXISTS (SELECT 1 FROM conversation_messages WHERE conversation_id = $1 AND meta->>'`+MetaMessageID+`' = $2)`, convID, m.ID); err != nil {
+				return nil, err
+			}
+			if exists {
+				continue
+			}
+		}
+		sourceID := ""
+		if m.EmailInfo != nil {
+			sourceID = stringutil.NormalizeMessageID(m.EmailInfo.MessageID)
+		}
+		if sourceID != "" && (im.usedSourceIDs[sourceID] > 0 || pending[sourceID]) {
+			if merge && im.usedSourceIDs[sourceID] == convID {
+				plans = append(plans, msgPlan{kind: msgPlanReconcile, m: m})
+				continue
+			}
+			if merge && im.usedSourceIDs[sourceID] > 0 && im.usedSourceIDs[sourceID] != convID {
+				im.rep.SkippedMessages++
+				continue
+			}
+			sourceID = ""
+		}
+		if m.IsPrivate {
+			sourceID = ""
+		}
+
+		var (
+			msgType    = "incoming"
+			status     = "received"
+			senderType = "contact"
+			senderID   int
+			agentID    int
+		)
+		if u, isAgent := im.authorUser(m); isAgent {
+			id, err := im.agentFor(db, u)
+			if err != nil {
+				return nil, err
+			}
+			msgType, status, senderType, senderID, agentID = "outgoing", "sent", "agent", id, id
+		} else {
+			c := im.contacts[m.Author.Contact.ID]
+			if c.ID == "" {
+				c = Contact{ID: m.Author.Contact.ID, Name: m.Author.Name, Email: m.Author.Contact.Email}
+			}
+			id, err := im.contactFor(db, c)
+			if err != nil {
+				return nil, err
+			}
+			senderID = id
+		}
+
+		meta := map[string]any{MetaMessageID: m.ID, "pylon_source": m.Source}
+		if m.ThreadID != "" {
+			meta["pylon_thread_id"] = m.ThreadID
+		}
+		if e := m.EmailInfo; e != nil {
+			if e.FromEmail != "" {
+				meta["from"] = []string{NormalizeEmail(e.FromEmail)}
+			}
+			meta["to"] = lower(e.ToEmails)
+			meta["cc"] = lower(e.CCEmails)
+			meta["bcc"] = lower(e.BCCEmails)
+			if id := stringutil.NormalizeMessageID(e.MessageID); id != "" {
+				meta["email_message_id"] = id
+			}
+		}
+
+		content := m.MessageHTML
+		files, missing, err := im.uploadFiles(m, &content)
+		if err != nil {
+			return nil, err
+		}
+		if len(missing) > 0 {
+			meta["pylon_missing_files"] = missing
+		}
+		metaJSON, _ := json.Marshal(meta)
+		plans = append(plans, msgPlan{
+			kind: msgPlanInsert, m: m, sourceID: sourceID,
+			msgType: msgType, status: status, senderType: senderType,
+			senderID: senderID, agentID: agentID, content: content, files: files, metaJSON: metaJSON,
+		})
+		if sourceID != "" {
+			pending[sourceID] = true
+		}
 	}
-	if exists {
-		return 0, nil
-	}
-	sourceID := ""
-	if m.EmailInfo != nil {
-		sourceID = stringutil.NormalizeMessageID(m.EmailInfo.MessageID)
-	}
-	if sourceID != "" && (im.usedSourceIDs[sourceID] > 0 || im.pendingSourceIDs[sourceID] > 0) {
-		if merge && im.usedSourceIDs[sourceID] == convID {
-			if err := im.reconcileLiveMessage(tx, convID, m); err != nil {
-				return 0, err
+	return plans, nil
+}
+
+func (im *Importer) applyMessagePlans(tx *sqlx.Tx, convID int, plans []msgPlan) (map[int]bool, error) {
+	participants := map[int]bool{}
+	for _, p := range plans {
+		switch p.kind {
+		case msgPlanReconcile:
+			if err := im.reconcileLiveMessage(tx, convID, p.m); err != nil {
+				return nil, err
 			}
 			im.rep.SkippedMessages++
-			return 0, nil
+		case msgPlanInsert:
+			agentID, err := im.insertMessagePlan(tx, convID, p)
+			if err != nil {
+				return nil, fmt.Errorf("message %s: %w", p.m.ID, err)
+			}
+			if agentID > 0 {
+				participants[agentID] = true
+			}
 		}
-		if merge && im.usedSourceIDs[sourceID] > 0 && im.usedSourceIDs[sourceID] != convID {
-			im.rep.SkippedMessages++
-			return 0, nil
-		}
-		// The Message-ID belongs to another conversation: keep it in meta only, so email threading stays unambiguous.
-		sourceID = ""
 	}
-	if m.IsPrivate {
-		sourceID = ""
-	}
+	return participants, nil
+}
 
-	var (
-		msgType    = "incoming"
-		status     = "received"
-		senderType = "contact"
-		senderID   int
-		agentID    int
-	)
-	if u, isAgent := im.authorUser(m); isAgent {
-		id, err := im.agentFor(im.DB, u)
-		if err != nil {
-			return 0, err
-		}
-		msgType, status, senderType, senderID, agentID = "outgoing", "sent", "agent", id, id
-	} else {
-		c := im.contacts[m.Author.Contact.ID]
-		if c.ID == "" {
-			c = Contact{ID: m.Author.Contact.ID, Name: m.Author.Name, Email: m.Author.Contact.Email}
-		}
-		id, err := im.contactFor(im.DB, c)
-		if err != nil {
-			return 0, err
-		}
-		senderID = id
-	}
-
-	meta := map[string]any{MetaMessageID: m.ID, "pylon_source": m.Source}
-	if m.ThreadID != "" {
-		meta["pylon_thread_id"] = m.ThreadID
-	}
-	if e := m.EmailInfo; e != nil {
-		if e.FromEmail != "" {
-			meta["from"] = []string{NormalizeEmail(e.FromEmail)}
-		}
-		meta["to"] = lower(e.ToEmails)
-		meta["cc"] = lower(e.CCEmails)
-		meta["bcc"] = lower(e.BCCEmails)
-		if id := stringutil.NormalizeMessageID(e.MessageID); id != "" {
-			meta["email_message_id"] = id
-		}
-	}
-
-	content := m.MessageHTML
-	files, missing, err := im.uploadFiles(m, &content)
-	if err != nil {
-		return 0, err
-	}
-	if len(missing) > 0 {
-		meta["pylon_missing_files"] = missing
-	}
-	metaJSON, _ := json.Marshal(meta)
-
+func (im *Importer) insertMessagePlan(tx *sqlx.Tx, convID int, p msgPlan) (int, error) {
 	var msgID int
 	if err := tx.Get(&msgID, `INSERT INTO conversation_messages
 		(created_at, updated_at, type, status, private, conversation_id, content_type, content, text_content, source_id, sender_id, sender_type, meta)
 		VALUES ($1, $1, $2, $3, $4, $5, 'html', $6, $7, NULLIF($8, ''), $9, $10, $11) RETURNING id`,
-		m.Timestamp, msgType, status, m.IsPrivate, convID, content, stringutil.HTML2Text(content), sourceID, senderID, senderType, metaJSON); err != nil {
+		p.m.Timestamp, p.msgType, p.status, p.m.IsPrivate, convID, p.content, stringutil.HTML2Text(p.content), p.sourceID, p.senderID, p.senderType, p.metaJSON); err != nil {
 		return 0, err
 	}
-	if sourceID != "" {
-		im.pendingSourceIDs[sourceID] = convID
+	if p.sourceID != "" {
+		im.pendingSourceIDs[p.sourceID] = convID
 	}
-	for _, f := range files {
+	for _, f := range p.files {
 		if _, err := tx.Exec(`INSERT INTO media (created_at, updated_at, store, filename, content_type, content_id, model_id, model_type,
 				disposition, size, meta, private, uuid)
 			VALUES ($1, $1, $2, $3, $4, $5, $6, 'messages', $7, $8, $9, TRUE, $10)`,
-			m.Timestamp, im.Opt.MediaStore, f.name, f.contentType, f.contentID, msgID, f.disposition, f.size, f.meta, f.uuid); err != nil {
+			p.m.Timestamp, im.Opt.MediaStore, f.name, f.contentType, f.contentID, msgID, f.disposition, f.size, f.meta, f.uuid); err != nil {
 			return 0, fmt.Errorf("media %s: %w", f.name, err)
 		}
 	}
 	im.rep.Messages++
-	if m.IsPrivate {
+	if p.m.IsPrivate {
 		im.rep.Notes++
 	} else {
 		im.rep.PublicMessages++
 	}
-	return agentID, nil
+	return p.agentID, nil
 }
 
 type uploaded struct {
 	uuid, name, contentType, contentID, disposition string
 	size                                            int
 	meta                                            []byte
+}
+
+func (im *Importer) uploadMedia(fileName, contentType string, content io.ReadSeeker) (string, string, error) {
+	type result struct {
+		name, cType string
+		err         error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		name, cType, err := im.Media.Upload(fileName, contentType, content)
+		ch <- result{name, cType, err}
+	}()
+	select {
+	case r := <-ch:
+		return r.name, r.cType, r.err
+	case <-time.After(importMediaUploadTimeout):
+		return "", "", fmt.Errorf("timed out after %s", importMediaUploadTimeout)
+	}
 }
 
 // uploadFiles stores the message's files in the media store. A file shown inline in an <img> becomes an inline
@@ -1363,7 +1464,7 @@ func (im *Importer) uploadFiles(m Message, content *string) ([]uploaded, []strin
 		}
 		id := uuid.NewString()
 		name := stringutil.SanitizeFilename(FileName(u))
-		_, contentType, err := im.Media.Upload(id, "", bytes.NewReader(b))
+		_, contentType, err := im.uploadMedia(id, "", bytes.NewReader(b))
 		if err != nil {
 			return nil, nil, fmt.Errorf("uploading %s: %w", name, err)
 		}
@@ -1371,7 +1472,7 @@ func (im *Importer) uploadFiles(m Message, content *string) ([]uploaded, []strin
 		ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(name)), ".")
 		if slices.Contains(image.Exts, ext) && image.IsImageByContent(bytes.NewReader(b)) {
 			if thumb, err := image.CreateThumb(image.DefThumbSize, bytes.NewReader(b)); err == nil {
-				if _, _, err := im.Media.Upload(image.ThumbPrefix+id, contentType, thumb); err == nil {
+				if _, _, err := im.uploadMedia(image.ThumbPrefix+id, contentType, thumb); err == nil {
 					im.convUploads = append(im.convUploads, image.ThumbPrefix+id)
 				}
 			}
