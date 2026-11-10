@@ -299,8 +299,8 @@ func (im *Importer) Run(ctx context.Context, d Data) (*Report, error) {
 			fmt.Fprintf(im.Out, "pylon import: #%d failed: %v\n", is.Number, err)
 			continue
 		}
-		if d := time.Since(issueStart); d >= 30*time.Second {
-			fmt.Fprintf(im.Out, "pylon import: Pylon #%d took %s (%d messages)\n", is.Number, d.Round(time.Second), len(d.Messages[is.ID]))
+		if elapsed := time.Since(issueStart); elapsed >= 30*time.Second {
+			fmt.Fprintf(im.Out, "pylon import: Pylon #%d took %s (%d messages)\n", is.Number, elapsed.Round(time.Second), len(d.Messages[is.ID]))
 		}
 		if (n+1)%100 == 0 {
 			fmt.Fprintf(im.Out, "pylon import: %d of %d conversations (%s)\n", n+1, len(selected), time.Since(start).Round(time.Second))
