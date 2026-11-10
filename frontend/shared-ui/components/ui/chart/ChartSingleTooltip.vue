@@ -1,8 +1,8 @@
 <script setup>
 import { VisTooltip } from '@unovis/vue'
-import { omit } from '@unovis/ts'
-import { createApp } from 'vue'
 import { ChartTooltip } from '.'
+import { renderTooltip, seriesFromDatum } from './tooltipSeries'
+import { createVersionedTooltipCache } from './tooltipCache'
 
 const props = defineProps({
   selector: { type: String, required: true },
@@ -12,40 +12,35 @@ const props = defineProps({
   customTooltip: { type: null, required: false }
 })
 
-// Use weakmap to store reference to each datapoint for Tooltip
-const wm = new WeakMap()
+const tooltipCache = createVersionedTooltipCache(() => props.items)
+
 function template(d, i, elements) {
   if (props.index in d) {
-    if (wm.has(d)) {
-      return wm.get(d)
-    } else {
-      const componentDiv = document.createElement('div')
-      const omittedData = Object.entries(omit(d, [props.index])).map(([key, value]) => {
-        const legendReference = props.items?.find((i) => i.name === key)
-        return { ...legendReference, value: props.valueFormatter(value) }
-      })
+    return tooltipCache.remember(d, () => {
       const TooltipComponent = props.customTooltip ?? ChartTooltip
-      createApp(TooltipComponent, { title: d[props.index], data: omittedData }).mount(componentDiv)
-      wm.set(d, componentDiv.innerHTML)
-      return componentDiv.innerHTML
-    }
-  } else {
-    const data = d.data
-
-    if (wm.has(data)) {
-      return wm.get(data)
-    } else {
-      const style = getComputedStyle(elements[i])
-      const omittedData = [
-        { name: data.name, value: props.valueFormatter(data[props.index]), color: style.fill }
-      ]
-      const componentDiv = document.createElement('div')
-      const TooltipComponent = props.customTooltip ?? ChartTooltip
-      createApp(TooltipComponent, { title: d[props.index], data: omittedData }).mount(componentDiv)
-      wm.set(d, componentDiv.innerHTML)
-      return componentDiv.innerHTML
-    }
+      return renderTooltip(
+        TooltipComponent,
+        d[props.index],
+        seriesFromDatum(d, props.index, props.items).map((row) => ({
+          ...row,
+          value: props.valueFormatter(row.value)
+        }))
+      )
+    })
   }
+
+  const data = d.data
+  return tooltipCache.remember(data, () => {
+    const style = getComputedStyle(elements[i])
+    const TooltipComponent = props.customTooltip ?? ChartTooltip
+    return renderTooltip(TooltipComponent, d[props.index], [
+      {
+        name: data.name,
+        value: props.valueFormatter(data[props.index]),
+        color: style.fill
+      }
+    ])
+  })
 }
 </script>
 
@@ -53,6 +48,7 @@ function template(d, i, elements) {
   <VisTooltip
     :horizontal-shift="20"
     :vertical-shift="20"
+    class="unovis-tooltip !z-[80]"
     :triggers="{
       [selector]: template
     }"

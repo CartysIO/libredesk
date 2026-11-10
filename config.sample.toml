@@ -12,6 +12,8 @@ encryption_key = "your-32-char-random-string-here!"
 # The directory structure should mirror the built-in static/ directory.
 # Only the files you provide will be replaced; the rest use built-in defaults.
 # static_dir = "/path/to/custom/static"
+# Assign an unassigned conversation to the agent who sends the first public reply on it.
+assign_on_first_reply = false
 
 # HTTP server.
 [app.server]
@@ -192,3 +194,31 @@ requests_per_minute = 100
 [rate_limit.media]
 enabled = true
 requests_per_minute = 300
+
+# Clerk sign-in. When both keys are set, the login page shows Clerk's SignIn
+# component, and agents sign in with the email of their Clerk account.
+[clerk]
+publishable_key = ""
+secret_key = ""
+
+# Slack bridge (Clyr fork): mirrors each conversation into a thread in one Slack channel.
+# Off unless bot_token, signing_secret and channel_id are set.
+[slack]
+bot_token = ""
+signing_secret = ""
+channel_id = ""
+# bot_id of the Slack AI agent, and the email of the Libredesk agent its messages are added as.
+ai_bot_id = ""
+ai_agent_email = ""
+# For agents whose Slack account uses another email than their Libredesk agent:
+# "slack-email=agent-email" pairs, comma separated.
+agent_email_aliases = ""
+queue_size = 1000
+
+# Linear (Clyr fork): agents link Linear issues to a conversation, and new comments on a linked
+# issue are added to it as private notes. Off unless api_key and webhook_secret are set.
+# In Linear, add a webhook to https://<your-domain>/webhooks/linear for the Issues and Comments
+# data change events, and copy its signing secret into webhook_secret.
+[linear]
+api_key = ""
+webhook_secret = ""

@@ -26,6 +26,16 @@ export const useCustomAttributeStore = defineStore('customAttributes', () => {
                 ...att,
             }))
     })
+    // Organization attributes are a Clyr fork addition.
+    const organizationAttributeOptions = computed(() => {
+        return attributes.value
+            .filter(att => att.applies_to === 'organization')
+            .map(att => ({
+                label: att.name,
+                value: String(att.id),
+                ...att,
+            }))
+    })
     let inflight = null
     let hasFetched = false
     const loadCustomAttributes = () => {
@@ -50,6 +60,7 @@ export const useCustomAttributeStore = defineStore('customAttributes', () => {
         attributes,
         conversationAttributeOptions,
         contactAttributeOptions,
+        organizationAttributeOptions,
         fetchCustomAttributes,
         refreshCustomAttributes,
     }

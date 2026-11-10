@@ -203,6 +203,41 @@ func TestLivechatSecretStaysEncryptedOnUpdate(t *testing.T) {
 	require.Equal(t, "widget-secret", record.Secret.String)
 }
 
+// A client that reads an email inbox (secrets masked) and saves it back unchanged must keep the stored secrets.
+func TestEmailSecretsSurviveMaskedUpdate(t *testing.T) {
+	db := testutil.NewDB(t, "inbox_email_masked_update")
+	lo := logf.New(logf.Opts{})
+	mgr, err := New(&lo, db, testutil.NewI18n(t), "01234567890123456789012345678901")
+	require.NoError(t, err)
+
+	config, err := json.Marshal(imodels.Config{
+		AuthType: imodels.AuthTypeOAuth2,
+		IMAP:     []imodels.IMAPConfig{{Host: "imap.example.com", Password: "imap-pass"}},
+		SMTP:     []imodels.SMTPConfig{{Host: "smtp.example.com", Password: "smtp-pass"}},
+		OAuth:    &imodels.OAuthConfig{Provider: "google", ClientID: "client", ClientSecret: "client-secret", RefreshToken: "refresh", AccessToken: "access"},
+	})
+	require.NoError(t, err)
+	created, err := mgr.Create(imodels.Inbox{Name: "Support", Channel: ChannelEmail, From: "support@example.com", Enabled: true, Config: config})
+	require.NoError(t, err)
+
+	read, err := mgr.GetDBRecord(created.ID)
+	require.NoError(t, err)
+	require.NoError(t, read.ClearPasswords())
+	require.Contains(t, string(read.Config), stringutil.PasswordDummy)
+	_, err = mgr.Update(created.ID, read)
+	require.NoError(t, err)
+
+	stored, err := mgr.GetDBRecord(created.ID)
+	require.NoError(t, err)
+	var cfg imodels.Config
+	require.NoError(t, json.Unmarshal(stored.Config, &cfg))
+	require.Equal(t, "imap-pass", cfg.IMAP[0].Password)
+	require.Equal(t, "smtp-pass", cfg.SMTP[0].Password)
+	require.Equal(t, "client-secret", cfg.OAuth.ClientSecret)
+	require.Equal(t, "refresh", cfg.OAuth.RefreshToken)
+	require.Equal(t, "access", cfg.OAuth.AccessToken)
+}
+
 func TestEmailSendingConfigChanged(t *testing.T) {
 	base := imodels.Config{
 		AuthType: imodels.AuthTypeOAuth2,

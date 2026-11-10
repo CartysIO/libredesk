@@ -21,7 +21,7 @@
             />
 
             <div class="flex gap-2 justify-start items-center">
-              <h2 class="text-xl font-semibold text-foreground">
+              <h2 class="ui-display-heading">
                 {{ contact.first_name }} {{ contact.last_name }}
               </h2>
               <Badge v-if="contact.type" variant="secondary">
@@ -103,6 +103,11 @@
           </div>
 
           <div class="mt-12 space-y-10">
+            <ContactOrganization
+              v-if="userStore.can('contacts:read')"
+              :contact="contact"
+              @updated="onOrganizationUpdated"
+            />
             <ContactForm :formLoading="formLoading" :onSubmit="onSubmit" />
             <ContactNotes :contactId="contact.id" v-if="userStore.can('contact_notes:read')" />
           </div>
@@ -196,6 +201,7 @@ import ContactDetail from '@/layouts/contact/ContactDetail.vue'
 import api from '@/api'
 import ContactForm from '@/features/contact/ContactForm.vue'
 import ContactNotes from '@/features/contact/ContactNotes.vue'
+import ContactOrganization from '@/features/contact/ContactOrganization.vue'
 import WhatsAppIcon from '@/components/icons/WhatsAppIcon.vue'
 import { createFormSchema } from '@/features/contact/formSchema.js'
 import { useEmitter } from '@/composables/useEmitter'
@@ -260,6 +266,16 @@ async function fetchContact() {
     showError(err)
   } finally {
     formLoading.value = false
+  }
+}
+
+function onOrganizationUpdated(organizations) {
+  const def = organizations.find((o) => o.is_default)
+  contact.value = {
+    ...contact.value,
+    organization_id: def?.id ?? null,
+    organization_name: def?.name ?? null,
+    organization_external_id: def?.external_id ?? null
   }
 }
 

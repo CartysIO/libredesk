@@ -282,6 +282,60 @@ func TestEmailReceivesAliases(t *testing.T) {
 	}
 }
 
+func TestContactAddress(t *testing.T) {
+	e := &Email{receiveAddresses: map[string]struct{}{"support@example.com": {}}}
+	support := imap.Address{Name: "Support", Mailbox: "support", Host: "example.com"}
+	josh := imap.Address{Name: "Josh Rosen", Mailbox: "josh", Host: "xl-rpm.com"}
+	ana := imap.Address{Name: "Ana", Mailbox: "ana", Host: "customer.example"}
+
+	// A customer's email: the sender is the contact.
+	require.Equal(t, ana, e.contactAddress(&imap.Envelope{From: []imap.Address{ana}, To: []imap.Address{support}}))
+	// A web form's confirmation sent from the inbox to the customer, inbox in CC: the recipient is the contact.
+	require.Equal(t, josh, e.contactAddress(&imap.Envelope{From: []imap.Address{support}, To: []imap.Address{josh}, Cc: []imap.Address{support}}))
+	// The customer only in CC.
+	require.Equal(t, josh, e.contactAddress(&imap.Envelope{From: []imap.Address{support}, To: []imap.Address{support}, Cc: []imap.Address{josh}}))
+	// A reply sent from the inbox address in an existing thread keeps the sender.
+	require.Equal(t, support, e.contactAddress(&imap.Envelope{From: []imap.Address{support}, To: []imap.Address{josh}, InReplyTo: []string{"a@b"}}))
+	// No external recipient: keep the sender.
+	require.Equal(t, support, e.contactAddress(&imap.Envelope{From: []imap.Address{support}, To: []imap.Address{support}}))
+}
+
+func TestContactNameSkipsOwnedAddress(t *testing.T) {
+	e := &Email{receiveAddresses: map[string]struct{}{"support@example.com": {}, "help@example.com": {}}}
+	// Another tool's copy from an inbox address (primary or alias, any case, with or without a
+	// display name) must not rename the shared contact.
+	for _, owned := range []imap.Address{
+		{Name: "Backend Key", Mailbox: "support", Host: "example.com"},
+		{Name: "Backend Key", Mailbox: "Support", Host: "EXAMPLE.com"},
+		{Name: "Pylon", Mailbox: "help", Host: "example.com"},
+		{Mailbox: "support", Host: "example.com"},
+	} {
+		first, last := e.contactName(owned)
+		require.Equal(t, "", first, owned.Addr())
+		require.Equal(t, "", last, owned.Addr())
+	}
+	first, last := e.contactName(imap.Address{Name: "Josh Rosen", Mailbox: "josh", Host: "xl-rpm.com"})
+	require.Equal(t, "Josh", first)
+	require.Equal(t, "Rosen", last)
+}
+
+func TestGetContactNameCapitalizesLowercase(t *testing.T) {
+	cases := []struct{ name, first, last string }{
+		{"omer Menashe", "Omer", "Menashe"},
+		{"omer menashe", "Omer", "Menashe"},
+		{"Ludwig van Beethoven", "Ludwig", "van Beethoven"},
+		{"Mary-Jane McDonald", "Mary-Jane", "McDonald"},
+		{"IBM", "IBM", ""},
+		{"élodie", "Élodie", ""},
+		{"", "Josh", ""},
+	}
+	for _, c := range cases {
+		first, last := getContactName(imap.Address{Name: c.name, Mailbox: "josh", Host: "xl-rpm.com"})
+		require.Equal(t, c.first, first, c.name)
+		require.Equal(t, c.last, last, c.name)
+	}
+}
+
 // TestGoIMAPMessageIDParsing shows how go-imap fails to parse malformed Message-IDs
 // and demonstrates the fallback solution.
 // go-imap uses mail.Header.MessageID() which strictly follows RFC 5322 and returns

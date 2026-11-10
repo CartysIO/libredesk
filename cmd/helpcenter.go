@@ -31,6 +31,7 @@ import (
 	"github.com/zerodha/fastcache/v4"
 	"github.com/zerodha/fastglue"
 	"github.com/zerodha/logf"
+	"golang.org/x/text/language"
 )
 
 const (
@@ -1708,13 +1709,45 @@ func resolveLocale(r *fastglue.Request, hc hcmodels.HelpCenter) (string, bool) {
 	return loc, slices.Contains(helpCenterLocales(hc), loc)
 }
 
-// resolveQueryLocale returns the "locale" query arg when the help center serves it, else its default.
 func resolveQueryLocale(r *fastglue.Request, hc hcmodels.HelpCenter) string {
-	loc := strings.TrimSpace(string(r.RequestCtx.QueryArgs().Peek("locale")))
-	if loc == "" || !slices.Contains(helpCenterLocales(hc), loc) {
-		return hc.DefaultLocale
+	locales := helpCenterLocales(hc)
+	for _, key := range []string{"locale", "fallback_locale"} {
+		requested := string(r.RequestCtx.QueryArgs().Peek(key))
+		if matched := matchHelpCenterLocale(requested, locales); matched != "" {
+			return matched
+		}
 	}
-	return loc
+	return hc.DefaultLocale
+}
+
+func matchHelpCenterLocale(requested string, locales []string) string {
+	wanted, err := language.All.Parse(strings.TrimSpace(requested))
+	if err != nil || wanted.IsRoot() {
+		return ""
+	}
+	base, _ := wanted.Base()
+	script, _ := wanted.Script()
+	var baseMatch, regionMatch string
+	for _, available := range locales {
+		candidate, err := language.All.Parse(available)
+		if err != nil || candidate.IsRoot() {
+			continue
+		}
+		if candidate.String() == wanted.String() {
+			return available
+		}
+		candidateBase, _ := candidate.Base()
+		candidateScript, _ := candidate.Script()
+		if candidateBase != base || candidateScript != script {
+			continue
+		}
+		if candidate.String() == base.String() || candidate.String() == base.String()+"-"+script.String() {
+			baseMatch = cmp.Or(baseMatch, available)
+		} else {
+			regionMatch = cmp.Or(regionMatch, available)
+		}
+	}
+	return cmp.Or(baseMatch, regionMatch)
 }
 
 // helpCenterLocales returns the help center's configured locale codes.

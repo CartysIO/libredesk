@@ -32,7 +32,11 @@ var (
 		"previous_priority",
 		"previous_assigned_user",
 		"previous_assigned_team",
+		"organization",
+		"outside_business_hours",
 	}
+	// customAttributeTargets are the records a custom attribute can apply to. Organization is a Clyr fork addition.
+	customAttributeTargets = []string{"contact", "conversation", "organization"}
 )
 
 // handleGetCustomAttribute retrieves a custom attribute by its ID.
@@ -130,7 +134,7 @@ func validateCustomAttribute(app *App, attribute cmodels.CustomAttribute) error 
 	if attribute.Name == "" {
 		return envelope.NewError(envelope.InputError, app.i18n.Ts("globals.messages.empty", "name", "`name`"), nil)
 	}
-	if attribute.AppliesTo == "" {
+	if !slices.Contains(customAttributeTargets, attribute.AppliesTo) {
 		return envelope.NewError(envelope.InputError, app.i18n.Ts("globals.messages.empty", "name", "`applies_to`"), nil)
 	}
 	if attribute.DataType == "" {
@@ -144,6 +148,15 @@ func validateCustomAttribute(app *App, attribute cmodels.CustomAttribute) error 
 	}
 	if slices.Contains(disallowedKeys, attribute.Key) {
 		return envelope.NewError(envelope.InputError, app.i18n.T("admin.customAttributes.keyNotAllowed"), nil)
+	}
+	// Multi-select values are JSON arrays; contact attribute conditions and pre-chat forms expect one value.
+	if attribute.DataType == cmodels.DataTypeMultiSelect {
+		if attribute.AppliesTo != "conversation" {
+			return envelope.NewError(envelope.InputError, app.i18n.T("admin.customAttributes.multiSelectConversationOnly"), nil)
+		}
+		if len(attribute.Values) == 0 {
+			return envelope.NewError(envelope.InputError, app.i18n.Ts("globals.messages.empty", "name", "`values`"), nil)
+		}
 	}
 	return nil
 }

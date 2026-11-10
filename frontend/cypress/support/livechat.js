@@ -168,7 +168,7 @@ after(() => {
 const embedHostPath = '/__widget-embed-test'
 
 // Served from the app's own origin, else the iframe is cross-origin and its DOM is unreachable.
-Cypress.Commands.add('visitWidgetHost', (inboxUuid, { secret = null, jwtPayload = null } = {}) => {
+Cypress.Commands.add('visitWidgetHost', (inboxUuid, { secret = null, jwtPayload = null, language = null } = {}) => {
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>widget embed host</title></head>
 <body>
@@ -200,6 +200,8 @@ async function signJWT (payload, secret) {
   const cfg = { baseURL: window.location.origin, inboxID: ${JSON.stringify(inboxUuid)} }
   const secret = ${JSON.stringify(secret)}
   const payload = ${JSON.stringify(jwtPayload)}
+  const language = ${JSON.stringify(language)}
+  if (language) cfg.language = language
   if (secret && payload) {
     payload.exp = Math.floor(Date.now() / 1000) + 3600
     cfg.userJWT = await signJWT(payload, secret)
@@ -289,15 +291,6 @@ Cypress.Commands.add('widgetSend', (text) => {
   cy.widgetBody().find('button[aria-label="Send"]').click()
   return cy.widgetBody().contains(text, { timeout: 20000 }).should('be.visible')
 })
-
-Cypress.Commands.add('closeConversation', (inbox) =>
-  cy.latestConversation(inbox).then((conversation) =>
-    cy
-      .api('PUT', `/api/v1/conversations/${conversation.uuid}/status`, { status: 'Closed' })
-      .its('status')
-      .should('eq', 200)
-  )
-)
 
 Cypress.Commands.add('conversationForInbox', (inbox) =>
   cy

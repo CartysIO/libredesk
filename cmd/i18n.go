@@ -13,6 +13,7 @@ import (
 	"github.com/knadh/go-i18n"
 	"github.com/knadh/stuffbin"
 	"github.com/zerodha/fastglue"
+	"golang.org/x/text/language"
 )
 
 const (
@@ -120,21 +121,30 @@ func i18nLangJSON(app *App, lang string) ([]byte, error) {
 	return b, nil
 }
 
-// matchLangFile finds the language pack code for a locale: exact match first, then language prefix.
 func matchLangFile(fs stuffbin.FileSystem, loc string) string {
+	wanted, err := language.All.Parse(strings.TrimSpace(loc))
+	if err != nil || wanted.IsRoot() {
+		return defLang
+	}
 	files, err := fs.Glob("/i18n/*.json")
 	if err != nil {
 		return defLang
 	}
-	lang := strings.SplitN(loc, "-", 2)[0]
+	wantedBase, _ := wanted.Base()
+	wantedScript, _ := wanted.Script()
 	prefixMatch := ""
 	for _, f := range files {
 		code := strings.TrimSuffix(filepath.Base(f), ".json")
-		lc := strings.ToLower(code)
-		if lc == loc {
+		available, err := language.All.Parse(code)
+		if err != nil {
+			continue
+		}
+		if available.String() == wanted.String() {
 			return code
 		}
-		if prefixMatch == "" && (lc == lang || strings.HasPrefix(lc, lang+"-")) {
+		base, _ := available.Base()
+		script, _ := available.Script()
+		if prefixMatch == "" && base == wantedBase && script == wantedScript {
 			prefixMatch = code
 		}
 	}

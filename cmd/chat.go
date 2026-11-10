@@ -20,6 +20,7 @@ import (
 	"github.com/abhinavxd/libredesk/internal/attachment"
 	bhmodels "github.com/abhinavxd/libredesk/internal/business_hours/models"
 	cmodels "github.com/abhinavxd/libredesk/internal/conversation/models"
+	camodels "github.com/abhinavxd/libredesk/internal/custom_attribute/models"
 	"github.com/abhinavxd/libredesk/internal/envelope"
 	"github.com/abhinavxd/libredesk/internal/inbox/channel/livechat"
 	"github.com/abhinavxd/libredesk/internal/inbox/channel/livechat/proactive"
@@ -43,6 +44,7 @@ const (
 	maxEmailLength                  = 254
 	maxNameLength                   = 128
 	maxExternalUserIDLength         = 128
+	maxOrganizationNameLength       = 255
 	maxPhoneNumberLength            = 20
 	maxPhoneCountryCodeLength       = 10
 	fieldTypePhone                  = "phone"
@@ -55,6 +57,8 @@ type WidgetSession struct {
 	InboxID        int
 	IsVisitor      bool
 	ExternalUserID string
+	// OrganizationID is the organization the contact signed in to (Clyr fork), 0 when none.
+	OrganizationID int
 }
 
 // Claims holds JWT claims for a JWT user.
@@ -68,6 +72,9 @@ type Claims struct {
 	PhoneNumber             string         `json:"phone_number,omitempty"`
 	PhoneNumberCountryCode  string         `json:"phone_number_country_code,omitempty"`
 	ContactCustomAttributes map[string]any `json:"contact_custom_attributes,omitempty"`
+	// Clyr fork: the contact's organization. It is created when its external ID is new.
+	OrganizationExternalID string `json:"organization_external_id,omitempty"`
+	OrganizationName       string `json:"organization_name,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -88,6 +95,8 @@ type chatInitReq struct {
 	BrowserKey string         `json:"browser_key"`
 	Message    string         `json:"message"`
 	FormData   map[string]any `json:"form_data"`
+	// Context is the host page and browser data that the widget reads (Clyr fork).
+	Context chatContextReq `json:"context"`
 }
 
 type handoffFormReq struct {
@@ -248,12 +257,17 @@ func handleChatInit(r *fastglue.Request) error {
 
 	app.lo.Info("creating new live chat conversation for user", "user_id", contactID, "inbox_id", inbox.ID, "is_visitor", isVisitor)
 
+	// Record the visitor's browser, device and page as conversation attributes. A value from the
+	// pre-chat form wins.
+	conversationAttrs = mergeChatContext(conversationAttrs, buildChatContextAttributes(userAgent, req.Context))
+
 	// Create conversation and insert message.
 	meta := map[string]any{
 		"ip":         clientIP,
 		"user_agent": userAgent,
 	}
-	_, conversationUUID, err := app.conversation.CreateConversation(
+	_, conversationUUID, err := app.conversation.CreateConversationInOrganization(
+		getWidgetOrganizationID(r),
 		contactID,
 		inbox.ID,
 		"",
@@ -403,6 +417,12 @@ func handleAuthExchange(r *fastglue.Request) error {
 	if len(claims.PhoneNumberCountryCode) > maxPhoneCountryCodeLength {
 		claims.PhoneNumberCountryCode = ""
 	}
+	if len(claims.OrganizationExternalID) > maxExternalUserIDLength {
+		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, app.i18n.Ts("globals.messages.fieldTooLong", "field", "organization_external_id", "max", strconv.Itoa(maxExternalUserIDLength)), nil, envelope.InputError)
+	}
+	if len(claims.OrganizationName) > maxOrganizationNameLength {
+		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, app.i18n.Ts("globals.messages.fieldTooLong", "field", "organization_name", "max", strconv.Itoa(maxOrganizationNameLength)), nil, envelope.InputError)
+	}
 
 	// Resolve or create the contact.
 	contactID, err := resolveOrCreateExternalContact(app, claims)
@@ -418,12 +438,22 @@ func handleAuthExchange(r *fastglue.Request) error {
 		}
 	}
 
+	// Add the contact to the organization it is signed in to. A failure does not block the chat.
+	// The session remembers it, so the contact's new chats are filed under it (Clyr fork).
+	var activeOrgID int
+	if claims.OrganizationExternalID != "" {
+		if activeOrgID, err = linkContactOrganization(app, contactID, claims.OrganizationExternalID, claims.OrganizationName); err != nil {
+			app.lo.Error("error linking contact organization during auth exchange", "contact_id", contactID, "error", err)
+		}
+	}
+
 	ctx := context.Background()
 	reverseKey := fmt.Sprintf("widget_user:%d:%d", inbox.ID, contactID)
 	sessionTTL := getSessionDuration(config)
 
 	sendSession := func(token string) error {
 		app.redis.Set(ctx, reverseKey, token, sessionTTL)
+		setSessionOrganization(app, token, activeOrgID)
 		return r.SendEnvelope(map[string]any{
 			"session_token": token,
 			"user": map[string]any{
@@ -1081,6 +1111,7 @@ func loadSession(app *App, token string, config livechat.Config) (*WidgetSession
 	userID, _ := strconv.Atoi(data["user_id"])
 	inboxID, _ := strconv.Atoi(data["inbox_id"])
 	isVisitor, _ := strconv.ParseBool(data["is_visitor"])
+	organizationID, _ := strconv.Atoi(data["organization_id"])
 
 	ttl := getSessionDuration(config)
 	if isVisitor {
@@ -1093,7 +1124,24 @@ func loadSession(app *App, token string, config livechat.Config) (*WidgetSession
 		InboxID:        inboxID,
 		IsVisitor:      isVisitor,
 		ExternalUserID: data["external_user_id"],
+		OrganizationID: organizationID,
 	}, nil
+}
+
+// setSessionOrganization stores the organization the contact signed in to on the session, or removes it when orgID is 0.
+// A reused session gets the organization of the latest sign-in.
+func setSessionOrganization(app *App, token string, orgID int) {
+	ctx := context.Background()
+	key := widgetSessionPrefix + token
+	var err error
+	if orgID > 0 {
+		err = app.redis.HSet(ctx, key, "organization_id", strconv.Itoa(orgID)).Err()
+	} else {
+		err = app.redis.HDel(ctx, key, "organization_id").Err()
+	}
+	if err != nil {
+		app.lo.Error("error storing session organization", "error", err)
+	}
 }
 
 // deleteSessionToken removes a session from Redis.
@@ -1194,9 +1242,11 @@ func validateCustomAttributes(formData map[string]any, config livechat.Config, a
 			continue
 		}
 
-		if attr.AppliesTo == "conversation" {
+		// Organization attributes come from the sync API, never from a visitor (Clyr fork).
+		switch attr.AppliesTo {
+		case "conversation":
 			conversationAttrs[field.Key] = validated
-		} else {
+		case "contact":
 			contactAttrs[field.Key] = validated
 		}
 	}
@@ -1368,7 +1418,9 @@ func filterPreChatFormFields(fields []livechat.PreChatFormField, app *App) ([]li
 	existingCustomAttrs := make(map[int]customAttributeWidget)
 	for id := range customAttrIDs {
 		attr, err := app.customAttribute.Get(id)
-		if err != nil {
+		// The widget has no multi-select input, so such a field is dropped like a missing attribute.
+		// A visitor never fills an organization attribute, so the form drops it too (Clyr fork).
+		if err != nil || attr.DataType == camodels.DataTypeMultiSelect || attr.AppliesTo == "organization" {
 			continue
 		}
 		existingCustomAttrs[id] = customAttributeWidget{

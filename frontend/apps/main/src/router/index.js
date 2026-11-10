@@ -45,6 +45,18 @@ const routes = [
         meta: { titleKey: 'globals.terms.contact', titleCount: 2 }
       },
       {
+        path: 'organizations',
+        name: 'organizations',
+        component: () => import('@main/views/organization/OrganizationsView.vue'),
+        meta: { titleKey: 'globals.terms.organization', titleCount: 2 }
+      },
+      {
+        path: 'organizations/:id',
+        name: 'organization-detail',
+        component: () => import('@main/views/organization/OrganizationDetailView.vue'),
+        meta: { titleKey: 'globals.terms.organization', titleCount: 2 }
+      },
+      {
         path: '/reports',
         name: 'reports',
         redirect: '/reports/overview',
@@ -54,6 +66,12 @@ const routes = [
             name: 'overview',
             component: () => import('@main/views/reports/OverviewView.vue'),
             meta: { titleKey: 'globals.terms.overview' }
+          },
+          {
+            path: 'issues',
+            name: 'issues',
+            component: () => import('@main/views/reports/IssuesView.vue'),
+            meta: { titleKey: 'globals.terms.issues' }
           }
         ]
       },
@@ -694,6 +712,23 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: routes
+})
+
+const preloadErrors = new WeakSet()
+const reloadKey = 'libredesk:preload-reload'
+
+window.addEventListener('vite:preloadError', (event) => {
+  preloadErrors.add(event.payload)
+})
+
+router.onError((error, to) => {
+  if (!preloadErrors.has(error) || sessionStorage.getItem(reloadKey) === to.fullPath) return
+  sessionStorage.setItem(reloadKey, to.fullPath)
+  window.location.assign(to.fullPath)
+})
+
+router.afterEach((to, from, failure) => {
+  if (!failure) sessionStorage.removeItem(reloadKey)
 })
 
 router.beforeEach((to, from, next) => {

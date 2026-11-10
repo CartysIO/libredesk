@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConversationStore } from '@/stores/conversation'
+import { useConversationBoardStore } from '@/stores/conversationBoard'
 import { useEmitter } from '@/composables/useEmitter'
 import { EMITTER_EVENTS } from '@/constants/emitterEvents'
 import { TAG_ACTION } from '@/constants/conversation'
@@ -10,6 +11,7 @@ const bulkLoading = ref(false)
 
 export function useBulkActions() {
   const conversationStore = useConversationStore()
+  const boardStore = useConversationBoardStore()
   const emitter = useEmitter()
   const { t } = useI18n()
 
@@ -54,5 +56,39 @@ export function useBulkActions() {
   const bulkUpdateStatus = (status) =>
     runBulkAction((uuid) => api.updateConversationStatus(uuid, { status }))
 
-  return { bulkLoading, runBulkAction, bulkAssign, bulkAddTag, bulkUpdateStatus }
+  // runRemovingAction runs a bulk delete action, then drops the deleted conversations from the store.
+  const runRemovingAction = async (actionFn) => {
+    const removed = []
+    await runBulkAction(async (uuid) => removed.push(...(await actionFn(uuid))))
+    conversationStore.removeConversations(removed)
+    boardStore.removeConversations(removed)
+  }
+
+  const bulkDelete = () =>
+    runRemovingAction(async (uuid) => {
+      await api.deleteConversation(uuid)
+      return [uuid]
+    })
+
+  // Marking one conversation as spam also deletes the contact's other selected conversations, so a 404 is not a failure.
+  const bulkMarkSpam = () =>
+    runRemovingAction(async (uuid) => {
+      try {
+        const response = await api.markConversationSpam(uuid)
+        return response.data.data.deleted_uuids
+      } catch (error) {
+        if (error.response?.status !== 404) throw error
+        return []
+      }
+    })
+
+  return {
+    bulkLoading,
+    runBulkAction,
+    bulkAssign,
+    bulkAddTag,
+    bulkUpdateStatus,
+    bulkDelete,
+    bulkMarkSpam
+  }
 }

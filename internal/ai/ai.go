@@ -326,6 +326,15 @@ func (m *Manager) VisionEnabled() bool {
 	return cfg.Vision
 }
 
+// CompletionConfigured reports whether the completion provider has an API key, which every completion request needs.
+func (m *Manager) CompletionConfigured() bool {
+	cfg, err := m.getRawProviderConfig(models.ProviderTypeCompletion)
+	if err != nil {
+		return false
+	}
+	return cfg.APIKey != ""
+}
+
 // UpdateProviderConfig updates a provider type's config; a masked api_key keeps the stored key, a blank one clears it.
 func (m *Manager) UpdateProviderConfig(providerType string, in models.ProviderConfig) error {
 	if providerType != models.ProviderTypeCompletion && providerType != models.ProviderTypeEmbedding {

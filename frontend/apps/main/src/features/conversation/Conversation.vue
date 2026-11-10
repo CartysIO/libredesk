@@ -1,7 +1,7 @@
 <template>
-  <div class="flex flex-col h-full">
+  <div class="flex h-full min-h-0 flex-col">
     <!-- Header -->
-    <div class="h-12 flex-shrink-0 px-2 border-b flex items-center justify-between gap-2">
+    <div class="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
       <div class="flex items-center gap-1 min-w-0">
         <Button
           v-if="isMobile"
@@ -12,17 +12,31 @@
         >
           <ChevronLeft class="w-4 h-4" />
         </Button>
-        <span class="truncate">{{ conversationStore.currentContactName }}</span>
+        <!-- The ticket number is the headline with the contact beside it; the subject has its own line. -->
+        <div class="min-w-0 leading-tight">
+          <div class="flex min-w-0 items-baseline gap-2">
+            <span
+              v-if="conversationStore.current?.reference_number"
+              class="shrink-0 text-base font-bold tabular-nums tracking-tight"
+            >#{{ conversationStore.current.reference_number }}</span>
+            <span class="truncate text-xs text-muted-foreground">{{ conversationStore.currentContactName }}</span>
+          </div>
+          <div v-if="conversationStore.current?.subject" class="truncate text-sm font-semibold">
+            {{ conversationStore.current.subject }}
+          </div>
+        </div>
       </div>
       <div class="flex items-center gap-2 shrink-0">
         <Button
-          v-if="isMobile"
+          type="button"
           variant="ghost"
           :class="MOBILE_ICON_BUTTON_CLASS"
-          :aria-label="t('globals.terms.contact')"
+          :aria-label="t('copilot.details')"
+          :aria-expanded="detailsOpen"
           @click="emitter.emit(EMITTER_EVENTS.CONVERSATION_SIDEBAR_TOGGLE)"
         >
-          <PanelRight class="w-4 h-4" />
+          <PanelRightClose v-if="detailsOpen" class="w-4 h-4" aria-hidden="true" />
+          <PanelRight v-else class="w-4 h-4" aria-hidden="true" />
         </Button>
         <Tooltip v-if="isSnoozed && snoozedUntilLabel">
           <TooltipTrigger as-child>
@@ -42,8 +56,9 @@
               class="flex h-11 lg:h-8 items-center cursor-pointer"
             >
               <span
-                class="rounded-md bg-primary px-2.5 py-1 text-xs lg:text-sm font-medium text-primary-foreground"
+                class="inline-flex items-center gap-2 rounded-md border border-input bg-background px-2.5 py-1 text-xs lg:text-sm font-semibold hover:bg-accent transition-colors"
               >
+                <StatusSwatch :status="conversationStore.current?.status" />
                 {{ conversationStore.current?.status }}
               </span>
             </div>
@@ -54,6 +69,7 @@
               :key="status.value"
               @click="handleUpdateStatus(status.label)"
             >
+              <StatusSwatch :status="status.label" class="mr-2" />
               {{ status.label }}
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -79,14 +95,32 @@
             >
               {{ t('conversation.summarize') }}
             </DropdownMenuItem>
+            <template v-if="canDelete">
+              <DropdownMenuSeparator />
+              <DropdownMenuItem v-if="canMarkSpam" @click="openConfirm('spam')">
+                <ShieldBan class="w-4 h-4 mr-2" />
+                {{ t('conversation.markAsSpam') }}
+              </DropdownMenuItem>
+              <DropdownMenuItem class="text-destructive" @click="openConfirm('delete')">
+                <Trash2 class="w-4 h-4 mr-2" />
+                {{ t('conversation.deleteConversation') }}
+              </DropdownMenuItem>
+            </template>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
     </div>
 
+    <RemoveConversationDialog
+      v-model:open="confirmOpen"
+      :action="confirmAction"
+      :contact="spamContactLabel"
+      @confirm="runConfirmedAction"
+    />
+
     <!-- Messages & reply box -->
-    <div class="flex flex-col flex-grow overflow-hidden">
-      <MessageList class="flex-1 overflow-y-auto" />
+    <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <MessageList class="min-h-0 flex-1 overflow-y-auto" />
       <WhatsAppComposer v-if="isWhatsAppChannel && canCompose" />
       <ReplyBox v-else-if="canCompose" />
     </div>
@@ -99,13 +133,22 @@ const MOBILE_ICON_BUTTON_CLASS = 'w-11 h-11 lg:w-8 lg:h-8 p-0'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useConversationStore } from '@main/stores/conversation'
 import { useUserStore } from '@main/stores/user'
-import { Clock, MoreHorizontal, ChevronLeft, PanelRight } from 'lucide-vue-next'
+import {
+  Clock,
+  MoreHorizontal,
+  ChevronLeft,
+  PanelRight,
+  PanelRightClose,
+  ShieldBan,
+  Trash2
+} from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import { useIsMobile } from '@shared-ui/composables'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@shared-ui/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@shared-ui/components/ui/tooltip'
@@ -114,18 +157,23 @@ import { Button } from '@shared-ui/components/ui/button'
 import MessageList from '@/features/conversation/message/MessageList.vue'
 import ReplyBox from './ReplyBox.vue'
 import WhatsAppComposer from './WhatsAppComposer.vue'
+import RemoveConversationDialog from './RemoveConversationDialog.vue'
 import { WHATSAPP_CHANNEL } from '@main/features/conversation/whatsappTemplate'
 import { EMITTER_EVENTS, CONVERSATION_ACTIONS } from '@main/constants/emitterEvents.js'
 import { useCommandPalette } from '@main/features/command/useCommandPalette'
 import { SNOOZE_COMMAND } from '@main/features/command/providers/useConversationCommands'
 import { CONVERSATION_DEFAULT_STATUSES } from '@main/constants/conversation'
 import { useEmitter } from '@main/composables/useEmitter'
+import { useConversationActions } from '@main/composables/useConversationActions'
 import { useI18n } from 'vue-i18n'
 import { handleHTTPError } from '@shared-ui/utils/http.js'
 import { downloadBlobResponse, parseBlobError } from '@shared-ui/utils/file'
 import api from '@main/api'
 import { permissions as perms } from '@main/constants/permissions.js'
+import StatusSwatch from '@main/components/brand/StatusSwatch.vue'
+defineProps({ detailsOpen: { type: Boolean, default: false } })
 const conversationStore = useConversationStore()
+const { removeConversation } = useConversationActions()
 const userStore = useUserStore()
 const emitter = useEmitter()
 const palette = useCommandPalette()
@@ -144,6 +192,31 @@ const goBackToList = () => {
   const target = router.resolve({ name: listName, params })
   if (window.history.state?.back?.split('?')[0] === target.path) router.back()
   else router.push(target)
+}
+
+const canDelete = computed(() => userStore.can(perms.CONVERSATIONS_DELETE))
+const canMarkSpam = computed(() => canDelete.value && userStore.can(perms.CONTACTS_BLOCK))
+
+// The action the open confirmation runs: 'delete' or 'spam'. Closing the dialog keeps it,
+// because the dialog closes before its action button's click handler runs.
+const confirmAction = ref('delete')
+const confirmOpen = ref(false)
+
+const openConfirm = (action) => {
+  confirmAction.value = action
+  confirmOpen.value = true
+}
+
+const spamContactLabel = computed(
+  () => conversationStore.current?.contact?.email || conversationStore.currentContactName
+)
+
+const runConfirmedAction = async () => {
+  const conversation = conversationStore.current
+  confirmOpen.value = false
+  if (conversation && (await removeConversation(conversation.uuid, confirmAction.value))) {
+    goBackToList()
+  }
 }
 
 const isSnoozed = computed(
@@ -203,7 +276,7 @@ const handleUpdateStatus = (status) => {
     palette.openPalette({ parent: SNOOZE_COMMAND })
     return
   }
-  conversationStore.updateStatus(status)
+  conversationStore.updateStatus(conversationStore.current.uuid, status)
 }
 
 const paletteActions = {

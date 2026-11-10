@@ -156,6 +156,11 @@ const login = (data) => http.post(`/api/v1/auth/login`, data, {
     'Content-Type': 'application/json'
   }
 })
+const clerkLogin = (data) => http.post(`/api/v1/auth/clerk`, data, {
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
 const getAutomationRules = (type) =>
   http.get(`/api/v1/automations/rules`, {
     params: { type: type }
@@ -236,6 +241,29 @@ const createTeam = (data) => http.post('/api/v1/teams', data, {
   }
 })
 const getTeamsCompact = (params) => http.get('/api/v1/teams/compact', { params })
+// Organizations (Clyr fork).
+const getOrganizations = (params) => http.get('/api/v1/organizations', { params })
+const getOrganization = (id) => http.get(`/api/v1/organizations/${id}`)
+const createOrganization = (data) => http.post('/api/v1/organizations', data)
+const updateOrganization = (id, data) => http.put(`/api/v1/organizations/${id}`, data)
+const deleteOrganization = (id) => http.delete(`/api/v1/organizations/${id}`)
+const getOrganizationContacts = (id, params) =>
+  http.get(`/api/v1/organizations/${id}/contacts`, { params })
+const getContactOrganizations = (id) => http.get(`/api/v1/contacts/${id}/organizations`)
+const addContactOrganization = (id, organizationID) =>
+  http.post(`/api/v1/contacts/${id}/organizations`, { organization_id: organizationID })
+const removeContactOrganization = (id, organizationID) =>
+  http.delete(`/api/v1/contacts/${id}/organizations/${organizationID}`)
+// Makes the organization the contact's default; adds the contact to it if needed.
+const setContactDefaultOrganization = (id, organizationID) =>
+  http.put(`/api/v1/contacts/${id}/organization`, { organization_id: organizationID })
+const setConversationOrganization = (uuid, organizationID) =>
+  http.put(`/api/v1/conversations/${uuid}/organization`, { organization_id: organizationID })
+const getLinearIssues = (uuid) => http.get(`/api/v1/conversations/${uuid}/linear-issues`)
+const linkLinearIssue = (uuid, ref) =>
+  http.post(`/api/v1/conversations/${uuid}/linear-issues`, { ref })
+const unlinkLinearIssue = (uuid, id) =>
+  http.delete(`/api/v1/conversations/${uuid}/linear-issues/${id}`)
 const deleteTeam = (id) => http.delete(`/api/v1/teams/${id}`)
 const updateUser = (id, data) =>
   http.put(`/api/v1/agents/${id}`, data, {
@@ -323,6 +351,8 @@ const createConversation = (data) =>
       'Content-Type': 'application/json'
     }
   })
+const deleteConversation = (uuid) => http.delete(`/api/v1/conversations/${uuid}`)
+const markConversationSpam = (uuid) => http.post(`/api/v1/conversations/${uuid}/spam`)
 const updateConversationStatus = (uuid, data) =>
   http.put(`/api/v1/conversations/${uuid}/status`, data, {
     headers: {
@@ -403,6 +433,7 @@ const getOverviewSLA = (params) => http.get('/api/v1/reports/overview/sla', { pa
 const getOverviewCSAT = (params) => http.get('/api/v1/reports/overview/csat', { params })
 const getOverviewMessageVolume = (params) => http.get('/api/v1/reports/overview/messages', { params })
 const getOverviewTagDistribution = (params) => http.get('/api/v1/reports/overview/tags', { params })
+const getIssuesReport = (params) => http.get('/api/v1/reports/issues', { params })
 const getLanguage = (lang) => http.get(`/api/v1/lang/${lang}`)
 const getAvailableLanguages = () => http.get('/api/v1/lang')
 const createInbox = (data) =>
@@ -663,6 +694,7 @@ const getCampaignStats = (id, params) => http.get(`/api/v1/inboxes/${id}/campaig
 export default {
  getCampaignStats,
   login,
+  clerkLogin,
   deleteUser,
   importAgents,
   getAgentImportStatus,
@@ -712,6 +744,7 @@ export default {
   getOverviewCSAT,
   getOverviewMessageVolume,
   getOverviewTagDistribution,
+  getIssuesReport,
   getConversationMessage,
   getConversationMessages,
   getConversationTranscript,
@@ -727,6 +760,8 @@ export default {
   updateCurrentUser,
   updateAssignee,
   updateConversationStatus,
+  deleteConversation,
+  markConversationSpam,
   updateConversationPriority,
   upsertTags,
   updateConversationCustomAttribute,
@@ -784,6 +819,20 @@ export default {
   updateStatus,
   deleteStatus,
   getTeamsCompact,
+  getOrganizations,
+  getOrganization,
+  createOrganization,
+  updateOrganization,
+  deleteOrganization,
+  getOrganizationContacts,
+  getContactOrganizations,
+  addContactOrganization,
+  removeContactOrganization,
+  setContactDefaultOrganization,
+  setConversationOrganization,
+  getLinearIssues,
+  linkLinearIssue,
+  unlinkLinearIssue,
   getUsersCompact,
   getEmailNotificationSettings,
   updateEmailNotificationSettings,

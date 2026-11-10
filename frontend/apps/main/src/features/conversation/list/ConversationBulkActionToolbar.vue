@@ -100,6 +100,32 @@
       </DropdownMenuContent>
     </DropdownMenu>
 
+    <!-- Mark as spam -->
+    <Button
+      v-if="canMarkSpam"
+      variant="ghost"
+      size="icon"
+      :disabled="bulkLoading"
+      :title="t('conversation.bulkActions.markAsSpam')"
+      :aria-label="t('conversation.bulkActions.markAsSpam')"
+      @click="openConfirm('spam')"
+    >
+      <ShieldBan class="w-4 h-4" />
+    </Button>
+
+    <!-- Delete -->
+    <Button
+      v-if="canDelete"
+      variant="ghost"
+      size="icon"
+      :disabled="bulkLoading"
+      :title="t('conversation.bulkActions.delete')"
+      :aria-label="t('conversation.bulkActions.delete')"
+      @click="openConfirm('delete')"
+    >
+      <Trash2 class="w-4 h-4" />
+    </Button>
+
     <Loader2 v-if="bulkLoading" class="w-4 h-4 animate-spin text-muted-foreground ml-2" />
 
     <Button
@@ -111,14 +137,63 @@
     >
       <X class="w-4 h-4" />
     </Button>
+
+    <AlertDialog :open="confirmOpen" @update:open="(v) => (confirmOpen = v)">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {{
+              t(
+                confirmAction === 'spam'
+                  ? 'conversation.bulkActions.markAsSpam'
+                  : 'conversation.bulkActions.delete'
+              )
+            }}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {{
+              t(
+                confirmAction === 'spam'
+                  ? 'conversation.bulkActions.markAsSpamConfirm'
+                  : 'conversation.bulkActions.deleteConfirm',
+                { count: conversationStore.selectedCount }
+              )
+            }}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{{ t('globals.messages.cancel') }}</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" @click="runConfirmedAction">
+            {{
+              t(
+                confirmAction === 'spam'
+                  ? 'conversation.bulkActions.markAsSpam'
+                  : 'globals.messages.delete'
+              )
+            }}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { UserPlus, Users, Tag, CircleDot, Loader2, X } from 'lucide-vue-next'
+import { UserPlus, Users, Tag, CircleDot, Loader2, X, ShieldBan, Trash2 } from 'lucide-vue-next'
 import { Button } from '@shared-ui/components/ui/button'
 import { Checkbox } from '@shared-ui/components/ui/checkbox'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@shared-ui/components/ui/alert-dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -134,9 +209,27 @@ import { useBulkActions } from '@/composables/useBulkActions'
 
 const conversationStore = useConversationStore()
 const { t } = useI18n()
-const { bulkLoading, bulkAssign, bulkAddTag, bulkUpdateStatus } = useBulkActions()
+const { bulkLoading, bulkAssign, bulkAddTag, bulkUpdateStatus, bulkDelete, bulkMarkSpam } =
+  useBulkActions()
 
-const { canAssignAgent, canAssignTeam, canUpdateStatus, canUpdateTags } = useBulkActionPermissions()
+const { canAssignAgent, canAssignTeam, canUpdateStatus, canUpdateTags, canDelete, canMarkSpam } =
+  useBulkActionPermissions()
+
+// The action the open confirmation runs: 'delete' or 'spam'. Closing the dialog keeps it,
+// because the dialog closes before its action button's click handler runs.
+const confirmAction = ref('delete')
+const confirmOpen = ref(false)
+
+const openConfirm = (action) => {
+  confirmAction.value = action
+  confirmOpen.value = true
+}
+
+const runConfirmedAction = () => {
+  const action = confirmAction.value
+  confirmOpen.value = false
+  return action === 'spam' ? bulkMarkSpam() : bulkDelete()
+}
 
 const toggleSelectAll = () => {
   if (conversationStore.allSelected) {

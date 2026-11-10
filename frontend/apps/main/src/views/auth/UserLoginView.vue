@@ -8,13 +8,28 @@
     >
       <CardContent class="p-6 space-y-5">
         <div class="space-y-1 text-center">
-          <CardTitle class="text-2xl font-bold text-foreground">
+          <CardTitle class="ui-display-heading">
             {{ appSettingsStore.public_config?.['app.site_name'] || 'libredesk' }}
           </CardTitle>
           <p class="text-sm text-muted-foreground">{{ t('auth.signIn') }}</p>
         </div>
 
-        <div v-if="enabledOIDCProviders.length" class="space-y-3">
+        <div v-if="clerkPublishableKey" class="space-y-3">
+          <div ref="clerkSignInRef" class="flex justify-center"></div>
+          <p v-if="clerkLoading" class="text-sm text-center text-muted-foreground">
+            {{ t('auth.loggingIn') }}
+          </p>
+          <button
+            v-if="localLoginEnabled && !showPasswordForm"
+            type="button"
+            class="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+            @click="showPasswordForm = true"
+          >
+            {{ t('auth.signInWithPassword') }}
+          </button>
+        </div>
+
+        <div v-else-if="enabledOIDCProviders.length" class="space-y-3">
           <Button
             v-for="oidcProvider in enabledOIDCProviders"
             :key="oidcProvider.id"
@@ -42,7 +57,11 @@
           </div>
         </div>
 
-        <form v-if="localLoginEnabled" @submit.prevent="loginAction" class="space-y-3">
+        <form
+          v-if="localLoginEnabled && (!clerkPublishableKey || showPasswordForm)"
+          @submit.prevent="loginAction"
+          class="space-y-3"
+        >
           <div class="space-y-2">
             <Label for="email" class="text-muted-foreground">{{ t('globals.terms.email') }}</Label>
             <Input
@@ -50,6 +69,9 @@
               type="text"
               autofocus
               autocomplete="username"
+              autocapitalize="none"
+              spellcheck="false"
+              :aria-invalid="emailHasError || undefined"
               v-model.trim="loginForm.email"
               :class="{ 'border-destructive': emailHasError }"
             />
@@ -64,19 +86,22 @@
                 id="password"
                 :type="showPassword ? 'text' : 'password'"
                 autocomplete="current-password"
+                :aria-invalid="passwordHasError || undefined"
                 v-model="loginForm.password"
                 :class="{ 'border-destructive': passwordHasError }"
                 class="pr-10"
               />
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 :aria-label="showPassword ? t('auth.hidePassword') : t('auth.showPassword')"
-                class="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+                class="absolute right-0 top-0 text-muted-foreground"
                 @click="showPassword = !showPassword"
               >
-                <Eye v-if="!showPassword" class="w-5 h-5" />
-                <EyeOff v-else class="w-5 h-5" />
-              </button>
+                <Eye v-if="!showPassword" class="w-5 h-5" aria-hidden="true" />
+                <EyeOff v-else class="w-5 h-5" aria-hidden="true" />
+              </Button>
             </div>
           </div>
 
@@ -112,10 +137,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { handleHTTPError } from '@shared-ui/utils/http.js'
-import api from '../../api'
+import api from '@main/api'
 import { validateEmail } from '@shared-ui/utils/string'
 import { applyTemporaryClass } from '@/utils/temporary-class'
 import { Button } from '@shared-ui/components/ui/button'
@@ -123,13 +148,20 @@ import { Error } from '@shared-ui/components/ui/error'
 import { Card, CardContent, CardTitle } from '@shared-ui/components/ui/card'
 import { Input } from '@shared-ui/components/ui/input'
 import { Label } from '@shared-ui/components/ui/label'
-import { useEmitter } from '../../composables/useEmitter'
-import { useUserStore } from '../../stores/user'
+import { useEmitter } from '@main/composables/useEmitter'
+import { useUserStore } from '@main/stores/user'
 import { useI18n } from 'vue-i18n'
-import { EMITTER_EVENTS } from '../../constants/emitterEvents.js'
-import { useAppSettingsStore } from '../../stores/appSettings'
+import { EMITTER_EVENTS } from '@main/constants/emitterEvents.js'
+import { useAppSettingsStore } from '@main/stores/appSettings'
 import AuthLayout from '@/layouts/auth/AuthLayout.vue'
 import { Eye, EyeOff } from 'lucide-vue-next'
+import {
+  clearSignedOut,
+  isMarkedSignedOut,
+  keepLoginError,
+  loadClerk,
+  takeLoginError
+} from '@main/utils/clerk.js'
 
 const emitter = useEmitter()
 const { t } = useI18n()
@@ -146,6 +178,16 @@ const loginForm = ref({
 })
 const oidcProviders = ref([])
 const appSettingsStore = useAppSettingsStore()
+const clerkSignInRef = ref(null)
+const clerkLoading = ref(false)
+const showPasswordForm = ref(false)
+let clerk = null
+let removeClerkListener = null
+// clerkActive turns false when the view unmounts or a password login starts,
+// so a late Clerk session never replaces that login.
+let clerkActive = true
+let unmounted = false
+let signInMounted = false
 
 // Demo build has the credentials prefilled.
 const isDemoBuild = import.meta.env.VITE_DEMO_BUILD === 'true'
@@ -172,12 +214,142 @@ onMounted(async () => {
   }
   fetchOIDCProviders()
   showOIDCError()
+  if (clerkPublishableKey.value) {
+    showKeptLoginError()
+    initClerk()
+  }
 })
+
+onBeforeUnmount(() => {
+  unmounted = true
+  clerkActive = false
+  removeClerkListener?.()
+  if (clerk && clerkSignInRef.value) clerk.unmountSignIn(clerkSignInRef.value)
+})
+
+const showKeptLoginError = () => {
+  const keptError = takeLoginError(window.sessionStorage)
+  if (keptError) {
+    errorMessage.value = keptError
+    applyTemporaryClass('login-container', 'animate-shake')
+  }
+}
+
+const initClerk = async () => {
+  try {
+    clerk = await loadClerk(clerkPublishableKey.value)
+    if (!clerkActive) return
+    // Logging out of Libredesk ends the Clerk session too. The marker stays
+    // until Clerk confirms the session is gone.
+    if (isMarkedSignedOut(window.sessionStorage)) {
+      if (clerk.session) await clerk.signOut()
+      if (clerk.session) return
+      clearSignedOut(window.sessionStorage)
+    }
+    if (!clerkActive) return
+    listenForClerkSession()
+    if (clerk.session) {
+      await exchangeClerkSession()
+    } else {
+      await mountClerkSignIn()
+    }
+  } catch (error) {
+    if (!clerkActive) return
+    errorMessage.value = handleHTTPError(error).message
+    showPasswordForm.value = true
+  }
+}
+
+const listenForClerkSession = () => {
+  removeClerkListener?.()
+  removeClerkListener = clerk.addListener(({ session }) => {
+    if (session) exchangeClerkSession()
+  })
+}
+
+const mountClerkSignIn = async () => {
+  await nextTick()
+  if (!clerk || !clerkSignInRef.value || signInMounted) return
+  signInMounted = true
+  clerk.mountSignIn(clerkSignInRef.value, {
+    forceRedirectUrl: window.location.href,
+    appearance: {
+      // Follow the Libredesk theme, light or dark.
+      variables: {
+        colorBackground: 'hsl(var(--card))',
+        colorForeground: 'hsl(var(--card-foreground))',
+        colorMutedForeground: 'hsl(var(--muted-foreground))',
+        colorPrimary: 'hsl(var(--primary))',
+        colorPrimaryForeground: 'hsl(var(--primary-foreground))',
+        colorDanger: 'hsl(var(--destructive))',
+        colorInput: 'hsl(var(--card))',
+        colorInputForeground: 'hsl(var(--foreground))',
+        colorBorder: 'hsl(var(--input))',
+        colorNeutral: 'hsl(var(--foreground))',
+        borderRadius: 'var(--radius)'
+      },
+      elements: {
+        rootBox: 'w-full',
+        cardBox: 'w-full shadow-none border-0',
+        card: 'shadow-none px-0 py-2',
+        header: 'hidden',
+        footer: 'hidden',
+        formFieldInput: '!border !border-solid !border-input',
+        socialButtonsBlockButton: '!border !border-solid !border-input'
+      }
+    }
+  })
+}
+
+// exchangeClerkSession trades the Clerk session token for a Libredesk session.
+const exchangeClerkSession = async () => {
+  if (!clerkActive || clerkLoading.value || !clerk?.session) return
+  if (isMarkedSignedOut(window.sessionStorage)) return
+  clerkLoading.value = true
+  errorMessage.value = ''
+  try {
+    const token = await clerk.session.getToken()
+    if (!clerkActive) return
+    const resp = await api.clerkLogin({ token })
+    if (!clerkActive) return
+    completeLogin(resp)
+  } catch (error) {
+    if (!clerkActive) return
+    errorMessage.value = handleHTTPError(error).message
+    applyTemporaryClass('login-container', 'animate-shake')
+    // End the Clerk session so the agent can try another account. Clerk can
+    // reload the page when it signs out, so keep the error for the next load.
+    keepLoginError(window.sessionStorage, errorMessage.value)
+    await clerk.signOut().catch(() => {})
+    await mountClerkSignIn()
+  } finally {
+    clerkLoading.value = false
+  }
+}
+
+const completeLogin = (resp) => {
+  takeLoginError(window.sessionStorage)
+  if (resp?.data?.data) {
+    userStore.setCurrentUser(resp.data.data)
+  }
+  // Also fetch general setting as user's logged in.
+  appSettingsStore.fetchSettings('general')
+
+  // Redirect to the 'next' parameter if it exists
+  const nextParam = router.currentRoute.value.query.next
+  if (nextParam) {
+    router.push(nextParam)
+  } else {
+    router.push({ name: 'inboxes' })
+  }
+}
 
 const showOIDCError = () => {
   const { error, ...query } = router.currentRoute.value.query
   if (!error) return
-  errorMessage.value = t(Object.hasOwn(oidcErrorKeys, error) ? oidcErrorKeys[error] : 'auth.oidcLoginFailed')
+  errorMessage.value = t(
+    Object.hasOwn(oidcErrorKeys, error) ? oidcErrorKeys[error] : 'auth.oidcLoginFailed'
+  )
   applyTemporaryClass('login-container', 'animate-shake')
   router.replace({ query })
 }
@@ -225,30 +397,26 @@ const loginAction = () => {
 
   errorMessage.value = ''
   isLoading.value = true
+  // A password login wins over a Clerk session that loads later.
+  clerkActive = false
+  removeClerkListener?.()
 
   api
     .login({
       email: loginForm.value.email,
       password: loginForm.value.password
     })
-    .then((resp) => {
-      if (resp?.data?.data) {
-        userStore.setCurrentUser(resp.data.data)
-      }
-      // Also fetch general setting as user's logged in.
-      appSettingsStore.fetchSettings('general')
-
-      // Redirect to the 'next' parameter if it exists
-      const nextParam = router.currentRoute.value.query.next
-      if (nextParam) {
-        router.push(nextParam)
-      } else {
-        router.push({ name: 'inboxes' })
-      }
-    })
+    .then(completeLogin)
     .catch((error) => {
       errorMessage.value = handleHTTPError(error).message
       applyTemporaryClass('login-container', 'animate-shake')
+      // The password login failed, so Clerk sign-in works again. Clerk may
+      // still have been loading, so run its setup again.
+      if (clerkPublishableKey.value && !unmounted) {
+        takeLoginError(window.sessionStorage)
+        clerkActive = true
+        initClerk()
+      }
     })
     .finally(() => {
       isLoading.value = false
@@ -258,6 +426,10 @@ const loginAction = () => {
 const enabledOIDCProviders = computed(() => {
   return oidcProviders.value.filter((provider) => !provider.disabled)
 })
+
+const clerkPublishableKey = computed(
+  () => appSettingsStore.public_config?.['auth.clerk_publishable_key'] || ''
+)
 
 const localLoginEnabled = computed(
   () => appSettingsStore.public_config?.['auth.local_login_enabled'] !== false

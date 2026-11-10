@@ -39,7 +39,7 @@ import { SECTIONS } from '../sections'
 export const SNOOZE_COMMAND = 'conv.snooze'
 export const SNOOZE_CUSTOM_COMMAND = 'conv.snooze.custom'
 
-const SNOOZE_PRESETS = [
+export const SNOOZE_PRESETS = [
   { minutes: 60, unitKey: 'globals.terms.hour', count: 1 },
   { minutes: 180, unitKey: 'globals.terms.hour', count: 3 },
   { minutes: 360, unitKey: 'globals.terms.hour', count: 6 },
@@ -52,7 +52,6 @@ const SNOOZE_PRESETS = [
 
 const REOPENABLE_STATUSES = [
   CONVERSATION_DEFAULT_STATUSES.RESOLVED,
-  CONVERSATION_DEFAULT_STATUSES.CLOSED,
   CONVERSATION_DEFAULT_STATUSES.SNOOZED
 ]
 
@@ -110,7 +109,7 @@ export function useConversationCommands({ openSnoozeDatePicker }) {
         icon: CheckCircle2,
         permission: perms.CONVERSATIONS_UPDATE_STATUS,
         shortcut: ['Alt', 'E'],
-        run: () => conversationStore.updateStatus(CONVERSATION_DEFAULT_STATUSES.RESOLVED)
+        run: () => conversationStore.updateStatus(conv.uuid, CONVERSATION_DEFAULT_STATUSES.RESOLVED)
       })
     }
     if (REOPENABLE_STATUSES.includes(current)) {
@@ -122,7 +121,7 @@ export function useConversationCommands({ openSnoozeDatePicker }) {
         icon: RotateCcw,
         permission: perms.CONVERSATIONS_UPDATE_STATUS,
         shortcut: ['Alt', 'O'],
-        run: () => conversationStore.updateStatus(CONVERSATION_DEFAULT_STATUSES.OPEN)
+        run: () => conversationStore.updateStatus(conv.uuid, CONVERSATION_DEFAULT_STATUSES.OPEN)
       })
     }
     commands.push(...snoozeCommands())
@@ -144,7 +143,7 @@ export function useConversationCommands({ openSnoozeDatePicker }) {
         parent: 'conv.status',
         icon: isSnooze ? CalendarClock : CircleDot,
         navigateTo: isSnooze ? SNOOZE_COMMAND : undefined,
-        run: isSnooze ? undefined : () => conversationStore.updateStatus(status.label)
+        run: isSnooze ? undefined : () => conversationStore.updateStatus(conv.uuid, status.label)
       })
     }
     return commands

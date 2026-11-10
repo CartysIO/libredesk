@@ -58,7 +58,7 @@ var (
 	errConversationNotFound         = errors.New("conversation not found")
 	ErrConversationAlreadyAssigned  = errors.New("conversation already assigned")
 	ErrMessageNotFound              = errors.New("message not found")
-	conversationsAllowedFields      = []string{"status_id", "priority_id", "assigned_team_id", "assigned_user_id", "inbox_id", "last_message_at", "last_interaction_at", "last_interaction_sender", "created_at", "waiting_since", "next_sla_deadline_at", "snoozed_until", "sla_policy_id"}
+	conversationsAllowedFields      = []string{"status_id", "priority_id", "assigned_team_id", "assigned_user_id", "inbox_id", "last_message_at", "last_interaction_at", "last_interaction_sender", "created_at", "waiting_since", "next_sla_deadline_at", "snoozed_until", "sla_policy_id", "organization_id"}
 	conversationStatusAllowedFields = []string{"id", "name"}
 	usersAllowedFields              = []string{"email", "external_user_id"}
 	inboxesAllowedFields            = []string{"channel"}
@@ -67,7 +67,7 @@ var (
 const (
 	conversationsListMaxPageSize = 500
 
-	automationNotifyEmailContent = `<p style="white-space: pre-line;">{{ .Message }}</p>
+	automationNotifyEmailContent = `<p style="white-space: pre-line;">{{ .Message.Content }}</p>
 
 <p>
 <a href="{{ RootURL }}/inboxes/all/conversation/{{ .Conversation.UUID }}">#{{ .Conversation.ReferenceNumber }}</a>
@@ -77,7 +77,8 @@ const (
 
 var ListFilterRenderers = dbutil.FieldRenderers{
 	"conversations": {
-		"tags": renderTagFilter,
+		"tags":                     renderTagFilter,
+		"organization_external_id": renderOrganizationExternalIDFilter,
 	},
 }
 
@@ -126,7 +127,30 @@ type Manager struct {
 	wg                         sync.WaitGroup
 	continuityConfig           ContinuityConfig
 	subjectRefFormat           string
+	assignOnFirstReplyEnabled  bool
 	aiAgent                    AIAgentEngine
+	aiClassifier               AIClassifier
+	organizationStore          organizationStore
+}
+
+// AIClassifier fills a conversation custom attribute from AI in the background; value is the action's value.
+type AIClassifier interface {
+	Classify(conversationUUID string, value []string)
+}
+
+// SetAIClassifier wires the AI attribute classifier after construction to avoid an import cycle.
+func (c *Manager) SetAIClassifier(cl AIClassifier) {
+	c.aiClassifier = cl
+}
+
+// organizationStore files an email contact with no organization under the organization of its email domain (Clyr fork).
+type organizationStore interface {
+	AssignByEmailDomain(contactID int, email string) (int, []string, error)
+}
+
+// SetOrganizationStore wires the organization manager after construction. Nil turns off matching by email domain.
+func (c *Manager) SetOrganizationStore(s organizationStore) {
+	c.organizationStore = s
 }
 
 type replyNotificationGroup struct {
@@ -226,6 +250,7 @@ type settingsStore interface {
 type csatStore interface {
 	Create(conversationID int) (csatModels.CSATResponse, error)
 	Get(uuid string) (csatModels.CSATResponse, error)
+	UpdateResponse(uuid string, score int, feedback string, meta json.RawMessage) error
 	MakePublicURL(appBaseURL, uuid string) string
 }
 
@@ -253,6 +278,8 @@ type Opts struct {
 	IncomingMessageQueueSize int
 	ContinuityConfig         *ContinuityConfig
 	SubjectRefFormat         string
+	// AssignOnFirstReply assigns an unassigned conversation to the agent who sends the first public reply.
+	AssignOnFirstReply bool
 }
 
 // New initializes a new conversation Manager.
@@ -322,6 +349,7 @@ func New(
 		outgoingProcessingMessages: sync.Map{},
 		continuityConfig:           continuityConfig,
 		subjectRefFormat:           subjectRefFormat,
+		assignOnFirstReplyEnabled:  opts.AssignOnFirstReply,
 	}
 
 	return c, nil
@@ -363,8 +391,11 @@ type queries struct {
 	ClaimUnassignedConversation         *sqlx.Stmt `query:"claim-unassigned-conversation"`
 	UpdateConversationAssignedTeam      *sqlx.Stmt `query:"update-conversation-assigned-team"`
 	UpdateConversationCustomAttributes  *sqlx.Stmt `query:"update-conversation-custom-attributes"`
+	SetConversationAttrIfEmpty          *sqlx.Stmt `query:"set-conversation-custom-attribute-if-empty"`
+	GetFirstIncomingMessages            *sqlx.Stmt `query:"get-first-incoming-messages"`
 	UpdateConversationPriority          *sqlx.Stmt `query:"update-conversation-priority"`
 	UpdateConversationStatus            *sqlx.Stmt `query:"update-conversation-status"`
+	UpdateConversationStatusIfCurrent   *sqlx.Stmt `query:"update-conversation-status-if-current"`
 	UpdateConversationLastMessage       *sqlx.Stmt `query:"update-conversation-last-message"`
 	InsertConversationParticipant       *sqlx.Stmt `query:"insert-conversation-participant"`
 	InsertConversation                  *sqlx.Stmt `query:"insert-conversation"`
@@ -376,6 +407,8 @@ type queries struct {
 	ReOpenConversation                  *sqlx.Stmt `query:"re-open-conversation"`
 	UnsnoozeAll                         *sqlx.Stmt `query:"unsnooze-all"`
 	DeleteConversation                  *sqlx.Stmt `query:"delete-conversation"`
+	GetSpamCandidateConversations       *sqlx.Stmt `query:"get-spam-candidate-conversations"`
+	DeleteSpamConversations             *sqlx.Stmt `query:"delete-spam-conversations"`
 	RemoveConversationAssignee          *sqlx.Stmt `query:"remove-conversation-assignee"`
 
 	// Draft queries.
@@ -386,15 +419,18 @@ type queries struct {
 
 	// Message queries.
 	GetMessage                         *sqlx.Stmt `query:"get-message"`
+	GetCSATMessages                    *sqlx.Stmt `query:"get-csat-messages"`
 	GetMessages                        string     `query:"get-messages"`
 	GetContactUnreadPreviewMessages    *sqlx.Stmt `query:"get-contact-unread-preview-messages"`
 	GetOutgoingPendingMessages         *sqlx.Stmt `query:"get-outgoing-pending-messages"`
 	GetMessageSourceIDs                *sqlx.Stmt `query:"get-message-source-ids"`
+	GetPreviousMessages                *sqlx.Stmt `query:"get-previous-messages"`
 	GetEmailSenderMessage              *sqlx.Stmt `query:"get-email-sender-message"`
 	GetConversationUUIDFromMessageUUID *sqlx.Stmt `query:"get-conversation-uuid-from-message-uuid"`
 	MessageExistsBySourceID            *sqlx.Stmt `query:"message-exists-by-source-id"`
 	GetConversationByMessageID         *sqlx.Stmt `query:"get-conversation-by-message-id"`
 	InsertMessage                      *sqlx.Stmt `query:"insert-message"`
+	InsertMessageWithTimestamps        *sqlx.Stmt `query:"insert-message-with-timestamps"`
 	UpdateMessageStatus                *sqlx.Stmt `query:"update-message-status"`
 	MarkMessagePendingForRetry         *sqlx.Stmt `query:"mark-message-pending-for-retry"`
 	ClearMessageHandoffFormPending     *sqlx.Stmt `query:"clear-message-handoff-form-pending"`
@@ -431,6 +467,12 @@ type queries struct {
 // CreateConversation creates a new conversation. If maxConversations > 0, the insert is
 // atomically rejected when the contact already has >= maxConversations in the given window.
 func (c *Manager) CreateConversation(contactID, inboxID int, lastMessage string, lastMessageAt time.Time, subject string, appendRefNumToSubject bool, meta, customAttributes map[string]any, maxConversations int, rateLimitWindow time.Duration) (int, string, error) {
+	return c.CreateConversationInOrganization(0, contactID, inboxID, lastMessage, lastMessageAt, subject, appendRefNumToSubject, meta, customAttributes, maxConversations, rateLimitWindow)
+}
+
+// CreateConversationInOrganization creates a conversation filed under orgID when the contact belongs to it,
+// else under the contact's default organization (Clyr fork).
+func (c *Manager) CreateConversationInOrganization(orgID, contactID, inboxID int, lastMessage string, lastMessageAt time.Time, subject string, appendRefNumToSubject bool, meta, customAttributes map[string]any, maxConversations int, rateLimitWindow time.Duration) (int, string, error) {
 	var (
 		id     int
 		uuid   string
@@ -460,7 +502,7 @@ func (c *Manager) CreateConversation(contactID, inboxID int, lastMessage string,
 		since = time.Now().Add(-rateLimitWindow)
 	}
 
-	if err := c.q.InsertConversation.QueryRow(contactID, models.StatusOpen, inboxID, lastMessage, lastMessageAt, subject, prefix, appendRefNumToSubject, metaJSON, customAttrsJSON, since, maxConversations, c.subjectRefFormat).Scan(&id, &uuid); err != nil {
+	if err := c.insertConversationRow(c.q.InsertConversation, orgID, contactID, inboxID, lastMessage, lastMessageAt, subject, prefix, appendRefNumToSubject, metaJSON, customAttrsJSON, since, maxConversations).Scan(&id, &uuid); err != nil {
 		if err == sql.ErrNoRows {
 			return 0, "", envelope.NewError(envelope.RateLimitError, c.i18n.T("globals.messages.tooManyRequests"), nil)
 		}
@@ -473,6 +515,12 @@ func (c *Manager) CreateConversation(contactID, inboxID int, lastMessage string,
 		c.lo.Error("error fetching conversation list item for broadcast", "uuid", uuid, "error", err)
 	}
 	return id, uuid, nil
+}
+
+// insertConversationRow runs insert-conversation through stmt, which is c.q.InsertConversation or its
+// transaction copy. Every insert goes through here, so the query's arguments are listed once (Clyr fork).
+func (c *Manager) insertConversationRow(stmt *sqlx.Stmt, orgID, contactID, inboxID int, lastMessage string, lastMessageAt time.Time, subject, prefix string, appendRefNumToSubject bool, metaJSON, customAttrsJSON []byte, since time.Time, maxConversations int) *sqlx.Row {
+	return stmt.QueryRowx(contactID, models.StatusOpen, inboxID, lastMessage, lastMessageAt, subject, prefix, appendRefNumToSubject, metaJSON, customAttrsJSON, since, maxConversations, c.subjectRefFormat, orgID)
 }
 
 // GetConversation retrieves a conversation by its ID or UUID.
@@ -788,10 +836,15 @@ func (c *Manager) GetConversations(viewingUserID, userID int, teamIDs []int, lis
 	return conversations, nil
 }
 
-// ReOpenConversation reopens a conversation if it's snoozed, resolved or closed.
+// ReOpenConversation moves a conversation that is not Open or On you back to a customer-facing status
+// after a customer message. The new status is "On you" if the conversation was "On customer" or already
+// has an agent reply, else "Open". Returns true if the status changed.
 func (c *Manager) ReOpenConversation(conversationUUID string, actor umodels.User) (bool, error) {
-	var conversationID int
-	if err := c.q.ReOpenConversation.QueryRow(conversationUUID).Scan(&conversationID); err != nil {
+	var (
+		conversationID int
+		newStatus      string
+	)
+	if err := c.q.ReOpenConversation.QueryRow(conversationUUID).Scan(&conversationID, &newStatus); err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil
 		}
@@ -804,13 +857,13 @@ func (c *Manager) ReOpenConversation(conversationUUID string, actor umodels.User
 		c.lo.Error("error evaluating SLA after reopen", "uuid", conversationUUID, "error", err)
 	}
 
-	c.BroadcastConversationUpdate(conversationUUID, map[string]any{"status": models.StatusOpen})
+	c.BroadcastConversationUpdate(conversationUUID, map[string]any{"status": newStatus})
 	// Reopening unassigns an agent who is away and reassigning.
 	if conv, err := c.GetConversationListItem(conversationUUID); err == nil {
 		c.retainAuthorizedSubscribers(&conv)
 	}
 
-	if err := c.RecordStatusChange(models.StatusOpen, conversationUUID, actor); err != nil {
+	if err := c.RecordStatusChange(newStatus, conversationUUID, actor); err != nil {
 		return true, err
 	}
 	return true, nil
@@ -1065,6 +1118,13 @@ func (c *Manager) UpdateConversationPriority(uuid string, priorityID int, priori
 
 // UpdateConversationStatus updates the status of a conversation.
 func (c *Manager) UpdateConversationStatus(uuid string, statusID int, status, snoozeDur string, actor umodels.User) error {
+	return c.updateConversationStatus(uuid, statusID, status, snoozeDur, actor, nil)
+}
+
+// updateConversationStatus is UpdateConversationStatus with an optional guard. When onlyFrom is not empty, the
+// status changes only if the conversation is still in one of those statuses at update time. Otherwise nothing
+// happens and no side effect runs, so a concurrent change (snooze, resolve) is never overwritten.
+func (c *Manager) updateConversationStatus(uuid string, statusID int, status, snoozeDur string, actor umodels.User, onlyFrom []string) error {
 	// Fetch the status name if status ID is provided.
 	if statusID > 0 {
 		s, err := c.statusStore.Get(statusID)
@@ -1103,7 +1163,19 @@ func (c *Manager) UpdateConversationStatus(uuid string, statusID int, status, sn
 	}
 
 	// Update the conversation status.
-	if _, err := c.q.UpdateConversationStatus.Exec(uuid, status, snoozeUntil); err != nil {
+	if len(onlyFrom) > 0 {
+		var prevStatus string
+		err := c.q.UpdateConversationStatusIfCurrent.QueryRow(uuid, status, pq.Array(onlyFrom), snoozeUntil).Scan(&prevStatus)
+		if errors.Is(err, sql.ErrNoRows) {
+			c.lo.Debug("no status update: conversation status changed concurrently", "uuid", uuid, "new_status", status)
+			return nil
+		}
+		if err != nil {
+			c.lo.Error("error updating conversation status", "error", err)
+			return envelope.NewError(envelope.GeneralError, c.i18n.T("globals.messages.somethingWentWrong"), nil)
+		}
+		oldStatus = prevStatus
+	} else if _, err := c.q.UpdateConversationStatus.Exec(uuid, status, snoozeUntil); err != nil {
 		c.lo.Error("error updating conversation status", "error", err)
 		return envelope.NewError(envelope.GeneralError, c.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
@@ -1329,30 +1401,15 @@ func (m *Manager) SendTransientEmail(inboxID, conversationID int, conversationUU
 
 // NotifyAssignment sends notifications (in-app, WebSocket, email) for an assigned conversation.
 func (m *Manager) NotifyAssignment(userIDs []int, conversation models.Conversation) error {
-	agent, err := m.userStore.GetAgentCachedOrLoad(userIDs[0])
-	if err != nil {
-		m.lo.Error("error fetching agent", "user_id", userIDs[0], "error", err)
-		return fmt.Errorf("fetching agent: %w", err)
-	}
-
-	// Automated messages do not have an author.
-	content, subject, err := m.template.RenderStoredEmailTemplate(template.TmplConversationAssigned,
-		notificationTemplateData(conversation, agent, umodels.User{}))
-	if err != nil {
-		m.lo.Error("error rendering template", "template", template.TmplConversationAssigned, "conversation_uuid", conversation.UUID, "error", err)
-		return fmt.Errorf("rendering template: %w", err)
-	}
+	recipients := m.buildNotificationRecipients(userIDs, func(recipient umodels.User) (string, string, error) {
+		content, subject, err := m.template.RenderStoredEmailTemplate(template.TmplConversationAssigned,
+			template.BuildConversationData(conversation, recipient, umodels.User{} /** author **/))
+		return subject, content, err
+	})
 
 	if _, err := m.dispatcher.Send(nmodels.Notification{
-		Type: nmodels.NotificationTypeAssignment,
-		Recipients: []nmodels.Recipient{{
-			UserID: agent.ID,
-			Email: &nmodels.EmailNotification{
-				Recipient: agent.Email.String,
-				Subject:   subject,
-				Content:   content,
-			},
-		}},
+		Type:             nmodels.NotificationTypeAssignment,
+		Recipients:       recipients,
 		Title:            m.i18n.Ts("notification.conversationAssigned", "referenceNumber", conversation.ReferenceNumber),
 		Body:             null.StringFrom(cmp.Or(conversation.Subject.String, conversation.LastMessage.String)),
 		ConversationID:   null.IntFrom(conversation.ID),
@@ -1445,14 +1502,17 @@ func (m *Manager) sendReplyNotification(conversation models.Conversation, messag
 	if len(group.recipients) == 0 {
 		return
 	}
-	messageText := replyNotificationText(message)
+	messageText := textWithoutQuotedReplies(message)
+	if messageText == "" && len(message.Attachments) > 0 {
+		messageText = m.i18n.Tc("globals.terms.attachment", len(message.Attachments))
+	}
 	candidateIDs := make([]int, len(group.recipients))
 	for i, recipient := range group.recipients {
 		candidateIDs[i] = recipient.ID
 	}
 
 	recipients := m.buildNotificationRecipients(candidateIDs, func(recipient umodels.User) (string, string, error) {
-		data := notificationTemplateData(conversation, recipient, author)
+		data := template.BuildConversationData(conversation, recipient, author)
 		data["Message"] = map[string]any{
 			"UUID":    message.UUID,
 			"Content": htmltemplate.HTML(strings.ReplaceAll(html.EscapeString(messageText), "\n", "<br>")),
@@ -1531,17 +1591,12 @@ func (m *Manager) NotifyMention(conversationUUID string, message models.Message,
 	messageContent := htmltemplate.HTML(absolutizeConversationReferenceLinks(message.Content, rootURL))
 
 	recipients := m.buildNotificationRecipients(userIDs, func(recipient umodels.User) (string, string, error) {
-		data := notificationTemplateData(conversation, recipient, umodels.User{})
+		data := template.BuildConversationData(conversation, recipient, author)
 		data["Message"] = map[string]any{
 			"UUID":    message.UUID,
 			"Content": messageContent,
 		}
-		data["MentionedBy"] = map[string]any{
-			"FirstName": author.FirstName,
-			"LastName":  author.LastName,
-			"FullName":  author.FullName(),
-			"Email":     author.Email.String,
-		}
+		data["MentionedBy"] = data["Author"]
 		content, subject, err := m.template.RenderStoredEmailTemplate(template.TmplMentioned, data)
 		return subject, content, err
 	})
@@ -1716,6 +1771,17 @@ func (m *Manager) ApplyAction(action amodels.RuleAction, conv models.Conversatio
 			"actor_id":     user.ID,
 		})
 		return nil
+	case amodels.ActionAIClassifyAttribute:
+		if strings.TrimSpace(action.Value[0]) == "" {
+			return fmt.Errorf("ai classify action requires an attribute key")
+		}
+		if m.aiClassifier == nil {
+			m.lo.Warn("ai classify action skipped: classifier not configured", "conversation_uuid", conv.UUID)
+			return nil
+		}
+		// Runs in the background so a slow provider never holds up the automation worker.
+		m.aiClassifier.Classify(conv.UUID, action.Value)
+		return nil
 	case amodels.ActionNotify:
 		subject := strings.TrimSpace(action.Subject)
 		message := strings.TrimSpace(action.Message)
@@ -1741,9 +1807,9 @@ func (m *Manager) notifyAutomation(subject, message string, entries []string, co
 	}
 
 	recipients := m.buildNotificationRecipients(userIDs, func(recipient umodels.User) (string, string, error) {
-		data := notificationTemplateData(conv, recipient, umodels.User{})
-		data["Message"] = message
-		content, err := m.template.RenderEmailWithTemplate(data, automationNotifyEmailContent)
+		data := template.BuildConversationData(conv, recipient, umodels.User{} /** author **/)
+		data["Message"] = map[string]any{"Content": message}
+		content, err := m.template.RenderNotificationEmail(automationNotifyEmailContent, data)
 		return subject, content, err
 	})
 
@@ -1976,6 +2042,23 @@ func (m *Manager) SendCSATReply(actorUserID int, conversation models.Conversatio
 	return nil
 }
 
+func (m *Manager) UpdateCSATResponse(uuid string, rating int, feedback string, meta json.RawMessage) error {
+	if err := m.csatStore.UpdateResponse(uuid, rating, feedback, meta); err != nil {
+		return err
+	}
+	var messages []models.Message
+	if err := m.q.GetCSATMessages.Select(&messages, uuid); err != nil {
+		m.lo.Error("error fetching CSAT messages for update", "csat_uuid", uuid, "error", err)
+		return nil
+	}
+	for _, message := range messages {
+		message.CensorCSATContentWithStatus(true /** csatSubmitted **/, uuid, rating, feedback)
+		message.StripCSATUUID()
+		m.BroadcastMessageUpdate(message.ConversationUUID, message.UUID, map[string]any{"meta": message.Meta})
+	}
+	return nil
+}
+
 // DeleteConversation deletes a conversation.
 func (m *Manager) DeleteConversation(uuid string) error {
 	res, err := m.q.DeleteConversation.Exec(uuid)
@@ -1986,6 +2069,27 @@ func (m *Manager) DeleteConversation(uuid string) error {
 	rows, _ := res.RowsAffected()
 	m.lo.Info("deleted conversation", "uuid", uuid, "rows_affected", rows)
 	return nil
+}
+
+// GetSpamCandidateConversations returns the UUIDs of the contact's unresolved conversations.
+func (m *Manager) GetSpamCandidateConversations(contactID int) ([]string, error) {
+	var uuids = make([]string, 0)
+	if err := m.q.GetSpamCandidateConversations.Select(&uuids, contactID); err != nil {
+		m.lo.Error("error fetching spam candidate conversations", "contact_id", contactID, "error", err)
+		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+	return uuids, nil
+}
+
+// DeleteSpamConversations blocks the contact and deletes the given conversations of that contact in one statement.
+func (m *Manager) DeleteSpamConversations(contactID int, uuids []string) ([]models.DeletedConversation, error) {
+	var deleted = make([]models.DeletedConversation, 0)
+	if err := m.q.DeleteSpamConversations.Select(&deleted, contactID, pq.Array(uuids)); err != nil {
+		m.lo.Error("error deleting spam conversations", "contact_id", contactID, "error", err)
+		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+	m.lo.Info("blocked contact and deleted spam conversations", "contact_id", contactID, "count", len(deleted))
+	return deleted, nil
 }
 
 // UpdateConversationCustomAttributes updates the custom attributes of a conversation.
@@ -2002,6 +2106,23 @@ func (c *Manager) UpdateConversationCustomAttributes(uuid string, customAttribut
 	// Broadcast the custom attributes update.
 	c.BroadcastConversationUpdate(uuid, map[string]any{"custom_attributes": customAttributes})
 	return nil
+}
+
+// SetConversationCustomAttributeIfEmpty sets one custom attribute (any JSON value) unless it already holds a value; false means it was left alone.
+func (c *Manager) SetConversationCustomAttributeIfEmpty(uuid, key string, value any) (bool, error) {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return false, fmt.Errorf("encoding custom attribute value: %w", err)
+	}
+	var attrs []byte
+	if err := c.q.SetConversationAttrIfEmpty.Get(&attrs, uuid, key, encoded); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("setting conversation custom attribute: %w", err)
+	}
+	c.BroadcastConversationUpdate(uuid, map[string]any{"custom_attributes": json.RawMessage(attrs)})
+	return true, nil
 }
 
 // addConversationParticipant adds a user as participant to a conversation.
@@ -2438,32 +2559,25 @@ func renderTagFilter(operator, value string, paramIndex int) (string, []any, err
 	}
 }
 
-func notificationTemplateData(conversation models.Conversation, recipient, author umodels.User) map[string]any {
-	return map[string]any{
-		"Conversation": map[string]any{
-			"ReferenceNumber": conversation.ReferenceNumber,
-			"Subject":         conversation.Subject.String,
-			"Priority":        conversation.Priority.String,
-			"UUID":            conversation.UUID,
-		},
-		"Contact": map[string]any{
-			"FirstName": conversation.Contact.FirstName,
-			"LastName":  conversation.Contact.LastName,
-			"FullName":  conversation.Contact.FullName(),
-			"Email":     conversation.Contact.Email.String,
-		},
-		"Recipient": map[string]any{
-			"FirstName": recipient.FirstName,
-			"LastName":  recipient.LastName,
-			"FullName":  recipient.FullName(),
-			"Email":     recipient.Email.String,
-		},
-		"Author": map[string]any{
-			"FirstName": author.FirstName,
-			"LastName":  author.LastName,
-			"FullName":  author.FullName(),
-			"Email":     author.Email.String,
-		},
+// renderOrganizationExternalIDFilter filters conversations by the external ID of their organization (Clyr fork).
+func renderOrganizationExternalIDFilter(operator, value string, paramIndex int) (string, []any, error) {
+	switch operator {
+	case "equals", "not equals":
+		if strings.TrimSpace(value) == "" {
+			return "", nil, fmt.Errorf("operator %q requires a value", operator)
+		}
+		op := "IN"
+		if operator == "not equals" {
+			op = "NOT IN"
+		}
+		sql := fmt.Sprintf("COALESCE(conversations.organization_id, 0) %s (SELECT id FROM organizations WHERE external_id = $%d)", op, paramIndex)
+		return sql, []any{value}, nil
+	case "set":
+		return "conversations.organization_id IS NOT NULL", nil, nil
+	case "not set":
+		return "conversations.organization_id IS NULL", nil, nil
+	default:
+		return "", nil, fmt.Errorf("invalid operator for organization_external_id: %s", operator)
 	}
 }
 
@@ -2523,12 +2637,11 @@ func listTypeWhereClause(conditions []string) string {
 	return "AND (" + strings.Join(conditions, " OR ") + ")"
 }
 
-func replyNotificationText(message models.Message) string {
-	full := strings.TrimSpace(message.TextContent)
+func textWithoutQuotedReplies(message models.Message) string {
 	if message.ContentType == models.ContentTypeHTML {
-		return cmp.Or(stringutil.HTML2TextNoQuotes(message.Content), full)
+		return stringutil.HTML2TextNoQuotes(message.Content)
 	}
-	return cmp.Or(stringutil.TrimPlainTextQuotes(full), full)
+	return stringutil.TrimPlainTextQuotes(strings.TrimSpace(message.TextContent))
 }
 
 // readScopeArgs returns the agent's team IDs and read permissions in the argument order the read-permission queries expect.

@@ -49,7 +49,18 @@ var migList = []migFunc{
 	{"v2.8.0", migrations.V2_8_0},
 	{"v2.9.0-rc.8", migrations.V2_9_0_RC8},
 	{"v2.9.0-rc.9", migrations.V2_9_0_RC9},
+	// Clyr fork migrations use a prerelease suffix of the upstream version they followed. The list must stay sorted.
+	{"v2.9.0-rc.9.clyr.1", migrations.V2_9_0_RC9_CLYR1},
+	{"v2.9.0-rc.9.clyr.2", migrations.V2_9_0_RC9_CLYR2},
+	{"v2.9.0-rc.9.clyr.3", migrations.V2_9_0_RC9_CLYR3},
+	{"v2.9.0-rc.9.clyr.4", migrations.V2_9_0_RC9_CLYR4},
+	{"v2.9.0-rc.9.clyr.5", migrations.V2_9_0_RC9_CLYR5},
+	{"v2.9.0-rc.9.clyr.6", migrations.V2_9_0_RC9_CLYR6},
+	{"v2.9.0-rc.9.clyr.7", migrations.V2_9_0_RC9_CLYR7},
+	{"v2.9.0-rc.9.clyr.8", migrations.V2_9_0_RC9_CLYR8},
 	{"v2.9.0-rc.10", migrations.V2_9_0_RC10},
+	{"v2.9.0-rc.10.clyr.1", migrations.V2_9_0_RC10_CLYR1},
+	{"v2.9.0-rc.10.clyr.2", migrations.V2_9_0_RC10_CLYR2},
 }
 
 // upgrade upgrades the database to the current version by running SQL migration files

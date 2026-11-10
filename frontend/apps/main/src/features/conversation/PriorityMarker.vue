@@ -1,16 +1,16 @@
 <template>
-  <Tooltip v-if="priorityName">
+  <Tooltip v-if="priorityName" :disabled="!tooltip">
     <TooltipTrigger asChild>
       <PriorityIcon
         :level="marker.level"
-        :size="13"
+        :size="size"
         class="flex-shrink-0"
         :class="marker.class"
         role="img"
         :aria-label="priorityLabel"
       />
     </TooltipTrigger>
-    <TooltipContent>{{ priorityLabel }}</TooltipContent>
+    <TooltipContent>{{ priorityName }}</TooltipContent>
   </Tooltip>
 </template>
 
@@ -21,9 +21,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@shared-ui/components/u
 import { useI18n } from 'vue-i18n'
 
 const PRIORITY_MARKERS = {
+  // Clyr desk: the bar count carries the level; colour is kept for the whose-move code.
   low: { level: 1, class: 'text-muted-foreground' },
-  medium: { level: 2, class: 'text-warning-600' },
-  high: { level: 3, class: 'text-destructive' }
+  medium: { level: 2, class: 'text-foreground' },
+  high: { level: 3, class: 'text-foreground' }
 }
 const UNKNOWN_MARKER = { level: 0, class: 'text-muted-foreground' }
 
@@ -31,6 +32,14 @@ const props = defineProps({
   priority: {
     type: String,
     default: ''
+  },
+  tooltip: {
+    type: Boolean,
+    default: true
+  },
+  size: {
+    type: Number,
+    default: 13
   }
 })
 

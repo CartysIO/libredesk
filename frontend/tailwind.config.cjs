@@ -3,7 +3,7 @@ const typography = require("@tailwindcss/typography")
 const plugin = require("tailwindcss/plugin")
 const defaultTheme = require("tailwindcss/defaultTheme")
 
-const canHover = plugin(({ addVariant }) => addVariant("can-hover", "@media (hover: hover)"))
+const canHover = plugin(({ addVariant }) => addVariant("can-hover", "@media (hover: hover) and (pointer: fine)"))
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -43,6 +43,15 @@ module.exports = {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         'foreground-lighter': 'hsl(var(--foreground-lighter))',
+        // Clyr desk only (apps/main/src/assets/desk-theme.scss): brand green and the whose-move code.
+        brand: 'hsl(var(--brand))',
+        code: {
+          new: 'hsl(var(--code-new))',
+          you: 'hsl(var(--code-you))',
+          customer: 'hsl(var(--code-customer))',
+          hold: 'hsl(var(--code-hold))',
+          done: 'hsl(var(--code-done))'
+        },
         sidebar: {
           DEFAULT: 'hsl(var(--sidebar-background))',
           foreground: 'hsl(var(--sidebar-foreground))',

@@ -26,6 +26,7 @@ func initHandlers(g *fastglue.Fastglue, hub *ws.Hub) {
 	g.GET("/logout", auth(handleLogout))
 	g.GET("/api/v1/oidc/{id}/login", rateLimit(handleOIDCLogin, "auth"))
 	g.GET("/api/v1/oidc/{id}/finish", rateLimit(sessionLogin(handleOIDCCallback), "auth"))
+	g.POST("/api/v1/auth/clerk", rateLimit(sessionLogin(handleClerkLogin), "auth"))
 
 	// i18n.
 	g.GET("/api/v1/lang", handleGetAvailableLanguages)
@@ -71,6 +72,11 @@ func initHandlers(g *fastglue.Fastglue, hub *ws.Hub) {
 	g.PUT("/api/v1/conversations/{uuid}/last-seen", perm(handleUpdateConversationAssigneeLastSeen, "conversations:read"))
 	g.PUT("/api/v1/conversations/{uuid}/mark-unread", perm(handleMarkConversationAsUnread, "conversations:read"))
 	g.POST("/api/v1/conversations/{uuid}/tags", perm(handleUpdateConversationtags, "conversations:update_tags"))
+	g.PUT("/api/v1/conversations/{uuid}/organization", perm(handleSetConversationOrganization, "conversations:update_organization"))
+	// Linear issues (Clyr fork). Linking reuses the tags permission: both label the conversation.
+	g.GET("/api/v1/conversations/{uuid}/linear-issues", perm(handleGetLinearIssues, "conversations:read"))
+	g.POST("/api/v1/conversations/{uuid}/linear-issues", perm(handleLinkLinearIssue, "conversations:update_tags"))
+	g.DELETE("/api/v1/conversations/{uuid}/linear-issues/{id}", perm(handleUnlinkLinearIssue, "conversations:update_tags"))
 	g.GET("/api/v1/conversations/{uuid}/page-visits", perm(handleGetContactPageVisits, "conversations:read"))
 	g.GET("/api/v1/conversations/{cuuid}/messages/{uuid}", perm(handleGetMessage, "messages:read"))
 	g.GET("/api/v1/conversations/{uuid}/messages", perm(handleGetMessages, "messages:read"))
@@ -79,6 +85,8 @@ func initHandlers(g *fastglue.Fastglue, hub *ws.Hub) {
 	g.PUT("/api/v1/conversations/{cuuid}/messages/{uuid}/retry", perm(handleRetryMessage, "messages:write"))
 	g.DELETE("/api/v1/conversations/{cuuid}/messages/{uuid}", perm(handleDeleteMessage, "messages:write_private"))
 	g.POST("/api/v1/conversations", perm(handleCreateConversation, "conversations:write"))
+	g.DELETE("/api/v1/conversations/{uuid}", perm(handleDeleteConversation, "conversations:delete"))
+	g.POST("/api/v1/conversations/{uuid}/spam", perm(handleMarkConversationSpam, "conversations:delete"))
 	g.PUT("/api/v1/conversations/{uuid}/custom-attributes", auth(handleUpdateConversationCustomAttributes))
 	g.PUT("/api/v1/conversations/{uuid}/contacts/custom-attributes", auth(handleUpdateContactCustomAttributes))
 	// Draft endpoints
@@ -163,6 +171,20 @@ func initHandlers(g *fastglue.Fastglue, hub *ws.Hub) {
 	g.DELETE("/api/v1/contacts/{id}", perm(handleDeleteContact, "contacts:delete"))
 	g.GET("/api/v1/contacts/{id}/export", perm(handleExportContact, "contacts:export"))
 
+	g.PUT("/api/v1/contacts/{id}/organization", perm(handleSetContactOrganization, "contacts:write"))
+	g.GET("/api/v1/contacts/{id}/organizations", perm(handleGetContactOrganizations, "contacts:read"))
+	g.POST("/api/v1/contacts/{id}/organizations", perm(handleAddContactOrganization, "contacts:write"))
+	g.DELETE("/api/v1/contacts/{id}/organizations/{org_id}", perm(handleRemoveContactOrganization, "contacts:write"))
+
+	// Organizations (Clyr fork). They reuse the contact permissions.
+	g.GET("/api/v1/organizations", perm(handleGetOrganizations, "contacts:read"))
+	g.POST("/api/v1/organizations", perm(handleCreateOrganization, "contacts:write"))
+	g.POST("/api/v1/organizations/sync", perm(handleSyncOrganizations, "contacts:write"))
+	g.GET("/api/v1/organizations/{id}", perm(handleGetOrganization, "contacts:read"))
+	g.PUT("/api/v1/organizations/{id}", perm(handleUpdateOrganization, "contacts:write"))
+	g.DELETE("/api/v1/organizations/{id}", perm(handleDeleteOrganization, "contacts:delete"))
+	g.GET("/api/v1/organizations/{id}/contacts", perm(handleGetOrganizationContacts, "contacts:read"))
+
 	// Contact notes.
 	g.GET("/api/v1/contacts/{id}/notes", perm(handleGetContactNotes, "contact_notes:read"))
 	g.POST("/api/v1/contacts/{id}/notes", perm(handleCreateContactNote, "contact_notes:write"))
@@ -234,6 +256,7 @@ func initHandlers(g *fastglue.Fastglue, hub *ws.Hub) {
 	g.GET("/api/v1/reports/overview/csat", perm(handleOverviewCSAT, "reports:manage"))
 	g.GET("/api/v1/reports/overview/messages", perm(handleOverviewMessageVolume, "reports:manage"))
 	g.GET("/api/v1/reports/overview/tags", perm(handleOverviewTagDistribution, "reports:manage"))
+	g.GET("/api/v1/reports/issues", perm(handleIssuesReport, "reports:manage"))
 
 	// Templates.
 	g.GET("/api/v1/templates", perm(handleGetTemplates, "templates:manage"))
@@ -400,6 +423,11 @@ func initHandlers(g *fastglue.Fastglue, hub *ws.Hub) {
 	g.GET("/webhooks/whatsapp/{inbox_id}", rateLimit(handleWhatsAppWebhookVerify, "public"))
 	g.POST("/webhooks/whatsapp/{inbox_id}", handleWhatsAppWebhookEvent)
 
+	// Slack bridge (Clyr fork). Slack signs each request; handleSlackEvents checks the signature.
+	g.POST("/webhooks/slack/events", rateLimit(handleSlackEvents, "public"))
+	// Linear (Clyr fork). Linear signs each request; handleLinearWebhook checks the signature.
+	g.POST("/webhooks/linear", rateLimit(handleLinearWebhook, "public"))
+
 	g.GET("/api/v1/whatsapp/contacts/{contact_id}/open-conversation", perm(handleGetWhatsAppOpenConversation, "conversations:read"))
 
 	// WhatsApp templates.
@@ -424,6 +452,7 @@ func initHandlers(g *fastglue.Fastglue, hub *ws.Hub) {
 	g.GET("/views/{all:*}", authPage(serveIndexPage))
 	g.GET("/admin/{all:*}", authPage(serveIndexPage))
 	g.GET("/contacts/{all:*}", authPage(serveIndexPage))
+	g.GET("/organizations/{all:*}", authPage(serveIndexPage))
 	g.GET("/reports/{all:*}", authPage(serveIndexPage))
 	g.GET("/account/{all:*}", authPage(serveIndexPage))
 	g.GET("/reset-password", notAuthPage(serveIndexPage))

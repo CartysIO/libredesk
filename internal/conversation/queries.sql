@@ -1,12 +1,19 @@
 -- name: unsnooze-all
+-- Expired snoozes return to "On you" if an agent already replied, else "Open" ("On you" falls back to "Open" if removed).
 UPDATE conversations
-SET snoozed_until = NULL, status_id = (SELECT id FROM conversation_statuses WHERE name = 'Open')
+SET snoozed_until = NULL,
+    status_id = COALESCE(
+      (SELECT s.id FROM conversation_statuses s WHERE s.name = 'On you' AND conversations.first_reply_at IS NOT NULL),
+      (SELECT s.id FROM conversation_statuses s WHERE s.name = 'Open')
+    )
 WHERE snoozed_until <= NOW()
-  AND status_id = (SELECT id FROM conversation_statuses WHERE name = 'Snoozed');
+  AND status_id = (SELECT id FROM conversation_statuses WHERE name = 'Snoozed')
+RETURNING uuid, (SELECT name FROM conversation_statuses WHERE id = conversations.status_id) AS status;
 
 -- name: insert-conversation
 -- $11 = rate limit window start (timestamptz), $12 = max conversations (0 = unlimited)
 -- $13 = subject reference marker template (placeholder: {ref})
+-- $14 = preferred organization (Clyr fork): used when the contact belongs to it, else the contact's default organization
 WITH
 status_id AS (
     SELECT id FROM conversation_statuses WHERE name = $2
@@ -15,7 +22,7 @@ reference_number AS (
     SELECT generate_reference_number($7) AS reference_number
 )
 INSERT INTO conversations
-(contact_id, status_id, inbox_id, last_message, last_message_at, subject, reference_number, meta, custom_attributes)
+(contact_id, status_id, inbox_id, last_message, last_message_at, subject, reference_number, meta, custom_attributes, organization_id)
 SELECT
    $1,
    (SELECT id FROM status_id),
@@ -28,7 +35,11 @@ SELECT
    END,
    (SELECT reference_number FROM reference_number),
    $9,
-   $10
+   $10,
+   COALESCE(
+      (SELECT co.organization_id FROM contact_organizations co WHERE co.contact_id = $1 AND co.organization_id = $14::BIGINT),
+      (SELECT organization_id FROM users WHERE id = $1)
+   )
 WHERE $12::int = 0 OR (SELECT COUNT(*) FROM conversations WHERE contact_id = $1 AND created_at >= $11) < $12::int
 RETURNING id, uuid;
 
@@ -67,6 +78,16 @@ SELECT
     conversations.priority_id,
     conversations.assigned_user_id,
     conversations.assigned_team_id,
+    CASE WHEN assignee.id IS NULL THEN 'null'::json ELSE json_build_object(
+        'id', assignee.id,
+        'first_name', assignee.first_name,
+        'last_name', assignee.last_name,
+        'avatar_url', assignee.avatar_url,
+        'type', assignee.type,
+        'availability_status', assignee.availability_status
+    ) END AS assignee,
+    conversations.organization_id,
+    organizations.name as organization_name,
     (
     SELECT CASE WHEN COUNT(*) > 9 THEN 10 ELSE COUNT(*) END
     FROM (
@@ -77,6 +98,7 @@ SELECT
              WHERE conversation_id = conversations.id AND user_id = $1),
             '1970-01-01'::TIMESTAMPTZ
         )
+        AND type != 'activity'
         AND (meta IS NULL OR NOT COALESCE((meta->>'continuity_email')::boolean, false))
         LIMIT 10
     ) t
@@ -102,7 +124,10 @@ SELECT
     ) ELSE NULL END as mentioned_message_uuid
     FROM conversations
     JOIN users ON contact_id = users.id
+    LEFT JOIN users assignee ON conversations.assigned_user_id = assignee.id
+        AND assignee.deleted_at IS NULL AND (assignee.email != 'System' OR assignee.type = 'ai_assistant')
     JOIN inboxes ON inbox_id = inboxes.id  
+    LEFT JOIN organizations ON organizations.id = conversations.organization_id
     LEFT JOIN conversation_statuses ON status_id = conversation_statuses.id
     LEFT JOIN conversation_priorities ON priority_id = conversation_priorities.id
     LEFT JOIN LATERAL (
@@ -152,6 +177,16 @@ SELECT
     conversations.priority_id,
     conversations.assigned_user_id,
     conversations.assigned_team_id,
+    CASE WHEN assignee.id IS NULL THEN 'null'::json ELSE json_build_object(
+        'id', assignee.id,
+        'first_name', assignee.first_name,
+        'last_name', assignee.last_name,
+        'avatar_url', assignee.avatar_url,
+        'type', assignee.type,
+        'availability_status', assignee.availability_status
+    ) END AS assignee,
+    conversations.organization_id,
+    organizations.name as organization_name,
     conversation_statuses.name as status,
     conversation_priorities.name as priority,
     as_latest.first_response_deadline_at,
@@ -161,7 +196,10 @@ SELECT
     nxt_resp_event.met_at as next_response_met_at
 FROM conversations
 JOIN users ON contact_id = users.id
+LEFT JOIN users assignee ON conversations.assigned_user_id = assignee.id
+    AND assignee.deleted_at IS NULL AND (assignee.email != 'System' OR assignee.type = 'ai_assistant')
 JOIN inboxes ON inbox_id = inboxes.id
+LEFT JOIN organizations ON organizations.id = conversations.organization_id
 LEFT JOIN conversation_statuses ON status_id = conversation_statuses.id
 LEFT JOIN conversation_priorities ON priority_id = conversation_priorities.id
 LEFT JOIN LATERAL (
@@ -208,6 +246,14 @@ SELECT
    c.snoozed_until,
    c.assigned_user_id,
    c.assigned_team_id,
+   CASE WHEN assignee.id IS NULL THEN 'null'::json ELSE json_build_object(
+       'id', assignee.id,
+       'first_name', assignee.first_name,
+       'last_name', assignee.last_name,
+       'avatar_url', assignee.avatar_url,
+       'type', assignee.type,
+       'availability_status', assignee.availability_status
+   ) END AS assignee,
    c.subject,
    c.contact_id,
    c.sla_policy_id,
@@ -245,6 +291,15 @@ SELECT
    ct.last_active_at as "contact.last_active_at",
    ct.last_login_at as "contact.last_login_at",
    ct.external_user_id as "contact.external_user_id",
+   ct.organization_id as "contact.organization_id",
+   ct_org.name as "contact.organization_name",
+   ct_org.external_id as "contact.organization_external_id",
+   c.organization_id,
+   c_org.name as organization_name,
+   c_org.external_id as organization_external_id,
+   COALESCE(c_org.custom_attributes, '{}'::jsonb) as organization_custom_attributes,
+   COALESCE((SELECT json_agg(json_build_object('id', o.id, 'name', o.name, 'external_id', o.external_id, 'is_default', o.id = ct.organization_id) ORDER BY o.id = ct.organization_id DESC, o.name, o.id)
+      FROM contact_organizations co JOIN organizations o ON o.id = co.organization_id WHERE co.contact_id = ct.id), '[]'::json) as "contact.organizations",
    (SELECT json_agg(json_build_object('channel', cci.channel, 'identifier', cci.identifier))
       FROM contact_channel_identities cci WHERE cci.contact_id = ct.id) as "contact.channel_identities",
    as_latest.first_response_deadline_at,
@@ -260,6 +315,10 @@ SELECT
    csat.response_timestamp as csat_responded_at
 FROM conversations c
 JOIN users ct ON c.contact_id = ct.id
+LEFT JOIN users assignee ON c.assigned_user_id = assignee.id
+    AND assignee.deleted_at IS NULL AND (assignee.email != 'System' OR assignee.type = 'ai_assistant')
+LEFT JOIN organizations ct_org ON ct_org.id = ct.organization_id
+LEFT JOIN organizations c_org ON c_org.id = c.organization_id
 JOIN inboxes inb ON c.inbox_id = inb.id
 LEFT JOIN LATERAL (
     SELECT rating, feedback, response_timestamp
@@ -295,11 +354,14 @@ WHERE
 
 
 -- name: get-conversations-created-after
+-- Clyr fork: a conversation the Pylon import created is history until it gets a message after the import, so time
+-- triggers skip it until then.
 SELECT
     c.id,
     c.uuid
 FROM conversations c
 WHERE c.created_at > $1 AND c.id > $2
+  AND NOT COALESCE(c.meta ? 'pylon_issue_id' AND c.last_message_at <= (c.meta->>'pylon_imported_at')::timestamptz, FALSE)
 ORDER BY c.id
 LIMIT $3;
 
@@ -521,10 +583,11 @@ updated_at = NOW()
 WHERE uuid = $1;
 
 -- name: claim-unassigned-conversation
+-- $3 = the team the caller saw; 0 means the conversation had no team.
 UPDATE conversations
 SET assigned_user_id = $2,
 updated_at = NOW()
-WHERE uuid = $1 AND assigned_user_id IS NULL AND assigned_team_id = $3;
+WHERE uuid = $1 AND assigned_user_id IS NULL AND assigned_team_id IS NOT DISTINCT FROM NULLIF($3::INT, 0);
 
 -- name: update-conversation-contact-last-seen
 UPDATE conversations
@@ -539,6 +602,30 @@ SET assigned_team_id = $2,
 updated_at = NOW()
 WHERE uuid = $1;
 
+
+-- name: update-conversation-status-if-current
+-- Same update as update-conversation-status, but only when the conversation is still in one of the
+-- statuses in $3. Returns the previous status name, or no row when the status changed meanwhile.
+WITH new_status AS (
+    SELECT id, category FROM conversation_statuses WHERE name = $2
+),
+prev AS (
+    SELECT c.id, s.name AS prev_status
+    FROM conversations c
+    JOIN conversation_statuses s ON s.id = c.status_id
+    WHERE c.uuid = $1 AND s.name = ANY($3::text[])
+    FOR UPDATE OF c
+)
+UPDATE conversations
+SET status_id        = (SELECT id FROM new_status),
+    resolved_at      = COALESCE(resolved_at, CASE WHEN (SELECT category FROM new_status) = 'resolved' THEN NOW() END),
+    last_resolved_at = CASE WHEN (SELECT category FROM new_status) = 'resolved' THEN NOW() ELSE last_resolved_at END,
+    closed_at        = COALESCE(closed_at,   CASE WHEN $2 = 'Closed'                                  THEN NOW() END),
+    snoozed_until    = CASE WHEN $2 = 'Snoozed' THEN $4::timestamptz ELSE NULL END,
+    updated_at       = NOW()
+FROM prev
+WHERE conversations.id = prev.id AND EXISTS (SELECT 1 FROM new_status)
+RETURNING prev.prev_status;
 
 -- name: update-conversation-status
 WITH new_status AS (
@@ -632,6 +719,14 @@ FROM conversation_participants
 INNER JOIN users ON users.id = conversation_participants.user_id
 WHERE conversation_participants.conversation_id = (SELECT id FROM conversations WHERE uuid = $1)
   AND users.type = 'agent'
+  AND EXISTS (
+      SELECT 1 FROM conversation_messages m
+      WHERE m.conversation_id = conversation_participants.conversation_id
+        AND m.sender_id = users.id
+        AND m.sender_type = 'agent'
+        AND m.type = 'outgoing'
+        AND NOT m.private
+  )
   AND users.email != 'System'
   AND users.enabled
   AND users.deleted_at IS NULL;
@@ -714,6 +809,28 @@ SET custom_attributes = $2,
     updated_at = NOW()
 WHERE uuid = $1;
 
+-- name: set-conversation-custom-attribute-if-empty
+-- Merges one key ($3 is a JSON value) and skips the row when the key already holds a value, so an agent's choice wins over AI.
+-- Missing, null, blank strings and empty arrays count as unset; keep in step with aiclassify.HasValue.
+UPDATE conversations
+SET custom_attributes = custom_attributes || jsonb_build_object($2::text, $3::jsonb),
+    updated_at = NOW()
+WHERE uuid = $1
+  AND COALESCE(btrim(custom_attributes->>$2::text), '') IN ('', '[]')
+RETURNING custom_attributes;
+
+-- name: get-first-incoming-messages
+SELECT m.created_at,
+    COALESCE(m.content, '') AS content,
+    COALESCE(m.text_content, '') AS text_content,
+    COALESCE(m.content_type::text, '') AS content_type,
+    m.sender_type
+FROM conversation_messages m
+JOIN conversations c ON c.id = m.conversation_id
+WHERE c.uuid = $1 AND m.type = 'incoming' AND m.private = false
+ORDER BY m.created_at, m.id
+LIMIT $2;
+
 -- name: start-conversation-waiting-since
 UPDATE conversations
 SET waiting_since = $2,
@@ -741,26 +858,36 @@ SET
 WHERE uuid = $1;
 
 -- name: re-open-conversation
--- Open conversation if it is not already open and unset the assigned user if they are away and reassigning.
+-- Move a conversation that is not Open or On you back to a customer-facing status and unset the assigned user
+-- if they are away and reassigning. The target is "On you" when the conversation was waiting on the customer
+-- or already has an agent reply, else "Open". "On you" falls back to "Open" if an admin removed that status.
+WITH target AS (
+  SELECT
+    c.id AS conversation_id,
+    COALESCE(
+      (SELECT s.id FROM conversation_statuses s WHERE s.name = 'On you' AND (cur.name = 'On customer' OR c.first_reply_at IS NOT NULL)),
+      (SELECT s.id FROM conversation_statuses s WHERE s.name = 'Open')
+    ) AS status_id
+  FROM conversations c
+  JOIN conversation_statuses cur ON cur.id = c.status_id
+  WHERE c.uuid = $1 AND cur.name NOT IN ('Open', 'On you')
+)
 UPDATE conversations
-SET 
-  status_id = (SELECT id FROM conversation_statuses WHERE name = 'Open'),
+SET
+  status_id = target.status_id,
   snoozed_until = NULL,
   updated_at = NOW(),
   assigned_user_id = CASE
     WHEN EXISTS (
-      SELECT 1 FROM users 
-      WHERE users.id = conversations.assigned_user_id 
+      SELECT 1 FROM users
+      WHERE users.id = conversations.assigned_user_id
         AND users.availability_status = 'away_and_reassigning'
     ) THEN NULL
     ELSE assigned_user_id
   END
-WHERE 
-  uuid = $1
-  AND status_id IN (
-    SELECT id FROM conversation_statuses WHERE name NOT IN ('Open')
-  )
-RETURNING id;
+FROM target
+WHERE conversations.id = target.conversation_id
+RETURNING conversations.id, (SELECT name FROM conversation_statuses WHERE id = conversations.status_id) AS status;
 
 -- name: get-conversation-by-message-id
 SELECT
@@ -774,6 +901,25 @@ WHERE m.id = $1;
 
 -- name: delete-conversation
 DELETE FROM conversations WHERE uuid = $1;
+
+-- name: get-spam-candidate-conversations
+-- $1 = contact id. The contact's unresolved conversations, which marking one of them as spam also deletes.
+SELECT c.uuid::text
+FROM conversations c
+JOIN conversation_statuses s ON s.id = c.status_id
+WHERE c.contact_id = $1 AND s.category != 'resolved';
+
+-- name: delete-spam-conversations
+-- $1 = contact id, $2 = conversation uuids. One statement blocks the contact and deletes the conversations, so both happen or neither does.
+WITH blocked AS (
+    UPDATE users SET enabled = false, updated_at = NOW()
+    WHERE id = $1 AND type IN ('contact', 'visitor')
+    RETURNING id
+)
+DELETE FROM conversations c
+USING blocked b
+WHERE c.contact_id = b.id AND c.uuid = ANY($2::uuid[])
+RETURNING c.id, c.uuid, c.reference_number;
 
 -- MESSAGE queries.
 -- name: delete-message
@@ -825,6 +971,37 @@ and source_id > ''
 ORDER BY id DESC
 LIMIT $2;
 
+-- name: get-previous-messages
+SELECT
+    m.created_at,
+    m.type = 'incoming' AS is_incoming,
+    COALESCE(m.content, '') AS content,
+    COALESCE(m.text_content, '') AS text_content,
+    COALESCE(m.content_type::text, '') AS content_type,
+    u.first_name,
+    COALESCE(u.last_name, '') AS last_name,
+    COALESCE(u.email, '') AS email
+FROM conversation_messages m
+JOIN conversations c ON c.id = m.conversation_id
+JOIN users u ON u.id = m.sender_id
+JOIN users ct ON ct.id = c.contact_id
+WHERE m.conversation_id = $1
+AND m.id < $2
+AND m.private = false
+AND m.status != 'failed'
+AND NOT COALESCE((m.meta->>'continuity_email')::boolean, false)
+AND NOT COALESCE((m.meta->>'is_csat')::boolean, false)
+AND (
+    (m.type = 'incoming' AND m.sender_id = c.contact_id)
+    OR (m.type = 'outgoing' AND EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements_text(COALESCE(m.meta->'to', '[]'::jsonb) || COALESCE(m.meta->'cc', '[]'::jsonb)) AS r(addr)
+        WHERE lower(r.addr) = lower(ct.email)
+    ))
+)
+ORDER BY m.id DESC
+LIMIT $3;
+
 -- name: get-email-sender-message
 SELECT m.type, m.meta
 FROM conversation_messages m
@@ -861,7 +1038,8 @@ SELECT
     c.uuid as conversation_uuid,
     c.subject,
     c.contact_id as message_receiver_id,
-    c.subject
+    c.subject,
+    c.reference_number
 FROM conversation_messages m
 INNER JOIN conversations c ON c.id = m.conversation_id
 WHERE m.status = 'pending' AND m.type = 'outgoing' AND m.private = false
@@ -876,6 +1054,13 @@ AND NOT EXISTS (
       AND earlier.id < m.id
 )
 ORDER BY m.id
+
+-- name: get-csat-messages
+SELECT m.uuid, m.meta, c.uuid AS conversation_uuid
+FROM csat_responses r
+JOIN conversations c ON c.id = r.conversation_id
+JOIN conversation_messages m ON m.conversation_id = c.id
+WHERE r.uuid = $1 AND m.meta->>'csat_uuid' = r.uuid::text;
 
 -- name: get-message
 SELECT
@@ -991,6 +1176,29 @@ inserted_msg AS (
    )
    VALUES (
        $1, $2, (SELECT id FROM conversation_id),
+       $5, $6, $7, $8, $9, $10, $11, $12
+   )
+   RETURNING *
+)
+SELECT * FROM inserted_msg;
+
+-- name: insert-message-with-timestamps
+WITH conversation_id AS (
+   SELECT id
+   FROM conversations
+   WHERE CASE
+       WHEN $3 > 0 THEN id = $3
+       ELSE uuid = $4
+   END
+),
+inserted_msg AS (
+   INSERT INTO conversation_messages (
+       created_at, updated_at, "type", status, conversation_id, "content",
+       text_content, sender_id, sender_type, private,
+       content_type, source_id, meta
+   )
+   VALUES (
+       $13, $13, $1, $2, (SELECT id FROM conversation_id),
        $5, $6, $7, $8, $9, $10, $11, $12
    )
    RETURNING *
@@ -1226,6 +1434,7 @@ last_msg AS (
     SELECT created_at - INTERVAL '1 second' AS ts
     FROM conversation_messages
     WHERE conversation_id = (SELECT id FROM target)
+      AND type != 'activity'
       AND (meta IS NULL OR NOT COALESCE((meta->>'continuity_email')::boolean, false))
     ORDER BY created_at DESC LIMIT 1
 ),

@@ -10,7 +10,9 @@ import (
 	"github.com/abhinavxd/libredesk/internal/inbox/channel/livechat/proactive"
 )
 
-func (m *Manager) CreateProactiveConversation(delivery proactive.Delivery, contactID int, reply string, attrs, meta map[string]any, maxConversations int, window time.Duration) (models.Message, error) {
+// CreateProactiveConversation creates the conversation for a campaign reply. orgID is the organization the contact
+// signed in to (Clyr fork); the conversation gets it when the contact belongs to it, else the contact's default.
+func (m *Manager) CreateProactiveConversation(delivery proactive.Delivery, contactID int, reply string, attrs, meta map[string]any, maxConversations int, window time.Duration, orgID int) (models.Message, error) {
 	var snapshot proactive.Snapshot
 	if err := json.Unmarshal(delivery.Snapshot, &snapshot); err != nil {
 		return models.Message{}, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
@@ -41,7 +43,7 @@ func (m *Manager) CreateProactiveConversation(delivery proactive.Delivery, conta
 	var id int
 	var uuid string
 	now := time.Now()
-	if err := tx.Stmtx(m.q.InsertConversation).QueryRow(contactID, models.StatusOpen, delivery.InboxID, reply, now, "", "", false, metaJSON, attrsJSON, now.Add(-window), maxConversations, m.subjectRefFormat).Scan(&id, &uuid); err != nil {
+	if err := m.insertConversationRow(tx.Stmtx(m.q.InsertConversation), orgID, contactID, delivery.InboxID, reply, now, "", "", false, metaJSON, attrsJSON, now.Add(-window), maxConversations).Scan(&id, &uuid); err != nil {
 		if err == sql.ErrNoRows {
 			return models.Message{}, envelope.NewError(envelope.RateLimitError, m.i18n.T("globals.messages.tooManyRequests"), nil)
 		}

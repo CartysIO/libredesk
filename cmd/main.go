@@ -20,6 +20,7 @@ import (
 	activitylog "github.com/abhinavxd/libredesk/internal/activity_log"
 	"github.com/abhinavxd/libredesk/internal/ai"
 	"github.com/abhinavxd/libredesk/internal/aiagent"
+	"github.com/abhinavxd/libredesk/internal/aiclassify"
 	auth_ "github.com/abhinavxd/libredesk/internal/auth"
 	"github.com/abhinavxd/libredesk/internal/authz"
 	businesshours "github.com/abhinavxd/libredesk/internal/business_hours"
@@ -37,6 +38,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/abhinavxd/libredesk/internal/automation"
+	"github.com/abhinavxd/libredesk/internal/clerk"
 	contextlink "github.com/abhinavxd/libredesk/internal/context_link"
 	"github.com/abhinavxd/libredesk/internal/conversation"
 	"github.com/abhinavxd/libredesk/internal/conversation/priority"
@@ -44,11 +46,14 @@ import (
 	"github.com/abhinavxd/libredesk/internal/helpcenter"
 	"github.com/abhinavxd/libredesk/internal/importer"
 	"github.com/abhinavxd/libredesk/internal/inbox"
+	"github.com/abhinavxd/libredesk/internal/linear"
 	"github.com/abhinavxd/libredesk/internal/media"
 	"github.com/abhinavxd/libredesk/internal/oidc"
+	"github.com/abhinavxd/libredesk/internal/organization"
 	"github.com/abhinavxd/libredesk/internal/ratelimit"
 	"github.com/abhinavxd/libredesk/internal/role"
 	"github.com/abhinavxd/libredesk/internal/setting"
+	"github.com/abhinavxd/libredesk/internal/slackbridge"
 	"github.com/abhinavxd/libredesk/internal/tag"
 	"github.com/abhinavxd/libredesk/internal/team"
 	"github.com/abhinavxd/libredesk/internal/template"
@@ -107,11 +112,15 @@ type App struct {
 	i18n               *i18n.I18n
 	lo                 *logf.Logger
 	oidc               *oidc.Manager
+	clerk              *clerk.Client
+	slackBridge        *slackbridge.Manager
+	linear             *linear.Manager
 	media              *media.Manager
 	setting            *setting.Manager
 	role               *role.Manager
 	user               *user.Manager
 	team               *team.Manager
+	organization       *organization.Manager
 	status             *status.Manager
 	priority           *priority.Manager
 	tag                *tag.Manager
@@ -221,6 +230,11 @@ func main() {
 
 	validateConfig(ko)
 
+	if ko.Bool("pylon-import") {
+		runPylonImport(ctx, db, fs, settings)
+		os.Exit(0)
+	}
+
 	startPprof()
 
 	// Fallback for config typo. Logs a warning but continues to work with the incorrect key.
@@ -255,10 +269,12 @@ func main() {
 		media                       = initMedia(db, i18n, settings)
 		inbox                       = initInbox(db, i18n)
 		team                        = initTeam(db, i18n)
+		organization                = initOrganization(db, i18n)
 		businessHours               = initBusinessHours(db, i18n)
 		webhook                     = initWebhook(db, i18n, ssrfControl)
 		user                        = initUser(i18n, db)
 		auth                        = initAuth(oidc, rdb, i18n, ssrfControl)
+		clerkClient                 = initClerk()
 		wsHub                       = initWS(user)
 		notifier                    = initNotifier()
 		userNotification            = initUserNotification(db, i18n)
@@ -270,11 +286,13 @@ func main() {
 		automation                  = initAutomationEngine(db, i18n)
 		ai                          = initAI(ctx, db, i18n, ssrfControl)
 		sla                         = initSLA(db, team, settings, businessHours, template, user, i18n, notifDispatcher)
-		conversation                = initConversations(i18n, sla, status, priority, wsHub, db, inbox, user, team, media, settings, csat, automation, template, webhook, notifDispatcher)
+		slackBridge                 = initSlackBridge(db, user, media, settings)
+		conversation                = initConversations(i18n, sla, status, priority, wsHub, db, inbox, user, team, media, settings, csat, automation, template, eventFanout{webhook: webhook, bridge: slackBridge}, notifDispatcher)
 		aiAgent                     = initAIAgent(db, i18n, ai, conversation, inbox, media, settings, user, notifier, rdb)
 		helpCenter                  = initHelpCenter(db, i18n, ai)
 		autoassigner                = initAutoAssigner(team, user, conversation)
 		rateLimiter                 = initRateLimit(rdb)
+		customAttributes            = initCustomAttribute(db, i18n)
 	)
 
 	wsHub.SetConversationStore(conversation)
@@ -285,6 +303,12 @@ func main() {
 	}
 	automation.SetSystemUserID(systemUser.ID)
 	conversation.SetAIAgent(aiAgent)
+	conversation.SetAIClassifier(aiclassify.New(ctx, ai, customAttributes, conversation, lo))
+	conversation.SetOrganizationStore(organization)
+	automation.SetDefaultBusinessHours(defaultBusinessHours(settings, businessHours))
+	if slackBridge != nil {
+		slackBridge.SetConversationStore(conversation)
+	}
 
 	waClient := initWhatsAppClient()
 	waTemplates := initWhatsAppTemplates(db, i18n, waClient, inbox)
@@ -296,6 +320,9 @@ func main() {
 	go conversation.RunUnsnoozer(ctx, unsnoozeInterval)
 	go conversation.RunContinuity(ctx)
 	go webhook.Run(ctx)
+	if slackBridge != nil {
+		go slackBridge.Run(ctx)
+	}
 	go notifier.Run(ctx)
 	go sla.Run(ctx, slaEvaluationInterval)
 	go sla.SendNotifications(ctx)
@@ -317,6 +344,9 @@ func main() {
 		fs:               fs,
 		sla:              sla,
 		oidc:             oidc,
+		clerk:            clerkClient,
+		slackBridge:      slackBridge,
+		linear:           initLinear(db, conversation, systemUser.ID),
 		i18n:             i18n,
 		auth:             auth,
 		media:            media,
@@ -324,6 +354,7 @@ func main() {
 		inbox:            inbox,
 		user:             user,
 		team:             team,
+		organization:     organization,
 		csat:             csat,
 		status:           status,
 		priority:         priority,
@@ -334,7 +365,7 @@ func main() {
 		automation:       automation,
 		businessHours:    businessHours,
 		activityLog:      initActivityLog(db, i18n),
-		customAttribute:  initCustomAttribute(db, i18n),
+		customAttribute:  customAttributes,
 		authz:            initAuthz(i18n),
 		view:             initView(db, i18n),
 		report:           initReport(db, i18n),

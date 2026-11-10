@@ -500,12 +500,10 @@ describe('Live chat inbox form: every field', () => {
 
     cy.openInboxSection('Users')
     cy.audienceSwitch('visitors', 'Allow start conversation').click()
-    cy.audienceSwitch('visitors', 'Prevent replying to closed conversations').click()
     cy.audienceTab('Users', 'Users').click()
     cy.audienceSwitch('users', 'Launch directly into conversation').click()
     cy.audienceSwitch('users', 'Prevent multiple conversations').click()
     cy.audienceSwitch('users', 'Allow start conversation').click()
-    cy.audienceSwitch('users', 'Prevent replying to closed conversations').click()
 
     cy.get('button[type="submit"]').click()
     cy.wait('@updateInbox').then(({ response }) => {
@@ -520,11 +518,9 @@ describe('Live chat inbox form: every field', () => {
       expect(c.continuity.min_email_interval, 'min interval').to.eq('9m')
       expect(c.show_office_hours_after_assignment, 'office hours after assignment').to.eq(true)
       expect(c.visitors.allow_start_conversation, 'visitor start').to.eq(false)
-      expect(c.visitors.prevent_reply_to_closed_conversation, 'visitor closed replies').to.eq(true)
       expect(c.users.direct_to_conversation, 'user direct').to.eq(true)
       expect(c.users.prevent_multiple_conversations, 'user prevent multiple').to.eq(true)
       expect(c.users.allow_start_conversation, 'user start').to.eq(false)
-      expect(c.users.prevent_reply_to_closed_conversation, 'user closed replies').to.eq(true)
     })
   })
 

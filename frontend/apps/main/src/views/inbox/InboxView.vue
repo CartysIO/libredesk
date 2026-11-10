@@ -8,7 +8,7 @@ import { computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useIntervalFn, useDocumentVisibility } from '@vueuse/core'
 import { useConversationStore } from '../../stores/conversation'
-import { CONVERSATION_LIST_TYPE, CONVERSATION_DEFAULT_STATUSES } from '../../constants/conversation'
+import { CONVERSATION_LIST_TYPE, CONVERSATION_ACTIVE_STATUS } from '../../constants/conversation'
 import ConversationPlaceholder from '@/features/conversation/ConversationPlaceholder.vue'
 
 const route = useRoute()
@@ -49,7 +49,7 @@ const fetchForCurrentRoute = () => {
   }
 
   if (!conversationStore.getListStatus) {
-    conversationStore.setListStatus(CONVERSATION_DEFAULT_STATUSES.OPEN, false)
+    conversationStore.setListStatus(CONVERSATION_ACTIVE_STATUS, false)
   }
   if (type.value) {
     conversationStore.fetchConversationsList(true, type.value)

@@ -10,11 +10,83 @@ export const CONVERSATION_LIST_TYPE = {
 export const CONVERSATION_DEFAULT_STATUSES = {
   OPEN: 'Open',
   SNOOZED: 'Snoozed',
-  RESOLVED: 'Resolved',
-  CLOSED: 'Closed',
+  RESOLVED: 'Resolved'
 }
 
-export const CONVERSATION_DEFAULT_STATUSES_LIST = Object.values(CONVERSATION_DEFAULT_STATUSES);
+// Kanban board statuses. "On you" and "On customer" are added by the backend.
+export const CONVERSATION_BOARD_STATUSES = {
+  ON_YOU: 'On you',
+  ON_CUSTOMER: 'On customer'
+}
+
+// The backend treats the board statuses as default (protected) statuses too.
+export const CONVERSATION_DEFAULT_STATUSES_LIST = [
+  ...Object.values(CONVERSATION_DEFAULT_STATUSES),
+  ...Object.values(CONVERSATION_BOARD_STATUSES)
+]
+
+// List-only status choice: not a real status. It lists every active ticket. The value is an identifier,
+// not the label, so a custom status named "Active" stays an exact-name filter.
+export const CONVERSATION_ACTIVE_STATUS = '__active__'
+export const CONVERSATION_ACTIVE_STATUS_NAMES = [
+  CONVERSATION_DEFAULT_STATUSES.OPEN,
+  CONVERSATION_BOARD_STATUSES.ON_YOU,
+  CONVERSATION_BOARD_STATUSES.ON_CUSTOMER
+]
+
+// Board columns in display order. `status` is the conversation status name each column lists.
+// Class strings are written out in full so Tailwind keeps them. The colours are the desk's whose-move code
+// (apps/main/src/assets/desk-theme.scss); `hollow` marks a column where nobody has to act.
+export const CONVERSATION_BOARD_COLUMNS = [
+  {
+    key: 'new',
+    status: CONVERSATION_DEFAULT_STATUSES.OPEN,
+    labelKey: 'kanban.columns.new',
+    icon: 'CircleDot',
+    textClass: 'text-code-new',
+    bgClass: 'bg-code-new/10',
+    dotClass: 'bg-code-new'
+  },
+  {
+    key: 'onYou',
+    status: CONVERSATION_BOARD_STATUSES.ON_YOU,
+    labelKey: 'kanban.columns.onYou',
+    icon: 'UserRound',
+    textClass: 'text-code-you',
+    bgClass: 'bg-code-you/10',
+    dotClass: 'bg-code-you'
+  },
+  {
+    key: 'onCustomer',
+    status: CONVERSATION_BOARD_STATUSES.ON_CUSTOMER,
+    labelKey: 'kanban.columns.onCustomer',
+    icon: 'Hourglass',
+    textClass: 'text-code-customer',
+    bgClass: 'bg-code-customer/10',
+    dotClass: 'bg-code-customer'
+  },
+  {
+    key: 'onHold',
+    status: CONVERSATION_DEFAULT_STATUSES.SNOOZED,
+    labelKey: 'kanban.columns.onHold',
+    icon: 'CirclePause',
+    textClass: 'text-code-hold',
+    bgClass: 'bg-code-hold/10',
+    dotClass: 'bg-code-hold'
+  },
+  {
+    key: 'resolved',
+    status: CONVERSATION_DEFAULT_STATUSES.RESOLVED,
+    labelKey: 'kanban.columns.resolved',
+    icon: 'CircleCheck',
+    textClass: 'text-code-done',
+    bgClass: 'bg-code-done/10',
+    dotClass: 'bg-code-done',
+    hollow: true
+  }
+]
+
+export const CONVERSATION_BOARD_STATUS_LIST = CONVERSATION_BOARD_COLUMNS.map((c) => c.status)
 
 export const MACRO_CONTEXT = {
   REPLY: 'reply',

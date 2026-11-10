@@ -20,7 +20,7 @@ DROP TYPE IF EXISTS "applied_sla_status" CASCADE; CREATE TYPE "applied_sla_statu
 DROP TYPE IF EXISTS "sla_event_status" CASCADE; CREATE TYPE "sla_event_status" AS ENUM ('pending', 'breached', 'met');
 DROP TYPE IF EXISTS "sla_metric" CASCADE; CREATE TYPE "sla_metric" AS ENUM ('first_response', 'resolution', 'next_response');
 DROP TYPE IF EXISTS "sla_notification_type" CASCADE; CREATE TYPE "sla_notification_type" AS ENUM ('warning', 'breach');
-DROP TYPE IF EXISTS "activity_log_type" CASCADE; CREATE TYPE "activity_log_type" AS ENUM ('agent_login', 'agent_logout', 'agent_away', 'agent_away_reassigned', 'agent_online', 'agent_password_set', 'agent_role_permissions_changed', 'contact_deleted', 'contact_data_exported');
+DROP TYPE IF EXISTS "activity_log_type" CASCADE; CREATE TYPE "activity_log_type" AS ENUM ('agent_login', 'agent_logout', 'agent_away', 'agent_away_reassigned', 'agent_online', 'agent_password_set', 'agent_role_permissions_changed', 'contact_deleted', 'contact_data_exported', 'conversation_deleted');
 DROP TYPE IF EXISTS "macro_visible_when" CASCADE; CREATE TYPE "macro_visible_when" AS ENUM ('replying', 'starting_conversation', 'adding_private_note');
 DROP TYPE IF EXISTS "user_notification_type" CASCADE; CREATE TYPE "user_notification_type" AS ENUM ('mention', 'assignment', 'sla_warning', 'sla_breach', 'new_reply', 'new_reply_participating', 'sla_first_response_warning', 'sla_first_response_breach', 'sla_next_response_warning', 'sla_next_response_breach', 'sla_resolution_warning', 'sla_resolution_breach', 'conversation_reopened', 'automation');
 DROP TYPE IF EXISTS "notification_channel" CASCADE; CREATE TYPE "notification_channel" AS ENUM ('in_app', 'email', 'push');
@@ -176,6 +176,26 @@ CREATE TABLE roles (
 	CONSTRAINT constraint_roles_on_description CHECK (length(description) <= 300)
 );
 
+DROP TABLE IF EXISTS organizations CASCADE;
+CREATE TABLE organizations (
+	id BIGSERIAL PRIMARY KEY,
+	created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+	updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+	"name" TEXT NOT NULL,
+	-- ID of the organization in the customer's own system, set by the widget JWT.
+	external_id TEXT NULL,
+	-- Values of the custom attributes that apply to organizations.
+	custom_attributes JSONB DEFAULT '{}'::jsonb NOT NULL,
+	-- Lowercase email domains. An email contact with no organization joins the one organization that has its domain.
+	domains TEXT[] DEFAULT '{}'::TEXT[] NOT NULL,
+	CONSTRAINT constraint_organizations_on_name CHECK (length("name") <= 255),
+	CONSTRAINT constraint_organizations_on_external_id CHECK (length(external_id) <= 128),
+	CONSTRAINT constraint_organizations_on_domains CHECK (cardinality(domains) <= 100)
+);
+CREATE UNIQUE INDEX index_unique_organizations_on_external_id ON organizations (external_id) WHERE external_id IS NOT NULL;
+CREATE INDEX index_organizations_on_domains ON organizations USING GIN (domains);
+CREATE INDEX index_tgrm_organizations_on_name ON organizations USING GIN ("name" gin_trgm_ops);
+
 DROP TABLE IF EXISTS users CASCADE;
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
@@ -203,6 +223,7 @@ CREATE TABLE users (
 	api_key TEXT NULL,
 	api_secret TEXT NULL,
 	api_key_last_used_at TIMESTAMPTZ NULL,
+	organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL ON UPDATE CASCADE NULL,
     CONSTRAINT constraint_users_on_country CHECK (LENGTH(country) <= 140),
     CONSTRAINT constraint_users_on_phone_number CHECK (LENGTH(phone_number) <= 20),
 	CONSTRAINT constraint_users_on_phone_number_country_code CHECK (LENGTH(phone_number_country_code) <= 10),
@@ -223,6 +244,18 @@ CREATE UNIQUE INDEX index_unique_users_on_ext_id_when_type_is_contact
 CREATE UNIQUE INDEX index_unique_users_on_email_when_no_ext_id_contact
 	ON users (email)
 	WHERE type = 'contact' AND deleted_at IS NULL AND external_user_id IS NULL;
+CREATE INDEX index_users_on_organization_id ON users(organization_id) WHERE organization_id IS NOT NULL;
+
+-- Clyr fork: the organizations a contact belongs to. users.organization_id is the contact's default
+-- organization, which new email conversations get; it is always one of these rows.
+DROP TABLE IF EXISTS contact_organizations CASCADE;
+CREATE TABLE contact_organizations (
+	contact_id BIGINT REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL,
+	organization_id BIGINT REFERENCES organizations(id) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL,
+	created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+	PRIMARY KEY (contact_id, organization_id)
+);
+CREATE INDEX index_contact_organizations_on_organization_id ON contact_organizations(organization_id);
 
 DROP TABLE IF EXISTS user_roles CASCADE;
 CREATE TABLE user_roles (
@@ -273,6 +306,9 @@ CREATE TABLE conversations (
 	-- Set to NULL when SLA policy is deleted.
 	sla_policy_id INT REFERENCES sla_policies(id) ON DELETE SET NULL ON UPDATE CASCADE,
 
+	-- The contact's organization when the conversation was created. Set to NULL when the organization is deleted.
+	organization_id BIGINT REFERENCES organizations(id) ON DELETE SET NULL ON UPDATE CASCADE,
+
     -- Cascade deletes when inbox is deleted.
 	inbox_id INT REFERENCES inboxes(id) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL,
 
@@ -306,6 +342,7 @@ CREATE TABLE conversations (
 );
 CREATE INDEX index_conversations_on_assigned_user_id ON conversations (assigned_user_id);
 CREATE INDEX index_conversations_on_assigned_team_id ON conversations (assigned_team_id);
+CREATE INDEX index_conversations_on_organization_id ON conversations (organization_id) WHERE organization_id IS NOT NULL;
 CREATE INDEX index_conversations_on_snoozed_until ON conversations (snoozed_until);
 CREATE INDEX index_conversations_on_contact_id ON conversations (contact_id);
 CREATE INDEX index_conversations_on_inbox_id ON conversations (inbox_id);
@@ -344,6 +381,60 @@ CREATE INDEX index_conversation_messages_on_created_at ON conversation_messages 
 CREATE INDEX index_conversation_messages_on_source_id ON conversation_messages (source_id);
 CREATE INDEX index_conversation_messages_on_status ON conversation_messages (status);
 CREATE INDEX index_conversation_messages_on_conversation_id_and_created_at ON conversation_messages (conversation_id, created_at);
+
+-- Slack bridge (Clyr fork): one Slack thread per conversation, and the Slack messages the bridge has handled.
+DROP TABLE IF EXISTS slack_threads CASCADE;
+CREATE TABLE slack_threads (
+	id BIGSERIAL PRIMARY KEY,
+	created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+	conversation_id BIGINT REFERENCES conversations(id) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL,
+	channel_id TEXT NOT NULL,
+	thread_ts TEXT NOT NULL,
+	CONSTRAINT constraint_slack_threads_on_conversation_id_unique UNIQUE (conversation_id),
+	CONSTRAINT constraint_slack_threads_on_channel_thread_unique UNIQUE (channel_id, thread_ts)
+);
+
+DROP TABLE IF EXISTS slack_messages CASCADE;
+CREATE TABLE slack_messages (
+	id BIGSERIAL PRIMARY KEY,
+	created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+	channel_id TEXT NOT NULL,
+	slack_ts TEXT NOT NULL,
+	-- 'in': a Slack message the bridge turned into a note or reply. 'out': a Libredesk message the bridge posted.
+	direction TEXT NOT NULL,
+	message_id BIGINT REFERENCES conversation_messages(id) ON DELETE CASCADE ON UPDATE CASCADE NULL,
+	CONSTRAINT constraint_slack_messages_on_direction CHECK (direction IN ('in', 'out')),
+	CONSTRAINT constraint_slack_messages_on_channel_ts_unique UNIQUE (channel_id, slack_ts)
+);
+CREATE INDEX index_slack_messages_on_message_id ON slack_messages (message_id) WHERE message_id IS NOT NULL;
+
+-- Clyr fork: Linear issues linked to a conversation. title and state are a copy that Issue webhooks keep current.
+DROP TABLE IF EXISTS conversation_linear_issues CASCADE;
+CREATE TABLE conversation_linear_issues (
+	id BIGSERIAL PRIMARY KEY,
+	created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+	updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+	conversation_id BIGINT REFERENCES conversations(id) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL,
+	issue_id TEXT NOT NULL,
+	identifier TEXT NOT NULL,
+	url TEXT NOT NULL,
+	title TEXT NOT NULL DEFAULT '',
+	state TEXT NOT NULL DEFAULT '',
+	created_by BIGINT REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE NULL,
+	CONSTRAINT constraint_conversation_linear_issues_on_conversation_issue_unique UNIQUE (conversation_id, issue_id)
+);
+CREATE INDEX index_conversation_linear_issues_on_issue_id ON conversation_linear_issues (issue_id);
+
+-- Clyr fork: Linear comments already added as a note to a conversation, so a webhook retry adds nothing.
+DROP TABLE IF EXISTS linear_comment_notes CASCADE;
+CREATE TABLE linear_comment_notes (
+	id BIGSERIAL PRIMARY KEY,
+	created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+	comment_id TEXT NOT NULL,
+	conversation_id BIGINT REFERENCES conversations(id) ON DELETE CASCADE ON UPDATE CASCADE NOT NULL,
+	message_id BIGINT REFERENCES conversation_messages(id) ON DELETE SET NULL ON UPDATE CASCADE NULL,
+	CONSTRAINT constraint_linear_comment_notes_on_comment_conversation_unique UNIQUE (comment_id, conversation_id)
+);
 
 DROP TABLE IF EXISTS automation_rules CASCADE;
 CREATE TABLE automation_rules (
@@ -933,6 +1024,19 @@ CREATE TABLE custom_attribute_definitions (
 	CONSTRAINT constraint_custom_attribute_definitions_key_applies_to_unique UNIQUE (key, applies_to)
 );
 
+-- Clyr fork: conversation attributes that hold a live chat's visitor context (also created by migration v2.9.0-rc.10.clyr.1).
+INSERT INTO custom_attribute_definitions (name, description, applies_to, key, data_type, values, regex, regex_hint)
+VALUES
+	('Browser', 'Browser name and major version of the visitor, recorded when a live chat starts', 'conversation', 'chat_browser', 'text', '{}', '', ''),
+	('Operating System', 'Operating system of the visitor, recorded when a live chat starts', 'conversation', 'chat_operating_system', 'text', '{}', '', ''),
+	('Device Type', 'desktop, mobile or tablet, recorded when a live chat starts', 'conversation', 'chat_device_type', 'text', '{}', '', ''),
+	('Device Model', 'Device model of the visitor when the browser tells it, recorded when a live chat starts', 'conversation', 'chat_device_model', 'text', '{}', '', ''),
+	('Page URL', 'URL of the page that has the chat widget, recorded when a live chat starts', 'conversation', 'chat_page_url', 'text', '{}', '', ''),
+	('User Agent', 'Raw User-Agent header of the visitor, recorded when a live chat starts', 'conversation', 'chat_user_agent', 'text', '{}', '', ''),
+	('User Timezone', 'IANA timezone of the visitor browser, recorded when a live chat starts', 'conversation', 'chat_user_timezone', 'text', '{}', '', ''),
+	('App', 'App label that the host page passes to the chat widget, recorded when a live chat starts', 'conversation', 'chat_app', 'text', '{}', '', '')
+ON CONFLICT (key, applies_to) DO NOTHING;
+
 DROP TABLE IF EXISTS contact_notes CASCADE;
 CREATE TABLE contact_notes (
 	id SERIAL PRIMARY KEY,
@@ -1148,7 +1252,8 @@ INSERT INTO conversation_statuses (name, category) VALUES
 ('Open', 'open'),
 ('Snoozed', 'waiting'),
 ('Resolved', 'resolved'),
-('Closed', 'resolved');
+('On you', 'open'),
+('On customer', 'waiting');
 
 -- Default roles
 INSERT INTO
@@ -1157,7 +1262,7 @@ VALUES
 	(
 		'Agent',
 		'Role for all agents with limited access to conversations.',
-		'{conversations:read_all,conversations:read_unassigned,conversations:read_assigned,conversations:read_team_inbox,conversations:read_team_all,conversations:read,conversations:update_user_assignee,conversations:update_team_assignee,conversations:update_priority,conversations:update_status,conversations:update_tags,messages:read,messages:write,messages:write_private,view:manage}'
+		'{conversations:read_all,conversations:read_unassigned,conversations:read_assigned,conversations:read_team_inbox,conversations:read_team_all,conversations:read,conversations:update_user_assignee,conversations:update_team_assignee,conversations:update_priority,conversations:update_status,conversations:update_tags,conversations:update_organization,messages:read,messages:write,messages:write_private,view:manage}'
 	);
 
 INSERT INTO
@@ -1166,7 +1271,7 @@ VALUES
 	(
 		'Admin',
 		'Role for users who have complete access to everything.',
-		'{webhooks:manage,context_links:manage,activity_logs:manage,custom_attributes:manage,contacts:read_all,contacts:read,contacts:write,contacts:block,contacts:delete,contacts:export,contact_notes:read,contact_notes:write,contact_notes:delete,conversations:write,ai:manage,help_center:manage,general_settings:manage,notification_settings:manage,oidc:manage,conversations:read_all,conversations:read_unassigned,conversations:read_assigned,conversations:read_team_inbox,conversations:read_team_all,conversations:read,conversations:update_user_assignee,conversations:update_team_assignee,conversations:update_priority,conversations:update_status,conversations:update_tags,messages:read,messages:write,messages:write_private,view:manage,shared_views:manage,status:manage,tags:manage,macros:manage,users:manage,teams:manage,automations:manage,inboxes:manage,roles:manage,reports:manage,templates:manage,business_hours:manage,sla:manage}'
+		'{webhooks:manage,context_links:manage,activity_logs:manage,custom_attributes:manage,contacts:read_all,contacts:read,contacts:write,contacts:block,contacts:delete,contacts:export,contact_notes:read,contact_notes:write,contact_notes:delete,conversations:write,ai:manage,help_center:manage,general_settings:manage,notification_settings:manage,oidc:manage,conversations:read_all,conversations:read_unassigned,conversations:read_assigned,conversations:read_team_inbox,conversations:read_team_all,conversations:read,conversations:update_user_assignee,conversations:update_team_assignee,conversations:update_priority,conversations:update_status,conversations:update_tags,conversations:update_organization,conversations:delete,messages:read,messages:write,messages:write_private,view:manage,shared_views:manage,status:manage,tags:manage,macros:manage,users:manage,teams:manage,automations:manage,inboxes:manage,roles:manage,reports:manage,templates:manage,business_hours:manage,sla:manage}'
 	);
 
 
@@ -1174,6 +1279,8 @@ VALUES
 INSERT INTO templates
 ("type", body, is_default, "name", subject, is_builtin)
 VALUES('email_notification'::template_type, '
+<p>Hi {{ .Recipient.FirstName }},</p>
+
 <p>A new conversation has been assigned to you:</p>
 
 <div>
@@ -1195,6 +1302,8 @@ VALUES('email_notification'::template_type, '
 INSERT INTO templates
 ("type", body, is_default, "name", subject, is_builtin)
 VALUES('email_notification'::template_type, '
+<p>Hi {{ .Recipient.FirstName }},</p>
+
 <p>{{ .Author.FullName }} replied to a conversation assigned to you:</p>
 
 <div>
@@ -1220,6 +1329,8 @@ VALUES('email_notification'::template_type, '
 INSERT INTO templates
 ("type", body, is_default, "name", subject, is_builtin)
 VALUES('email_notification'::template_type, '
+<p>Hi {{ .Recipient.FirstName }},</p>
+
 <p>{{ .Author.FullName }} replied to a conversation you are participating in:</p>
 
 <div>
@@ -1245,6 +1356,8 @@ VALUES('email_notification'::template_type, '
 INSERT INTO templates
 ("type", body, is_default, "name", subject, is_builtin)
 VALUES('email_notification'::template_type, '
+<p>Hi {{ .Recipient.FirstName }},</p>
+
 <p>{{ .Author.FullName }} replied and reopened a conversation assigned to you:</p>
 
 <div>
@@ -1272,6 +1385,7 @@ INSERT INTO templates
 VALUES (
   'email_notification'::template_type,
   '
+<p>Hi {{ .Recipient.FirstName }},</p>
 
 <p>This is a notification that the SLA for conversation {{ .Conversation.ReferenceNumber }} is approaching the SLA deadline for {{ .SLA.Metric }}.</p>
 
@@ -1304,6 +1418,8 @@ INSERT INTO templates
 VALUES (
   'email_notification'::template_type,
   '
+<p>Hi {{ .Recipient.FirstName }},</p>
+
 <p>This is an urgent alert that the SLA for conversation {{ .Conversation.ReferenceNumber }} has been breached for {{ .SLA.Metric }}. Please take immediate action.</p>
 
 <p>
@@ -1335,6 +1451,8 @@ INSERT INTO templates
 VALUES (
   'email_notification'::template_type,
   '
+<p>Hi {{ .Recipient.FirstName }},</p>
+
 <p>{{ .MentionedBy.FullName }} mentioned you in a private note on conversation #{{ .Conversation.ReferenceNumber }}.</p>
 
 <blockquote style="background-color: #f5f5f5; padding: 12px; margin: 16px 0; border-left: 4px solid #ddd;">

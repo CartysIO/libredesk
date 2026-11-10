@@ -170,14 +170,35 @@ func (e *Engine) evaluateRule(rule models.RuleDetail, conversation cmodels.Conve
 			valueToCompare = previous
 		case models.ConversationIncomingTo:
 			return evaluateRecipientRule(conversation.IncomingTo, rule)
+		case models.ConversationOutsideBusinessHours:
+			valueToCompare = strconv.FormatBool(e.outsideBusinessHours(conversation.UUID))
+		case models.ConversationOrganization:
+			if conversation.OrganizationID.Valid {
+				valueToCompare = strconv.Itoa(conversation.OrganizationID.Int)
+			}
+			// "contains" is "is any of" a list of organization IDs. Only whole IDs match, so 1 never matches 12.
+			if rule.Operator == models.RuleOperatorContains || rule.Operator == models.RuleOperatorNotContains {
+				in := false
+				for id := range strings.SplitSeq(rule.Value, ",") {
+					if valueToCompare != "" && strings.TrimSpace(id) == valueToCompare {
+						in = true
+						break
+					}
+				}
+				return in == (rule.Operator == models.RuleOperatorContains)
+			}
 		default:
 			e.lo.Error("error unrecognized conversation field", "field", rule.Field, "field_type", rule.FieldType, "conversation_uuid", conversation.UUID)
 			return false
 		}
-	} else if rule.FieldType == models.FieldTypeContactCustomAttribute {
+	} else if rule.FieldType == models.FieldTypeContactCustomAttribute || rule.FieldType == models.FieldTypeOrganizationCustomAttribute {
 		// If the field type is custom attribute, need to extract the value from the custom attributes
 		var attributes json.RawMessage = conversation.Contact.CustomAttributes
-		if len(attributes) == 0 {
+		if rule.FieldType == models.FieldTypeOrganizationCustomAttribute {
+			// A conversation without an organization has no organization attributes.
+			attributes = conversation.OrganizationAttributes
+		}
+		if len(attributes) == 0 || string(attributes) == "null" {
 			attributes = json.RawMessage(`{}`)
 		}
 

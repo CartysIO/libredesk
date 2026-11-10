@@ -15,6 +15,23 @@
   src: url('/static/public/static/fonts/Geist-Italic-Variable.woff2') format('woff2');
 }
 
+/* Urbanist (SIL OFL 1.1) - see fonts/LICENSE-Urbanist.txt. Used by the agent app only. */
+@font-face {
+  font-family: 'Urbanist';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/static/public/static/fonts/Urbanist-Variable.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Urbanist';
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/static/public/static/fonts/Urbanist-Italic-Variable.woff2') format('woff2');
+}
+
 /* Form controls default to the browser UI font, not the page font. */
 button,
 input,

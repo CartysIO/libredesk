@@ -12,9 +12,11 @@ import { subscribeToConversation, sendTypingIndicator, subscribeListReplace } fr
 import { playNotificationSound } from '@shared-ui/composables/useNotificationSound'
 import MessageCache from '@main/utils/conversation-message-cache'
 import { getI18n } from '@main/i18n'
-import { CONVERSATION_LIST_TYPE, CONVERSATION_DEFAULT_STATUSES, TAG_ACTION } from '@/constants/conversation'
+import { CONVERSATION_LIST_TYPE, CONVERSATION_DEFAULT_STATUSES, CONVERSATION_ACTIVE_STATUS, TAG_ACTION } from '@/constants/conversation'
+import { listStatusFilter, isValidListStatus, matchesListStatus } from '@/utils/conversationStatusFilter'
 import { useThrottleFn, useStorage } from '@vueuse/core'
 import { useUserStore } from '@/stores/user'
+import { useUsersStore } from '@/stores/users'
 import { useNotificationStore } from '@/stores/notification'
 import { delayedLoading } from '@/utils/delayed-loading'
 import api from '@main/api'
@@ -36,6 +38,7 @@ export const useConversationStore = defineStore('conversation', () => {
   let resolveDraftsReady
   const draftsReady = new Promise((resolve) => { resolveDraftsReady = resolve })
   const userStore = useUserStore()
+  const usersStore = useUsersStore()
   const notificationStore = useNotificationStore()
   const router = useRouter()
   const isViewingConversation = (uuid) => router.currentRoute.value.params.uuid === uuid
@@ -113,6 +116,11 @@ export const useConversationStore = defineStore('conversation', () => {
   const statusOptions = computed(() => {
     return statuses.value.map(s => ({ label: s.name, value: s.id }))
   })
+  // List filter choices: "Active" first, then every status.
+  const listStatusOptions = computed(() => [
+    { label: CONVERSATION_ACTIVE_STATUS, value: CONVERSATION_ACTIVE_STATUS },
+    ...statusOptions.value
+  ])
   const statusOptionsNoSnooze = computed(() =>
     statuses.value.filter(s => s.name !== CONVERSATION_DEFAULT_STATUSES.SNOOZED).map(s => ({
       label: s.name,
@@ -213,7 +221,7 @@ export const useConversationStore = defineStore('conversation', () => {
     priority_first: 'conversation.sort.priorityFirst'
   }
 
-  const persistedListStatus = useStorage('conversationListStatus', CONVERSATION_DEFAULT_STATUSES.OPEN)
+  const persistedListStatus = useStorage('conversationListStatus', CONVERSATION_ACTIVE_STATUS)
   const persistedListSortField = useStorage('conversationListSortField', 'newest')
   if (!sortFieldMap[persistedListSortField.value]) {
     persistedListSortField.value = 'newest'
@@ -319,8 +327,8 @@ export const useConversationStore = defineStore('conversation', () => {
         id: status.id.toString()
       }))
       // A remembered status can point at one that has since been deleted.
-      if (conversations.status && !statuses.value.some(s => s.name === conversations.status)) {
-        setListStatus(CONVERSATION_DEFAULT_STATUSES.OPEN)
+      if (conversations.status && !isValidListStatus(conversations.status, statuses.value)) {
+        setListStatus(CONVERSATION_ACTIVE_STATUS)
       }
     } catch (error) {
       emitter.emit(EMITTER_EVENTS.SHOW_TOAST, {
@@ -368,7 +376,7 @@ export const useConversationStore = defineStore('conversation', () => {
     if (!conversations.data) return []
     let filteredConversations = conversations.data
     if (conversations.status !== "") {
-      filteredConversations = filteredConversations.filter(conv => conv.status === conversations.status)
+      filteredConversations = filteredConversations.filter(conv => matchesListStatus(conv.status, conversations.status))
     }
     filteredConversations = filteredConversations.filter(belongsToList)
 
@@ -498,6 +506,10 @@ export const useConversationStore = defineStore('conversation', () => {
     }
   }
 
+  function rememberAssignee (conv) {
+    if (conv.assignee?.id > 0) usersStore.upsertUsers([conv.assignee])
+  }
+
   async function fetchConversation (uuid) {
     const cached = conversationDataCache.get(uuid)
     if (cached) {
@@ -510,6 +522,7 @@ export const useConversationStore = defineStore('conversation', () => {
     const guard = delayedLoading(conversation, 'loading')
     try {
       const resp = await api.getConversation(uuid)
+      rememberAssignee(resp.data.data)
       conversation.data = resp.data.data
       resetTypingState()
       subscribeToConversation(uuid)
@@ -529,6 +542,7 @@ export const useConversationStore = defineStore('conversation', () => {
     try {
       const resp = await api.getConversation(uuid)
       if (conversation.data?.uuid === uuid) {
+        rememberAssignee(resp.data.data)
         deepMerge(conversation.data, resp.data.data)
         cacheConversationData(uuid, conversation.data)
       }
@@ -652,6 +666,12 @@ export const useConversationStore = defineStore('conversation', () => {
     fetchConversationsList(false, conversations.listType, conversations.teamID, conversations.listFilters, conversations.viewID, conversations.page + 1)
   }
 
+  // Sort params the board reuses so both views order conversations the same way.
+  function getListSortParams () {
+    const sort = sortFieldMap[conversations.sortField]
+    return { order_by: sort.model + '.' + sort.field, order: sort.order }
+  }
+
   function reFetchConversationsList (showLoader = true) {
     fetchConversationsList(showLoader, conversations.listType, conversations.teamID, conversations.listFilters, conversations.viewID, conversations.page)
   }
@@ -670,12 +690,7 @@ export const useConversationStore = defineStore('conversation', () => {
     if (viewID) conversations.viewID = viewID
     if (conversations.status) {
       filters = filters.filter(f => f.model !== 'conversation_statuses')
-      filters.push({
-        model: 'conversation_statuses',
-        field: 'name',
-        operator: 'equals',
-        value: conversations.status
-      })
+      filters.push(listStatusFilter(conversations.status))
     }
     conversations.listFilters = filters
     const guard = showLoader ? delayedLoading(conversations, 'loading') : null
@@ -778,6 +793,7 @@ export const useConversationStore = defineStore('conversation', () => {
     const apiResponse = response.data.data
     const newConversations = []
     for (const conv of apiResponse.results) {
+      rememberAssignee(conv)
       if (!mergeIntoList(conv.uuid, conv)) newConversations.push(conv)
     }
     conversations.page = Math.max(conversations.page, apiResponse.page)
@@ -818,16 +834,17 @@ export const useConversationStore = defineStore('conversation', () => {
     }
   }
 
-  async function updateStatus (v) {
-    if (!conversation.data) return
-    const previous = conversation.data.status
-    conversation.data.status = v
+  async function updateStatus (uuid, v) {
+    if (!uuid) return
+    const isCurrent = () => conversation.data?.uuid === uuid
+    const previous = isCurrent() ? conversation.data.status : null
+    if (isCurrent()) conversation.data.status = v
     try {
-      await api.updateConversationStatus(conversation.data.uuid, { status: v })
-      notificationStore.markAssignmentAsReadForConversation(conversation.data.uuid)
+      await api.updateConversationStatus(uuid, { status: v })
+      notificationStore.markAssignmentAsReadForConversation(uuid)
       fetchSidebarCounts({ force: true })
     } catch (error) {
-      if (conversation.data) conversation.data.status = previous
+      if (previous !== null && isCurrent()) conversation.data.status = previous
       emitter.emit(EMITTER_EVENTS.SHOW_TOAST, {
         variant: 'destructive',
         description: handleHTTPError(error).message
@@ -886,13 +903,14 @@ export const useConversationStore = defineStore('conversation', () => {
   }
 
   async function updateAssignee (type, v) {
+    const conv = conversation.data
     try {
       const teamChanged =
-        type === 'team' && Number(conversation.data.assigned_team_id) !== Number(v.assignee_id)
-      await api.updateAssignee(conversation.data.uuid, type, v)
-      conversation.data[`assigned_${type}_id`] = v.assignee_id
+        type === 'team' && Number(conv.assigned_team_id) !== Number(v.assignee_id)
+      await api.updateAssignee(conv.uuid, type, v)
+      conv[`assigned_${type}_id`] = v.assignee_id
       // Backend clears the user assignee when the team changes.
-      if (teamChanged) conversation.data.assigned_user_id = null
+      if (teamChanged) conv.assigned_user_id = null
       fetchSidebarCounts({ force: true })
     } catch (error) {
       emitter.emit(EMITTER_EVENTS.SHOW_TOAST, {
@@ -903,9 +921,10 @@ export const useConversationStore = defineStore('conversation', () => {
   }
 
   async function removeAssignee (type) {
+    const conv = conversation.data
     try {
-      await api.removeAssignee(conversation.data.uuid, type)
-      conversation.data[`assigned_${type}_id`] = null
+      await api.removeAssignee(conv.uuid, type)
+      conv[`assigned_${type}_id`] = null
       fetchSidebarCounts({ force: true })
     } catch (error) {
       emitter.emit(EMITTER_EVENTS.SHOW_TOAST, {
@@ -919,6 +938,22 @@ export const useConversationStore = defineStore('conversation', () => {
     if (!isViewingConversation(uuid)) return
     const response = await api.updateAssigneeLastSeen(uuid, messageUUID)
     applyConversationRead(response.data.data)
+  }
+
+  // removeConversations drops deleted conversations from the list, the selection and the detail caches.
+  function removeConversations (uuids) {
+    const removed = new Set(uuids)
+    for (const uuid of removed) {
+      conversationDataCache.delete(uuid)
+      messages.data.purgeConversation(uuid)
+    }
+    if (removed.has(conversation.data?.uuid)) conversation.data = null
+    const before = conversations.data?.length || 0
+    conversations.data = (conversations.data || []).filter(c => !removed.has(c.uuid))
+    conversations.total = Math.max(0, conversations.total - (before - conversations.data.length))
+    const selected = new Set([...selectedUUIDs.value].filter(uuid => !removed.has(uuid)))
+    selectedUUIDs.value = selected
+    fetchSidebarCounts({ force: true })
   }
 
   function isConversationInList (uuid) {
@@ -944,6 +979,11 @@ export const useConversationStore = defineStore('conversation', () => {
     conv.last_message = message.text_content || message.content || getMediaPreview(message.attachments)
     conv.last_message_at = message.created_at
     conv.last_message_sender = message.sender_type
+    if (message.type !== 'activity' && !message.private) {
+      conv.last_interaction = conv.last_message
+      conv.last_interaction_at = message.created_at
+      conv.last_interaction_sender = message.sender_type
+    }
   }
 
   async function updateConversationMessage (message) {
@@ -1086,7 +1126,7 @@ export const useConversationStore = defineStore('conversation', () => {
   }
 
   function isInCurrentList (conv) {
-    return (conversations.status === '' || conv.status === conversations.status) && belongsToList(conv)
+    return matchesListStatus(conv.status, conversations.status) && belongsToList(conv)
   }
 
   // Keeps the list total in step when a live update moves a loaded row into or out of the current list.
@@ -1104,6 +1144,7 @@ export const useConversationStore = defineStore('conversation', () => {
 
   function handleConvPush (payload) {
     if (!payload || !payload.uuid) return
+    rememberAssignee(payload)
     if (mergeLiveUpdate(payload.uuid, payload)) {
       if (conversation.data?.uuid === payload.uuid) {
         deepMerge(conversation.data, payload)
@@ -1111,7 +1152,7 @@ export const useConversationStore = defineStore('conversation', () => {
       return
     }
     if (!canPushInsert(payload)) return
-    if (conversations.status !== '' && payload.status !== conversations.status) return
+    if (!matchesListStatus(payload.status, conversations.status)) return
     if (!conversations.data) conversations.data = []
     conversations.data.unshift(payload)
     conversations.total += 1
@@ -1295,6 +1336,7 @@ export const useConversationStore = defineStore('conversation', () => {
 
   return {
     macros,
+    removeConversations,
     conversations,
     conversation,
     messages,
@@ -1334,6 +1376,7 @@ export const useConversationStore = defineStore('conversation', () => {
     updatePriority,
     updateStatus,
     refreshConversationList,
+    getListSortParams,
     resetConversations,
     updateConversationLastMessage,
     fetchFirstPageConversations,
@@ -1341,6 +1384,7 @@ export const useConversationStore = defineStore('conversation', () => {
     fetchPriorities,
     setListSortField,
     setListStatus,
+    listStatusOptions,
     removeMacroAction,
     getMacro,
     setMacro,

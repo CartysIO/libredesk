@@ -8,6 +8,7 @@ import (
 	"mime"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/abhinavxd/libredesk/internal/attachment"
 	"github.com/abhinavxd/libredesk/internal/conversation/models"
@@ -360,7 +361,8 @@ func (e *Email) processEnvelope(ctx context.Context, client *imapclient.Client, 
 		e.lo.Warn("no sender received for email", "message_id", env.MessageID)
 		return nil
 	}
-	var fromAddress = strings.ToLower(env.From[0].Addr())
+	contactAddr := e.contactAddress(env)
+	var fromAddress = strings.ToLower(contactAddr.Addr())
 
 	// Determine final Message ID - prefer IMAP-parsed, fallback to raw header extraction
 	messageID := env.MessageID
@@ -399,7 +401,7 @@ func (e *Email) processEnvelope(ctx context.Context, client *imapclient.Client, 
 	e.lo.Debug("processing new incoming message", "message_id", messageID, "subject", env.Subject, "from", fromAddress, "inbox_id", inboxID)
 
 	// Make contact.
-	firstName, lastName := getContactName(env.From[0])
+	firstName, lastName := e.contactName(contactAddr)
 	contact := models.IncomingContact{
 		FirstName: firstName,
 		LastName:  lastName,
@@ -537,6 +539,9 @@ func (e *Email) processFullMessage(item imapclient.FetchItemDataBodySection, inc
 
 	incomingMsg.InReplyTo = inReplyTo
 	incomingMsg.References = references
+	// GetHeader returns the topmost Authentication-Results, the one the receiving server added.
+	fromEmail := incomingMsg.Contact.Email.String
+	incomingMsg.FromDomainVerified = dmarcPass(envelope.GetHeader("Authentication-Results"), fromEmail[strings.LastIndex(fromEmail, "@")+1:])
 	if err := setInboxAddressMeta(&incomingMsg, e.resolveInboxAddress(envelope)); err != nil {
 		return err
 	}
@@ -614,13 +619,55 @@ func partToAttachment(part *enmime.Part, disposition string) attachment.Attachme
 	}
 }
 
+// contactAddress returns the address of the person an incoming email is about. That is the sender,
+// except for a new thread sent from this inbox's own address (a web form's confirmation copy, for
+// example): there the contact is the first recipient the inbox does not own. Replies in a thread keep
+// the sender, so a reply an agent sent from another tool is not shown as the customer's.
+func (e *Email) contactAddress(env *imap.Envelope) imap.Address {
+	from := env.From[0]
+	if len(env.InReplyTo) > 0 || !e.ReceivesAddress(from.Addr()) {
+		return from
+	}
+	for _, addr := range append(append([]imap.Address{}, env.To...), env.Cc...) {
+		if addr.Addr() != "" && !e.ReceivesAddress(addr.Addr()) {
+			return addr
+		}
+	}
+	return from
+}
+
+// contactName is the name an incoming email gives its contact. Mail from an address this inbox owns
+// (a copy of a reply another tool sent, such as Pylon) carries that tool's sender name, for example
+// "Backend Key", so it returns no name and the stored contact keeps the name it has.
+func (e *Email) contactName(addr imap.Address) (string, string) {
+	if e.ReceivesAddress(addr.Addr()) {
+		return "", ""
+	}
+	return getContactName(addr)
+}
+
 // getContactName extracts the contact's first and last name from the IMAP address.
+// An all-lowercase first or last name ("omer") is capitalized; any other casing is kept as sent.
 func getContactName(imapAddr imap.Address) (string, string) {
 	first, last := stringutil.SplitName(imapAddr.Name)
 	if first == "" {
-		return imapAddr.Mailbox, ""
+		return stringutil.CapitalizeFirst(imapAddr.Mailbox), ""
 	}
-	return first, last
+	return capitalizeLowercase(first), capitalizeLowercase(last)
+}
+
+// capitalizeLowercase upper-cases the first letter of each word when the whole value is lowercase.
+func capitalizeLowercase(s string) string {
+	if s != strings.ToLower(s) || s == strings.ToUpper(s) {
+		return s
+	}
+	words := strings.Fields(s)
+	for i, w := range words {
+		r := []rune(w)
+		r[0] = unicode.ToUpper(r[0])
+		words[i] = string(r)
+	}
+	return strings.Join(words, " ")
 }
 
 // isAutoReply checks if a given email envelope indicates an auto-reply message.

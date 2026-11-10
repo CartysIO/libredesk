@@ -86,7 +86,7 @@ func handleUpdateCSATResponse(r *fastglue.Request) error {
 		})
 	}
 
-	if err := app.csat.UpdateResponse(uuid, rating, feedback, metaJSON); err != nil {
+	if err := app.conversation.UpdateCSATResponse(uuid, rating, feedback, metaJSON); err != nil {
 		// Surface only known, user-safe messages; never leak raw driver errors
 		// (e.g. a malformed UUID triggers a Postgres syntax error string).
 		msg := app.i18n.T("globals.messages.somethingWentWrong")
@@ -161,8 +161,7 @@ func handleSubmitCSATResponse(r *fastglue.Request) error {
 
 	req.Feedback = truncateFeedback(req.Feedback)
 
-	// Update CSAT response
-	if err := app.csat.UpdateResponse(uuid, req.Rating, req.Feedback, nil); err != nil {
+	if err := app.conversation.UpdateCSATResponse(uuid, req.Rating, req.Feedback, nil /** meta **/); err != nil {
 		return sendErrorEnvelope(r, err)
 	}
 

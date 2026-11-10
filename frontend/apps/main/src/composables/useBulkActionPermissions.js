@@ -9,10 +9,25 @@ export function useBulkActionPermissions () {
   const canAssignTeam = computed(() => userStore.can(p.CONVERSATIONS_UPDATE_TEAM_ASSIGNEE))
   const canUpdateStatus = computed(() => userStore.can(p.CONVERSATIONS_UPDATE_STATUS))
   const canUpdateTags = computed(() => userStore.can(p.CONVERSATIONS_UPDATE_TAGS))
+  const canDelete = computed(() => userStore.can(p.CONVERSATIONS_DELETE))
+  const canMarkSpam = computed(() => canDelete.value && userStore.can(p.CONTACTS_BLOCK))
 
   const canBulkAct = computed(
-    () => canAssignAgent.value || canAssignTeam.value || canUpdateStatus.value || canUpdateTags.value
+    () =>
+      canAssignAgent.value ||
+      canAssignTeam.value ||
+      canUpdateStatus.value ||
+      canUpdateTags.value ||
+      canDelete.value
   )
 
-  return { canAssignAgent, canAssignTeam, canUpdateStatus, canUpdateTags, canBulkAct }
+  return {
+    canAssignAgent,
+    canAssignTeam,
+    canUpdateStatus,
+    canUpdateTags,
+    canDelete,
+    canMarkSpam,
+    canBulkAct
+  }
 }

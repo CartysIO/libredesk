@@ -13,11 +13,16 @@ const (
 	PermConversationsUpdatePriority     = "conversations:update_priority"
 	PermConversationsUpdateStatus       = "conversations:update_status"
 	PermConversationsUpdateTags         = "conversations:update_tags"
+	// Clyr fork: change which of the contact's organizations a conversation is filed under.
+	PermConversationsUpdateOrganization = "conversations:update_organization"
+	PermConversationsDelete             = "conversations:delete"
 	PermConversationWrite               = "conversations:write"
 	PermMessagesRead                    = "messages:read"
 	PermMessagesWrite                   = "messages:write"
 	PermMessagesWritePrivate            = "messages:write_private"
 	PermMessagesWriteAsContact          = "messages:write_as_contact"
+	// Clyr fork: set conversation_messages.created_at on insert (migration/backfill API only).
+	PermMessagesWriteBackdated          = "messages:write_backdated"
 
 	// View
 	PermViewManage        = "view:manage"
@@ -112,11 +117,14 @@ var validPermissions = map[string]struct{}{
 	PermConversationsUpdatePriority:     {},
 	PermConversationsUpdateStatus:       {},
 	PermConversationsUpdateTags:         {},
+	PermConversationsUpdateOrganization: {},
+	PermConversationsDelete:             {},
 	PermConversationWrite:               {},
 	PermMessagesRead:                    {},
 	PermMessagesWrite:                   {},
 	PermMessagesWritePrivate:            {},
 	PermMessagesWriteAsContact:          {},
+	PermMessagesWriteBackdated:          {},
 	PermViewManage:                      {},
 	PermSharedViewsManage:               {},
 	PermStatusManage:                    {},

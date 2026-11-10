@@ -11,12 +11,15 @@ func TestIsLocalLoginEnabled(t *testing.T) {
 		name       string
 		configured *bool
 		providers  []oidcmodels.OIDC
+		clerk      bool
 		want       bool
 	}{
 		{name: "defaults to enabled", want: true},
 		{name: "remains enabled when configured", configured: boolPointer(true), want: true},
 		{name: "remains enabled without an enabled OIDC provider", configured: boolPointer(false), providers: []oidcmodels.OIDC{{Enabled: false}}, want: true},
 		{name: "is disabled with an enabled OIDC provider", configured: boolPointer(false), providers: []oidcmodels.OIDC{{Enabled: true}}, want: false},
+		{name: "is disabled with Clerk and no OIDC provider", configured: boolPointer(false), clerk: true, want: false},
+		{name: "stays enabled with Clerk when configured", configured: boolPointer(true), clerk: true, want: true},
 	}
 
 	for _, tt := range tests {
@@ -29,7 +32,7 @@ func TestIsLocalLoginEnabled(t *testing.T) {
 			}
 			t.Cleanup(func() { ko.Delete(localLoginEnabledKey) })
 
-			if got := isLocalLoginEnabled(tt.providers); got != tt.want {
+			if got := isLocalLoginEnabled(tt.providers, tt.clerk); got != tt.want {
 				t.Fatalf("isLocalLoginEnabled() = %v, want %v", got, tt.want)
 			}
 		})

@@ -6,6 +6,9 @@ import (
 	"github.com/lib/pq"
 )
 
+// DataTypeMultiSelect stores a JSON array of allowed values; conversation attributes only.
+const DataTypeMultiSelect = "multi_select"
+
 type CustomAttribute struct {
 	ID          int            `db:"id" json:"id"`
 	CreatedAt   time.Time      `db:"created_at" json:"created_at"`

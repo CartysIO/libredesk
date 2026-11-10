@@ -20,6 +20,9 @@ var (
 	StatusResolved = "Resolved"
 	StatusClosed   = "Closed"
 	StatusSnoozed  = "Snoozed"
+	// Kanban statuses: "On you" means the customer is waiting on us, "On customer" means we are waiting on the customer.
+	StatusOnYou      = "On you"
+	StatusOnCustomer = "On customer"
 
 	AssigneeTypeTeam = "team"
 	AssigneeTypeUser = "user"
@@ -136,6 +139,8 @@ type ConversationListItem struct {
 	InboxChannel          string                  `db:"inbox_channel" json:"inbox_channel"`
 	InboxName             string                  `db:"inbox_name" json:"inbox_name"`
 	SLAPolicyID           null.Int                `db:"sla_policy_id" json:"sla_policy_id"`
+	OrganizationID        null.Int                `db:"organization_id" json:"organization_id"`
+	OrganizationName      null.String             `db:"organization_name" json:"organization_name"`
 	FirstReplyAt          null.Time               `db:"first_reply_at" json:"first_reply_at"`
 	LastReplyAt           null.Time               `db:"last_reply_at" json:"last_reply_at"`
 	ResolvedAt            null.Time               `db:"resolved_at" json:"resolved_at"`
@@ -151,6 +156,7 @@ type ConversationListItem struct {
 	PriorityID            null.Int                `db:"priority_id" json:"priority_id"`
 	AssignedUserID        null.Int                `db:"assigned_user_id" json:"assigned_user_id"`
 	AssignedTeamID        null.Int                `db:"assigned_team_id" json:"assigned_team_id"`
+	Assignee              json.RawMessage         `db:"assignee" json:"assignee"`
 	UnreadMessageCount    int                     `db:"unread_message_count" json:"unread_message_count"`
 	Status                null.String             `db:"status" json:"status"`
 	Priority              null.String             `db:"priority" json:"priority"`
@@ -178,6 +184,13 @@ type ConversationRef struct {
 	UUID string `db:"uuid" json:"uuid"`
 }
 
+// DeletedConversation identifies a conversation removed by a delete.
+type DeletedConversation struct {
+	ID              int    `db:"id" json:"id"`
+	UUID            string `db:"uuid" json:"uuid"`
+	ReferenceNumber string `db:"reference_number" json:"reference_number"`
+}
+
 type Conversation struct {
 	ID                        int                    `db:"id" json:"id"`
 	CreatedAt                 time.Time              `db:"created_at" json:"created_at"`
@@ -199,6 +212,7 @@ type Conversation struct {
 	LastReplyAt               null.Time              `db:"last_reply_at" json:"last_reply_at"`
 	AssignedUserID            null.Int               `db:"assigned_user_id" json:"assigned_user_id"`
 	AssignedTeamID            null.Int               `db:"assigned_team_id" json:"assigned_team_id"`
+	Assignee                  json.RawMessage        `db:"assignee" json:"assignee"`
 	WaitingSince              null.Time              `db:"waiting_since" json:"waiting_since"`
 	SnoozedUntil              null.Time              `db:"snoozed_until" json:"snoozed_until"`
 	Subject                   null.String            `db:"subject" json:"subject"`
@@ -218,6 +232,10 @@ type Conversation struct {
 	LastInteractionSender     null.String            `db:"last_interaction_sender" json:"last_interaction_sender"`
 	Contact                   ConversationContact    `db:"contact" json:"contact"`
 	SLAPolicyID               null.Int               `db:"sla_policy_id" json:"sla_policy_id"`
+	OrganizationID            null.Int               `db:"organization_id" json:"organization_id"`
+	OrganizationName          null.String            `db:"organization_name" json:"organization_name"`
+	OrganizationExternalID    null.String            `db:"organization_external_id" json:"organization_external_id"`
+	OrganizationAttributes    json.RawMessage        `db:"organization_custom_attributes" json:"organization_custom_attributes"`
 	SlaPolicyName             null.String            `db:"sla_policy_name" json:"sla_policy_name"`
 	AppliedSLAID              null.Int               `db:"applied_sla_id" json:"applied_sla_id"`
 	NextSLADeadlineAt         null.Time              `db:"next_sla_deadline_at" json:"next_sla_deadline_at"`
@@ -253,6 +271,11 @@ type ConversationContact struct {
 	LastActiveAt           null.Time       `db:"last_active_at" json:"last_active_at"`
 	LastLoginAt            null.Time       `db:"last_login_at" json:"last_login_at"`
 	ExternalUserID         null.String     `db:"external_user_id" json:"external_user_id"`
+	OrganizationID         null.Int        `db:"organization_id" json:"organization_id"`
+	OrganizationName       null.String     `db:"organization_name" json:"organization_name"`
+	OrganizationExternalID null.String     `db:"organization_external_id" json:"organization_external_id"`
+	// Organizations are all the contact's organizations, the default one first (Clyr fork).
+	Organizations json.RawMessage `db:"organizations" json:"organizations"`
 
 	ChannelIdentities umodels.ChannelIdentities `db:"channel_identities" json:"channel_identities,omitempty"`
 }
@@ -361,6 +384,7 @@ type Message struct {
 	CC                pq.StringArray         `db:"cc" json:"-"`
 	BCC               pq.StringArray         `db:"bcc" json:"-"`
 	MessageReceiverID int                    `db:"message_receiver_id" json:"-"`
+	ReferenceNumber   string                 `db:"reference_number" json:"-"`
 	Media             []mmodels.Media        `json:"-"`
 	Author            MessageAuthor          `db:"author" json:"author"`
 }
@@ -375,6 +399,16 @@ func (m *Message) IsContinuityMessage() bool {
 	return isContinuity
 }
 
+// IsMigrationBackfill returns true when the message was inserted through the backdated migration API path.
+func (m *Message) IsMigrationBackfill() bool {
+	var meta map[string]any
+	if err := json.Unmarshal(m.Meta, &meta); err != nil {
+		return false
+	}
+	v, _ := meta["migration_backfill"].(bool)
+	return v
+}
+
 // SendFrom returns the immutable sender address stored for an outgoing message.
 func (m *Message) SendFrom() string { return metaString(m.Meta, "send_from") }
 
@@ -387,6 +421,17 @@ func (m *Message) ShouldEvaluateAutomation(systemUserID int) bool {
 }
 
 // IsAutomated returns true if the message was produced by an automation rule action.
+// KeepsStatus reports whether the agent chose the conversation's status when sending (send and set status),
+// so sending must not move the conversation to "On customer".
+func (m *Message) KeepsStatus() bool {
+	var meta map[string]any
+	if err := json.Unmarshal([]byte(m.Meta), &meta); err != nil {
+		return false
+	}
+	keep, _ := meta["keep_status"].(bool)
+	return keep
+}
+
 func (m *Message) IsAutomated() bool {
 	var meta map[string]any
 	if err := json.Unmarshal([]byte(m.Meta), &meta); err != nil {
@@ -565,6 +610,10 @@ type IncomingMessage struct {
 	ConversationUUIDFromReplyTo string // UUID extracted from plus-addressed recipient (inbox+conv-{uuid}@domain)
 	InReplyTo                   string
 	References                  []string
+
+	// FromDomainVerified is true when the receiving mail server recorded DMARC pass for the From domain (Clyr fork).
+	// Only then is an email contact matched to an organization by its domain.
+	FromDomainVerified bool
 }
 
 // ToMessage converts IncomingMessage to a Message for DB insertion.

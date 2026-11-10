@@ -4,6 +4,12 @@ export const reportsNavItems = [
     href: '/reports/overview',
     permission: 'reports:manage',
     icon: 'BarChart3'
+  },
+  {
+    titleKey: 'globals.terms.issues',
+    href: '/reports/issues',
+    permission: 'reports:manage',
+    icon: 'LineChart'
   }
 ]
 

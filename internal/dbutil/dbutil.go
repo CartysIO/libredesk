@@ -18,6 +18,12 @@ func IsUniqueViolationError(err error) bool {
 	return errors.As(err, &pqErr) && pqErr.Code == "23505"
 }
 
+// IsCheckViolationError checks if the given error is a PostgreSQL check constraint violation (error code 23514)
+func IsCheckViolationError(err error) bool {
+	var pqErr *pq.Error
+	return errors.As(err, &pqErr) && pqErr.Code == "23514"
+}
+
 // IsTableNotExistError checks if the given error is a PostgreSQL table does not exist error (error code 42P01)
 func IsTableNotExistError(err error) bool {
 	var pqErr *pq.Error

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"net/mail"
 	"path/filepath"
 	"regexp"
@@ -27,6 +28,7 @@ import (
 	mmodels "github.com/abhinavxd/libredesk/internal/media/models"
 	"github.com/abhinavxd/libredesk/internal/sla"
 	"github.com/abhinavxd/libredesk/internal/stringutil"
+	tmpl "github.com/abhinavxd/libredesk/internal/template"
 	umodels "github.com/abhinavxd/libredesk/internal/user/models"
 	wmodels "github.com/abhinavxd/libredesk/internal/webhook/models"
 	"github.com/jmoiron/sqlx"
@@ -37,7 +39,8 @@ import (
 const (
 	maxMessagesPerPage = 500
 	// Only allow visitor-to-contact upgrade within this window after the last continuity email.
-	upgradeWindowTTL = 7 * 24 * time.Hour
+	upgradeWindowTTL    = 7 * 24 * time.Hour
+	maxPreviousMessages = 10
 )
 
 // Matches <img ... src="URL"> and captures the URL for downstream parsing.
@@ -52,6 +55,26 @@ type fromNameVars struct {
 type fromNameAgent struct{ FirstName, LastName, FullName string }
 
 type fromNameInbox struct{ Name string }
+
+// previousMessage is one earlier message exposed to the outgoing email template. String fields are HTML-escaped.
+type previousMessage struct {
+	SenderName  string
+	SenderEmail string
+	CreatedAt   time.Time
+	IsIncoming  bool
+	Content     string
+}
+
+type previousMessageRow struct {
+	CreatedAt   time.Time `db:"created_at"`
+	IsIncoming  bool      `db:"is_incoming"`
+	Content     string    `db:"content"`
+	TextContent string    `db:"text_content"`
+	ContentType string    `db:"content_type"`
+	FirstName   string    `db:"first_name"`
+	LastName    string    `db:"last_name"`
+	Email       string    `db:"email"`
+}
 
 // Run starts a pool of worker goroutines to handle message dispatching via inbox's channel and processes incoming messages. It scans for
 // pending outgoing messages at the specified read interval and pushes them to the outgoing queue to be sent.
@@ -192,6 +215,12 @@ func (m *Manager) sendOutgoingMessage(message models.Message) {
 			outbound.AltContent = stringutil.HTML2TextMarkdownLinks(message.Content)
 		}
 
+		// Emails with no subject (e.g. arrived via IMAP with an empty Subject header) are
+		// rejected by some SMTP servers. Fall back to the reference number so replies go through.
+		if outbound.Subject == "" {
+			outbound.Subject = m.formatRefMarker(message.ReferenceNumber)
+		}
+
 		// Set "In-Reply-To" and "References" headers for email threading.
 		outbound.References, outbound.InReplyTo = m.BuildEmailThreadingHeaders(message.ConversationID, outbound.SourceID)
 	}
@@ -247,9 +276,78 @@ func (m *Manager) sendOutgoingMessage(message models.Message) {
 
 		m.BroadcastConversationUpdate(message.ConversationUUID, wsData)
 
+		// The first agent to reply on an unassigned conversation takes it (Pylon's "assign to first responder").
+		m.assignOnFirstReply(message, conversation, systemUser.ID)
+
+		// A sent human or AI reply puts the ball in the customer's court.
+		m.moveToOnCustomerAfterReply(message, conversation.Status.String)
+
 		if message.ShouldEvaluateAutomation(systemUser.ID) {
 			m.automation.EvaluateConversationUpdateRulesByID(message.ConversationID, "", amodels.EventConversationMessageOutgoing, umodels.User{ID: message.SenderID})
 		}
+	}
+}
+
+// shouldMoveToOnCustomer reports whether a sent outgoing message moves a conversation in the given status to
+// "On customer". Only a customer-facing reply from an agent (human or AI) counts, from "Open" or "On you".
+// Private notes, automated messages (auto-replies, CSAT), continuity emails and replies sent with a chosen
+// status (the agent's "send and set status") never move the conversation.
+func shouldMoveToOnCustomer(message models.Message, status string) bool {
+	if message.Type != models.MessageOutgoing || message.Private || message.IsAutomated() || message.HasCSAT() || message.IsContinuityMessage() || message.KeepsStatus() {
+		return false
+	}
+	return status == models.StatusOpen || status == models.StatusOnYou
+}
+
+// moveToOnCustomerAfterReply sets the conversation status to "On customer" after a sent agent reply,
+// through UpdateConversationStatus so the activity log, websocket broadcast, webhooks and automation fire.
+func (m *Manager) moveToOnCustomerAfterReply(message models.Message, status string) {
+	if !shouldMoveToOnCustomer(message, status) {
+		return
+	}
+	actor, err := m.userStore.GetAgentCachedOrLoad(message.SenderID)
+	if err != nil {
+		m.lo.Error("error fetching reply sender for status change", "sender_id", message.SenderID, "error", err)
+		return
+	}
+	// Guarded in SQL: a snooze or resolve that landed after the status snapshot must not be overwritten.
+	if err := m.updateConversationStatus(message.ConversationUUID, 0, models.StatusOnCustomer, "", actor, []string{models.StatusOpen, models.StatusOnYou}); err != nil {
+		m.lo.Error("error moving conversation to On customer after reply", "conversation_uuid", message.ConversationUUID, "error", err)
+	}
+}
+
+// shouldAssignOnFirstReply reports whether a sent message assigns its conversation to the sender. Only a
+// customer-facing reply from a human agent (not the system user, not an AI assistant) on a conversation with
+// no assigned user counts. Private notes, automated messages, CSAT and continuity emails never assign.
+func shouldAssignOnFirstReply(message models.Message, sender umodels.User, systemUserID int, assigned bool) bool {
+	if assigned || message.Type != models.MessageOutgoing || message.Private || message.IsAutomated() || message.HasCSAT() || message.IsContinuityMessage() {
+		return false
+	}
+	return sender.Type == umodels.UserTypeAgent && sender.ID != systemUserID
+}
+
+// assignOnFirstReply assigns an unassigned conversation to the agent who sent the reply, acting as that agent,
+// when app.assign_on_first_reply is on. The claim is guarded in SQL: it only lands if the conversation is still
+// unassigned and still in the team it was in, so a concurrent assignment wins.
+func (m *Manager) assignOnFirstReply(message models.Message, conversation models.Conversation, systemUserID int) {
+	if !m.assignOnFirstReplyEnabled || conversation.AssignedUserID.Valid {
+		return
+	}
+	sender, err := m.userStore.GetAgentCachedOrLoad(message.SenderID)
+	if err != nil {
+		m.lo.Error("error fetching reply sender for first-reply assignment", "sender_id", message.SenderID, "error", err)
+		return
+	}
+	if !shouldAssignOnFirstReply(message, sender, systemUserID, conversation.AssignedUserID.Valid) {
+		return
+	}
+	err = m.ClaimUnassignedConversation(message.ConversationUUID, sender.ID, conversation.AssignedTeamID.Int, sender)
+	if errors.Is(err, ErrConversationAlreadyAssigned) {
+		m.lo.Debug("no first-reply assignment: conversation assigned concurrently", "conversation_uuid", message.ConversationUUID)
+		return
+	}
+	if err != nil {
+		m.lo.Error("error assigning conversation to first responder", "conversation_uuid", message.ConversationUUID, "error", err)
 	}
 }
 
@@ -265,50 +363,13 @@ func (m *Manager) BuildTemplateData(conversationUUID string, senderID int) (map[
 		return nil, fmt.Errorf("fetching message sender user: %w", err)
 	}
 
-	data := map[string]any{
-		"Conversation": map[string]any{
-			"ReferenceNumber": conversation.ReferenceNumber,
-			"Subject":         conversation.Subject.String,
-			"Priority":        conversation.Priority.String,
-			"UUID":            conversation.UUID,
-		},
-		// The inbox the message leaves from, so one outgoing template can sign or brand per inbox.
-		"Inbox": map[string]any{
-			"Name":    conversation.InboxName,
-			"Channel": conversation.InboxChannel,
-		},
-		"Contact": map[string]any{
-			"FirstName": conversation.Contact.FirstName,
-			"LastName":  conversation.Contact.LastName,
-			"FullName":  conversation.Contact.FullName(),
-			"Email":     conversation.Contact.Email.String,
-		},
-		"Recipient": map[string]any{
-			"FirstName": conversation.Contact.FirstName,
-			"LastName":  conversation.Contact.LastName,
-			"FullName":  conversation.Contact.FullName(),
-			"Email":     conversation.Contact.Email.String,
-		},
-		"Author": map[string]any{
-			"FirstName": sender.FirstName,
-			"LastName":  sender.LastName,
-			"FullName":  sender.FullName(),
-			"Email":     sender.Email.String,
-		},
-		// Lets templates disclose AI-composed replies, e.g. {{ if .IsAIComposed }}Composed by AI{{ end }}.
-		"IsAIComposed": sender.Type == umodels.UserTypeAIAssistant,
+	recipient := umodels.User{
+		FirstName: conversation.Contact.FirstName,
+		LastName:  conversation.Contact.LastName,
+		Email:     conversation.Contact.Email,
 	}
-
-	// For automated replies set author fields to empty strings as the recipients will see name as System.
-	if sender.IsSystemUser() {
-		data["Author"] = map[string]any{
-			"FirstName": "",
-			"LastName":  "",
-			"FullName":  "",
-			"Email":     "",
-		}
-	}
-
+	data := tmpl.BuildConversationData(conversation, recipient, sender)
+	data["Recipient"] = data["Contact"]
 	return data, nil
 }
 
@@ -321,6 +382,10 @@ func (m *Manager) RenderMessageInTemplate(channel string, message *models.Messag
 		}
 
 		content := m.emailTemplateContent(message, data)
+		isContinuity, _ := data["IsContinuityEmail"].(bool)
+		if !isContinuity && m.template.DefaultOutgoingEmailTemplateContains("PreviousMessages") {
+			data["PreviousMessages"] = m.previousMessagesData(message.ConversationID, message.ID)
+		}
 		message.Content, err = m.template.RenderEmailWithTemplate(data, content)
 		if err != nil {
 			m.lo.Error("could not render email content using template", "id", message.ID, "error", err)
@@ -355,6 +420,34 @@ func (m *Manager) emailTemplateContent(message *models.Message, data map[string]
 		return content + "{{ .ArticleReferences }}"
 	}
 	return content
+}
+
+// previousMessagesData returns the conversation's earlier messages exchanged with the contact, newest first, with incoming reply chains removed.
+func (m *Manager) previousMessagesData(conversationID, messageID int) []previousMessage {
+	out := []previousMessage{}
+	var rows []previousMessageRow
+	if err := m.q.GetPreviousMessages.Select(&rows, conversationID, messageID, maxPreviousMessages); err != nil {
+		m.lo.Error("error fetching previous messages", "conversation_id", conversationID, "error", err)
+		return out
+	}
+	for _, r := range rows {
+		text := strings.TrimSpace(r.TextContent)
+		if r.IsIncoming {
+			text = textWithoutQuotedReplies(models.Message{Content: r.Content, TextContent: r.TextContent, ContentType: r.ContentType})
+		}
+		if text == "" {
+			continue
+		}
+		sender := umodels.User{FirstName: r.FirstName, LastName: r.LastName}
+		out = append(out, previousMessage{
+			SenderName:  html.EscapeString(strings.TrimSpace(sender.FullName())),
+			SenderEmail: html.EscapeString(r.Email),
+			CreatedAt:   r.CreatedAt,
+			IsIncoming:  r.IsIncoming,
+			Content:     strings.ReplaceAll(html.EscapeString(text), "\n", "<br>"),
+		})
+	}
+	return out
 }
 
 // GetConversationMessages retrieves messages for a specific conversation.
@@ -416,6 +509,15 @@ func (m *Manager) GetAllConversationMessages(conversationUUID string, private *b
 	}
 	slices.Reverse(all)
 	return all, nil
+}
+
+// GetFirstIncomingMessages returns a conversation's oldest public customer messages, oldest first, with only the fields a transcript needs.
+func (m *Manager) GetFirstIncomingMessages(conversationUUID string, limit int) ([]models.Message, error) {
+	msgs := make([]models.Message, 0, limit)
+	if err := m.q.GetFirstIncomingMessages.Select(&msgs, conversationUUID, limit); err != nil {
+		return nil, fmt.Errorf("fetching first incoming messages: %w", err)
+	}
+	return msgs, nil
 }
 
 // GetMessage retrieves a message by UUID.
@@ -596,6 +698,73 @@ func (m *Manager) SendPrivateNote(media []mmodels.Media, senderID int, conversat
 	}
 
 	return message, nil
+}
+
+// InsertHistoricalAgentMessage stores an outgoing agent message at a historical created_at without queuing outbound delivery.
+// It refreshes conversation summary columns in the same transaction and skips websocket/webhook side effects.
+func (m *Manager) InsertHistoricalAgentMessage(media []mmodels.Media, agentID int, conversationUUID, content string, private bool, createdAt time.Time, metaMap map[string]any, mentions []models.MentionInput) (models.Message, error) {
+	if data, err := m.BuildTemplateData(conversationUUID, agentID); err == nil {
+		content = m.template.RenderString(data, content)
+	}
+
+	if metaMap == nil {
+		metaMap = map[string]any{}
+	}
+	metaMap["migration_backfill"] = true
+	metaJSON, err := json.Marshal(metaMap)
+	if err != nil {
+		m.lo.Error("error marshalling historical message meta", "error", err)
+		return models.Message{}, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+
+	message := models.Message{
+		ConversationUUID: conversationUUID,
+		SenderID:         agentID,
+		UploadUserID:     agentID,
+		Type:             models.MessageOutgoing,
+		SenderType:       models.SenderTypeAgent,
+		Status:           models.MessageStatusSent,
+		Content:          content,
+		ContentType:      models.ContentTypeHTML,
+		Private:          private,
+		Media:            media,
+		CreatedAt:        createdAt,
+		UpdatedAt:        createdAt,
+		Meta:             metaJSON,
+	}
+
+	tx, err := m.db.Beginx()
+	if err != nil {
+		m.lo.Error("error beginning historical message transaction", "error", err)
+		return models.Message{}, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+	defer tx.Rollback()
+
+	if _, err := m.InsertMessageTx(tx, &message); err != nil {
+		return models.Message{}, err
+	}
+	if err := RefreshConversationSummaryFromMessages(tx, message.ConversationID); err != nil {
+		m.lo.Error("error refreshing conversation summary", "conversation_id", message.ConversationID, "error", err)
+		return models.Message{}, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+	if err := tx.Commit(); err != nil {
+		m.lo.Error("error committing historical message transaction", "error", err)
+		return models.Message{}, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+
+	m.addConversationParticipant(message.SenderID, message.ConversationUUID)
+	if private && len(mentions) > 0 {
+		if err := m.InsertMentions(message.ConversationID, message.ID, agentID, mentions); err != nil {
+			m.lo.Error("error inserting mentions on historical note", "error", err)
+		}
+	}
+
+	refetched, err := m.GetMessage(message.UUID)
+	if err != nil {
+		m.lo.Error("error fetching historical message after insert", "error", err)
+		return message, nil
+	}
+	return refetched, nil
 }
 
 // CreateContactMessage creates a contact message in a conversation.
@@ -782,9 +951,16 @@ func (m *Manager) InsertMessageTx(tx *sqlx.Tx, message *models.Message) ([]strin
 		message.TextContent = stringutil.HTML2Text(message.Content)
 	}
 
-	if err := tx.Stmtx(m.q.InsertMessage).Get(message, message.Type, message.Status, message.ConversationID, message.ConversationUUID, message.Content, message.TextContent, message.SenderID, message.SenderType,
-		message.Private, message.ContentType, message.SourceID, message.Meta); err != nil {
-		m.lo.Error("error inserting message in db", "error", err)
+	var errInsert error
+	if message.CreatedAt.IsZero() {
+		errInsert = tx.Stmtx(m.q.InsertMessage).Get(message, message.Type, message.Status, message.ConversationID, message.ConversationUUID, message.Content, message.TextContent, message.SenderID, message.SenderType,
+			message.Private, message.ContentType, message.SourceID, message.Meta)
+	} else {
+		errInsert = tx.Stmtx(m.q.InsertMessageWithTimestamps).Get(message, message.Type, message.Status, message.ConversationID, message.ConversationUUID, message.Content, message.TextContent, message.SenderID, message.SenderType,
+			message.Private, message.ContentType, message.SourceID, message.Meta, message.CreatedAt)
+	}
+	if errInsert != nil {
+		m.lo.Error("error inserting message in db", "error", errInsert)
 		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
 
@@ -796,7 +972,6 @@ func (m *Manager) InsertMessageTx(tx *sqlx.Tx, message *models.Message) ([]strin
 
 // AfterMessageInsert runs the post-commit side effects of a message insert: participant, last message and broadcast.
 func (m *Manager) AfterMessageInsert(message *models.Message, inlineUUIDs []string) {
-	// Add this user as a participant if not already present.
 	m.addConversationParticipant(message.SenderID, message.ConversationUUID)
 
 	// Skip updating last_message and broadcasting for continuity emails.
@@ -912,7 +1087,11 @@ func (m *Manager) InsertConversationActivity(activityType, conversationUUID, new
 	}
 
 	// Store the activity type structurally so callers can filter activities without parsing i18n content.
-	meta, _ := json.Marshal(map[string]string{"activity_type": activityType})
+	metaFields := map[string]string{"activity_type": activityType}
+	if newValue != "" {
+		metaFields["new_value"] = newValue
+	}
+	meta, _ := json.Marshal(metaFields)
 
 	message := models.Message{
 		Type:             models.MessageActivity,
@@ -1011,6 +1190,15 @@ func (m *Manager) ProcessIncomingMessage(in models.IncomingMessage) (models.Mess
 		}
 		senderID = user.ID
 		in.Contact.ID = senderID
+	}
+
+	// A contact with no organization joins the organization of its email domain, so a new conversation
+	// is filed under it (Clyr fork). Only a From domain that passed DMARC counts, as From is easy to forge.
+	// A failure is logged by the store and does not stop the message.
+	if m.organizationStore != nil && in.Contact.Email.Valid && in.FromDomainVerified {
+		if orgID, _, err := m.organizationStore.AssignByEmailDomain(senderID, in.Contact.Email.String); err == nil && orgID > 0 {
+			m.lo.Info("contact joined organization by email domain", "contact_id", senderID, "organization_id", orgID)
+		}
 	}
 
 	// Match conversation if not already matched by plus-addressing.

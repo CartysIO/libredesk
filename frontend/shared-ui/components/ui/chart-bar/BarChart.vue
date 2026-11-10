@@ -3,6 +3,7 @@ import {
   ChartCrosshair,
   ChartLegend,
   defaultColors,
+  useLegendItems,
 } from '../chart';
 import { cn } from '../../../lib/utils';
 import { Axis, GroupedBar, StackedBar } from '@unovis/ts';
@@ -13,7 +14,7 @@ import {
   VisXYContainer,
 } from '@unovis/vue';
 import { useMounted } from '@vueuse/core';
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
 const props = defineProps({
   data: { type: Array, required: true },
@@ -34,6 +35,8 @@ const props = defineProps({
   showLegend: { type: Boolean, required: false, default: true },
   showGridLine: { type: Boolean, required: false, default: true },
   customTooltip: { type: null, required: false },
+  valueFormatter: { type: Function, required: false },
+  titleFormatter: { type: Function, required: false },
   type: { type: String, required: false, default: 'grouped' },
   roundedCorners: { type: Number, required: false, default: 0 },
 });
@@ -43,13 +46,7 @@ const index = computed(() => props.index);
 const colors = computed(() =>
   props.colors?.length ? props.colors : defaultColors(props.categories.length),
 );
-const legendItems = ref(
-  props.categories.map((category, i) => ({
-    name: category,
-    color: colors.value[i],
-    inactive: false,
-  })),
-);
+const legendItems = useLegendItems(() => props.categories, colors);
 
 const isMounted = useMounted();
 
@@ -88,6 +85,8 @@ const selectorsBar = computed(() =>
         :items="legendItems"
         :custom-tooltip="customTooltip"
         :index="index"
+        :value-formatter="valueFormatter"
+        :title-formatter="titleFormatter"
       />
 
       <VisBarComponent

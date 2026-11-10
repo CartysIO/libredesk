@@ -21,6 +21,7 @@ import (
 	"github.com/abhinavxd/libredesk/internal/autoassigner"
 	"github.com/abhinavxd/libredesk/internal/automation"
 	businesshours "github.com/abhinavxd/libredesk/internal/business_hours"
+	"github.com/abhinavxd/libredesk/internal/clerk"
 	"github.com/abhinavxd/libredesk/internal/colorlog"
 	contextlink "github.com/abhinavxd/libredesk/internal/context_link"
 	"github.com/abhinavxd/libredesk/internal/conversation"
@@ -44,6 +45,7 @@ import (
 	notificationchannels "github.com/abhinavxd/libredesk/internal/notification/channels"
 	emailnotifier "github.com/abhinavxd/libredesk/internal/notification/providers/email"
 	"github.com/abhinavxd/libredesk/internal/oidc"
+	"github.com/abhinavxd/libredesk/internal/organization"
 	"github.com/abhinavxd/libredesk/internal/ratelimit"
 	"github.com/abhinavxd/libredesk/internal/report"
 	"github.com/abhinavxd/libredesk/internal/role"
@@ -148,6 +150,17 @@ func initFlags() {
 	f.Bool("upgrade", false, "upgrade the database schema")
 	f.Bool("set-system-user-password", false, "set password for the system user")
 	f.String("static-dir", "", "path to a directory with custom static files and templates to override the defaults")
+
+	// Clyr fork: one-time Pylon history import (cmd/pylon_import.go).
+	f.Bool("pylon-import", false, "import the Pylon history (reads PYLON_API_KEY) and exit")
+	f.String("pylon-cache", "pylon-cache", "with --pylon-import: directory that caches every Pylon response and file")
+	f.Bool("dry-run", false, "with --pylon-import: print what would be imported and write nothing")
+	f.Int("limit", 0, "with --pylon-import: import at most this many conversations (0 = all)")
+	f.String("since", "", "with --pylon-import: only issues created on or after this date (YYYY-MM-DD); also limits Pylon API issue listing unless issues.json is already cached")
+	f.Int("pylon-inbox", 0, "with --pylon-import: email inbox id for the conversations (default: the only email inbox)")
+	f.Int("pylon-reference-floor", 4000, "with --pylon-import: new conversations get reference numbers from here up (at least the highest Pylon number + 1)")
+	f.Bool("pylon-allow-missing-files", false, "with --pylon-import: import even when some files cannot be downloaded (their URLs stay in message meta)")
+	f.StringSlice("pylon-agent-alias", []string{"omer.menashe@gmail.com=omer@clyr.io"}, "with --pylon-import: pylon-user-email=libredesk-agent-email")
 
 	if err := f.Parse(os.Args[1:]); err != nil {
 		log.Fatalf("loading flags: %v", err)
@@ -304,7 +317,7 @@ func initConversations(
 	csat *csat.Manager,
 	automationEngine *automation.Engine,
 	template *tmpl.Manager,
-	webhook *webhook.Manager,
+	webhook eventFanout,
 	dispatcher *notifier.Dispatcher,
 ) *conversation.Manager {
 	continuityConfig := &conversation.ContinuityConfig{}
@@ -319,6 +332,7 @@ func initConversations(
 		IncomingMessageQueueSize: ko.MustInt("message.incoming_queue_size"),
 		ContinuityConfig:         continuityConfig,
 		SubjectRefFormat:         ko.String("conversation.subject_ref_format"),
+		AssignOnFirstReply:       ko.Bool("app.assign_on_first_reply"),
 	})
 	if err != nil {
 		log.Fatalf("error initializing conversation manager: %v", err)
@@ -570,6 +584,20 @@ func initTeam(db *sqlx.DB, i18n *i18n.I18n) *team.Manager {
 	})
 	if err != nil {
 		log.Fatalf("error initializing team manager: %v", err)
+	}
+	return mgr
+}
+
+// initOrganization inits the organization manager.
+func initOrganization(db *sqlx.DB, i18n *i18n.I18n) *organization.Manager {
+	var lo = initLogger("organization-manager")
+	mgr, err := organization.New(organization.Opts{
+		DB:   db,
+		Lo:   lo,
+		I18n: i18n,
+	})
+	if err != nil {
+		log.Fatalf("error initializing organization manager: %v", err)
 	}
 	return mgr
 }
@@ -927,6 +955,22 @@ func initSSRFControl() ssrf.Control {
 }
 
 // initAuth initializes the authentication manager.
+// initClerk returns the Clerk sign-in client, or nil when the [clerk] keys are not set.
+func initClerk() *clerk.Client {
+	cfg := clerk.Config{
+		PublishableKey: ko.String("clerk.publishable_key"),
+		SecretKey:      ko.String("clerk.secret_key"),
+	}
+	if !cfg.Enabled() {
+		return nil
+	}
+	c, err := clerk.New(cfg)
+	if err != nil {
+		log.Fatalf("error initializing clerk: %v", err)
+	}
+	return c
+}
+
 func initAuth(o *oidc.Manager, rd *redis.Client, i18n *i18n.I18n, dialControl ssrf.Control) *auth_.Auth {
 	lo := initLogger("auth")
 

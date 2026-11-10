@@ -201,7 +201,7 @@ describe('User view form', () => {
     dialog().find('[data-cy="filter-group"]').should('have.length', 2)
     condition(1, 0, /^Priority$/, /^equals$/, 'Low')
     dialog().find('[data-cy="filter-group"]').eq(1).contains('button', 'Add condition').click()
-    condition(1, 1, /^Status$/, /^equals$/, 'Closed')
+    condition(1, 1, /^Status$/, /^equals$/, 'Resolved')
     save()
 
     cy.wait('@updateView').then(({ request, response }) => {

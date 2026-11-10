@@ -35,6 +35,10 @@ describe('Custom Attributes Form Schema', () => {
         expect(() => schema.parse({ ...validForm, applies_to: 'conversation' })).not.toThrow()
     })
 
+    test('applies_to organization accepted', () => {
+        expect(() => schema.parse({ ...validForm, applies_to: 'organization' })).not.toThrow()
+    })
+
     test('name missing', () => {
         const { name, ...form } = validForm
         expect(() => schema.parse(form)).toThrow()
@@ -132,6 +136,13 @@ describe('Custom Attributes Form Schema', () => {
 
     test('values empty for list type', () => {
         expect(() => schema.parse({ ...validForm, data_type: 'list', values: [] })).toThrow()
+    })
+
+    test('multi_select needs values and a conversation attribute', () => {
+        const conv = { ...validForm, applies_to: 'conversation', data_type: 'multi_select' }
+        expect(() => schema.parse({ ...conv, values: ['Bug', 'User Error'] })).not.toThrow()
+        expect(() => schema.parse({ ...conv, values: [] })).toThrow()
+        expect(() => schema.parse({ ...conv, applies_to: 'contact', values: ['Bug'] })).toThrow()
     })
 
     test('values defaults to empty array', () => {

@@ -1,21 +1,27 @@
 <template>
-  <div class="min-h-screen flex flex-col">
+  <div class="min-h-full flex flex-col">
     <!-- Main Content Area -->
     <div class="flex flex-wrap gap-4 pb-4">
-      <div class="flex items-center gap-4 mb-4 w-full">
+      <div class="flex flex-wrap items-center gap-3 mb-4 w-full">
         <!-- Search Input -->
-        <Input
-          type="text"
-          class="max-w-sm"
+        <SearchInput
+          class="min-w-0 flex-1 max-w-sm"
           v-model="searchTerm"
           :placeholder="$t('contact.searchByEmail')"
-          @input="fetchContactsDebounced"
+          :clear-label="$t('globals.messages.clearSearch')"
+          @update:model-value="fetchContactsDebounced"
         />
 
         <!-- Order By Popover -->
         <Popover>
-          <PopoverTrigger>
-            <Button variant="outline" size="sm" class="flex items-center h-8">
+          <PopoverTrigger as-child>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              class="size-9"
+              :aria-label="$t('globals.messages.sortBy')"
+            >
               <ArrowDownWideNarrow size="18" class="text-muted-foreground cursor-pointer" />
             </Button>
           </PopoverTrigger>
@@ -47,7 +53,19 @@
         </Popover>
 
         <Button
+          :variant="blockedOnly ? 'default' : 'outline'"
+          size="sm"
+          class="flex items-center gap-1 h-8"
+          :aria-pressed="blockedOnly"
+          @click="toggleBlockedOnly"
+        >
+          <ShieldOffIcon size="14" />
+          {{ $t('contact.blockedOnly') }}
+        </Button>
+
+        <Button
           v-if="userStore.can('contacts:write')"
+          type="button"
           size="sm"
           class="flex items-center h-8 ml-auto"
           @click="showCreateDialog = true"
@@ -71,46 +89,51 @@
 
       <!-- Loaded State -->
       <template v-else>
-        <Card
+        <router-link
           v-for="contact in contacts"
           :key="contact.id"
-          class="p-4 w-full hover:bg-accent/50 cursor-pointer"
-          @click="$router.push({ name: 'contact-detail', params: { id: contact.id } })"
+          :to="{ name: 'contact-detail', params: { id: contact.id } }"
+          class="block w-full rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <div class="flex items-center gap-4">
-            <Avatar class="h-10 w-10 border">
-              <AvatarImage :src="contact.avatar_url || ''" />
-              <AvatarFallback class="text-sm font-medium">
-                {{ getInitials(contact.first_name, contact.last_name) }}
-              </AvatarFallback>
-            </Avatar>
+          <Card class="p-4 w-full transition-colors duration-150 hover:bg-accent/50">
+            <div class="flex items-center gap-4">
+              <Avatar class="h-10 w-10 border">
+                <AvatarImage :src="contact.avatar_url || ''" />
+                <AvatarFallback class="text-sm font-medium">
+                  {{ getInitials(contact.first_name, contact.last_name) }}
+                </AvatarFallback>
+              </Avatar>
 
-            <div class="space-y-1 overflow-hidden flex-1">
-              <div class="flex items-center gap-2">
-                <h4 class="text-sm font-semibold truncate">
-                  {{ contact.first_name }} {{ contact.last_name }}
-                </h4>
-                <Badge v-if="contact.type" variant="secondary" class="text-xs px-1.5 py-0">
-                  {{
-                    contact.type === 'visitor'
-                      ? $t('contact.type.visitor')
-                      : $t('contact.type.contact')
-                  }}
-                </Badge>
-              </div>
-              <p class="text-xs text-muted-foreground truncate">
-                {{ contact.email }}
-              </p>
-              <div
-                v-if="contact.external_user_id"
-                class="flex items-center gap-1 text-xs text-muted-foreground"
-              >
-                <IdCardIcon size="12" class="flex-shrink-0" />
-                <span class="truncate">{{ contact.external_user_id }}</span>
+              <div class="space-y-1 overflow-hidden flex-1">
+                <div class="flex items-center gap-2">
+                  <h4 class="ui-subheading truncate">
+                    {{ contact.first_name }} {{ contact.last_name }}
+                  </h4>
+                  <Badge v-if="contact.type" variant="secondary" class="text-xs px-1.5 py-0">
+                    {{
+                      contact.type === 'visitor'
+                        ? $t('contact.type.visitor')
+                        : $t('contact.type.contact')
+                    }}
+                  </Badge>
+                  <Badge v-if="!contact.enabled" variant="destructive" class="text-xs px-1.5 py-0">
+                    {{ $t('globals.terms.blocked') }}
+                  </Badge>
+                </div>
+                <p class="text-xs text-muted-foreground truncate">
+                  {{ contact.email }}
+                </p>
+                <div
+                  v-if="contact.external_user_id"
+                  class="flex items-center gap-1 text-xs text-muted-foreground"
+                >
+                  <IdCardIcon size="12" class="flex-shrink-0" />
+                  <span class="truncate">{{ contact.external_user_id }}</span>
+                </div>
               </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </router-link>
         <div v-if="contacts.length === 0" class="flex items-center justify-center w-full h-32">
           <p class="text-lg text-muted-foreground">{{ $t('contact.noContactsFound') }}</p>
         </div>
@@ -137,9 +160,9 @@ import {
   SelectTrigger,
   SelectValue
 } from '@shared-ui/components/ui/select'
-import { Input } from '@shared-ui/components/ui/input'
+import SearchInput from '@shared-ui/components/SearchInput.vue'
 import { Button } from '@shared-ui/components/ui/button'
-import { ArrowDownWideNarrow, IdCardIcon } from 'lucide-vue-next'
+import { ArrowDownWideNarrow, IdCardIcon, ShieldOffIcon } from 'lucide-vue-next'
 import { Popover, PopoverContent, PopoverTrigger } from '@shared-ui/components/ui/popover'
 import { useDebounceFn } from '@vueuse/core'
 import { EMITTER_EVENTS } from '@main/constants/emitterEvents.js'
@@ -160,6 +183,7 @@ const orderByField = ref('users.created_at')
 const orderByDirection = ref('desc')
 const total = ref(0)
 const showCreateDialog = ref(false)
+const blockedOnly = ref(false)
 const emitter = useEmitter()
 const router = useRouter()
 const userStore = useUserStore()
@@ -176,17 +200,19 @@ const fetchContactsDebounced = useDebounceFn(() => {
 const fetchContacts = async () => {
   const requestId = ++fetchRequestId
   loading.value = true
-  let filterJSON = ''
+  const filters = []
   if (searchTerm.value && searchTerm.value.length >= 3) {
-    filterJSON = JSON.stringify([
-      {
-        model: 'users',
-        field: 'email',
-        operator: 'ilike',
-        value: searchTerm.value
-      }
-    ])
+    filters.push({
+      model: 'users',
+      field: 'email',
+      operator: 'ilike',
+      value: searchTerm.value
+    })
   }
+  if (blockedOnly.value) {
+    filters.push({ model: 'users', field: 'enabled', operator: 'equals', value: 'false' })
+  }
+  const filterJSON = filters.length ? JSON.stringify(filters) : ''
   try {
     const response = await api.getContacts({
       page: page.value,
@@ -208,6 +234,11 @@ const fetchContacts = async () => {
   } finally {
     if (requestId === fetchRequestId) loading.value = false
   }
+}
+
+const toggleBlockedOnly = () => {
+  blockedOnly.value = !blockedOnly.value
+  fetchContactsDebounced()
 }
 
 const getInitials = (firstName, lastName) => {
