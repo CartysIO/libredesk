@@ -92,7 +92,7 @@
         >
           <div
             v-if="msg.approval"
-            class="w-full space-y-3 rounded-lg border border-border bg-card p-3 text-card-foreground"
+            class="desk-copilot-approval w-full space-y-3 border border-border bg-card p-3 text-card-foreground"
             role="group"
             aria-live="polite"
             :aria-label="$t('ai.toolApprovalTitle')"
@@ -195,7 +195,7 @@
 
     <form class="border-t border-border p-3" @submit.prevent="send">
       <div
-        class="rounded-lg border border-input bg-background shadow-sm transition-colors focus-within:ring-1 focus-within:ring-ring"
+        class="desk-copilot-compose border border-input bg-background transition-colors focus-within:ring-1 focus-within:ring-ring"
       >
         <Textarea
           v-model="input"

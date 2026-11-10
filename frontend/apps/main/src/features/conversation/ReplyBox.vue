@@ -142,7 +142,7 @@
 
     <!-- Main Editor non-fullscreen -->
     <div
-      class="bg-card text-card-foreground box m-2 px-2 pt-2 flex flex-col relative"
+      class="bg-card text-card-foreground box px-2 pt-2 flex flex-col relative"
       :class="{ '!bg-private': messageType === 'private_note', 'ai-generating': isGenerating }"
       v-if="!isCollapsed && !isEditorFullscreen"
     >

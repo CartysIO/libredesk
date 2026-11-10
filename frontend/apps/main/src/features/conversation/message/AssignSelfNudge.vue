@@ -8,7 +8,7 @@
     leave-to-class="opacity-0 motion-safe:translate-y-2"
   >
     <div v-if="show" class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 w-[calc(100%-2rem)] max-w-md">
-      <div class="flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-2 shadow-lg">
+      <div class="assign-self-nudge__panel flex items-center gap-3 border border-border bg-background px-3 py-2">
         <span class="flex-1 text-sm text-foreground">{{ $t('conversation.assignSelfPrompt') }}</span>
         <Button size="sm" @click="$emit('assign')">{{ $t('conversation.assignSelfAction') }}</Button>
         <button
