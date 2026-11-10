@@ -339,6 +339,10 @@ html[data-app='desk'] .ui-display-heading {
 
 // Reports: flat panels on the work pane (not floating .box cards).
 html[data-app='desk'] .desk-reports {
+  .desk-report-sections > * {
+    min-width: 0;
+  }
+
   .desk-report-panel,
   .box {
     margin: 0;

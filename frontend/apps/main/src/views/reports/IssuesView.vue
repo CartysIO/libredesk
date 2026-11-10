@@ -6,7 +6,7 @@
     >
       <Spinner v-if="isLoading" />
 
-      <div class="space-y-4">
+      <div class="desk-report-sections flex flex-col gap-6">
         <div class="mb-1 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div class="flex flex-col gap-1">
             <span class="text-sm text-muted-foreground">
@@ -180,7 +180,8 @@
 </template>
 
 <script setup>
-const REPORT_ROW_CLASS = 'flex w-full flex-col gap-px md:flex-row md:flex-wrap'
+const REPORT_ROW_CLASS =
+  'flex w-full flex-col gap-4 md:flex-row md:flex-wrap md:gap-px'
 
 import { ref, computed, watch, onMounted } from 'vue'
 import { useIntervalFn, useDocumentVisibility, watchDebounced } from '@vueuse/core'

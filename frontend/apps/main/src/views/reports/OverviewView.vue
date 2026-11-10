@@ -6,7 +6,7 @@
     >
       <Spinner v-if="isLoading" />
 
-      <div class="space-y-4">
+      <div class="desk-report-sections flex flex-col gap-6">
         <div class="mb-1 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div class="flex items-center gap-3">
             <span class="text-sm text-muted-foreground">
@@ -277,7 +277,7 @@
 </template>
 
 <script setup>
-const REPORT_ROW_CLASS = 'flex w-full flex-col gap-px md:flex-row'
+const REPORT_ROW_CLASS = 'flex w-full flex-col gap-4 md:flex-row md:gap-px'
 const SLA_COUNT_GRID_CLASS = 'grid grid-cols-2 gap-4 text-center pt-2'
 
 import { ref, computed, watch, onMounted } from 'vue'
