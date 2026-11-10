@@ -1,12 +1,12 @@
 -- name: get-users-compact
-SELECT COUNT(*) OVER() as total, users.id, users.avatar_url, users.type, users.created_at, users.updated_at, users.first_name, users.last_name, users.email, users.enabled, users.external_user_id, users.availability_status,
+SELECT COUNT(*) OVER() as total, users.id, users.avatar_url, users.type, users.created_at, users.updated_at, users.first_name, COALESCE(users.last_name, '') AS last_name, users.email, users.enabled, users.external_user_id, users.availability_status,
     users.organization_id, (SELECT o.name FROM organizations o WHERE o.id = users.organization_id) AS organization_name
 FROM users
 -- email != 'System' also drops NULL-email users (anonymous visitors); AI assistants have no email and must still be listed.
 WHERE (users.email != 'System' OR users.type = 'ai_assistant') AND users.deleted_at IS NULL AND type = ANY($1)
 
 -- name: get-agents-compact
-SELECT users.id, users.avatar_url, users.type, users.created_at, users.updated_at, users.first_name, users.last_name, users.email, users.enabled, users.external_user_id, users.availability_status
+SELECT users.id, users.avatar_url, users.type, users.created_at, users.updated_at, users.first_name, COALESCE(users.last_name, '') AS last_name, users.email, users.enabled, users.external_user_id, users.availability_status
 FROM users
 WHERE (users.email != 'System' OR users.type = 'ai_assistant') AND users.deleted_at IS NULL AND users.type = ANY($1)
     AND ($2 = '' OR CONCAT(users.first_name, ' ', COALESCE(users.last_name, '')) ILIKE $7 ESCAPE '\' OR users.email ILIKE $7 ESCAPE '\')
@@ -16,7 +16,7 @@ ORDER BY users.first_name, users.last_name, users.id
 LIMIT NULLIF($5, 0) OFFSET $6;
 
 -- name: get-agents-compact-by-ids
-SELECT users.id, users.avatar_url, users.type, users.created_at, users.updated_at, users.first_name, users.last_name, users.email, users.enabled, users.external_user_id, users.availability_status
+SELECT users.id, users.avatar_url, users.type, users.created_at, users.updated_at, users.first_name, COALESCE(users.last_name, '') AS last_name, users.email, users.enabled, users.external_user_id, users.availability_status
 FROM users
 WHERE (users.email != 'System' OR users.type = 'ai_assistant') AND users.deleted_at IS NULL AND users.type = ANY($1) AND users.id = ANY($2)
 ORDER BY users.first_name, users.last_name, users.id;
@@ -52,7 +52,7 @@ SELECT
     u.enabled,
     u.avatar_url,
     u.first_name,
-    u.last_name,
+    COALESCE(u.last_name, '') AS last_name,
     u.availability_status,
     u.last_active_at,
     u.last_login_at,
@@ -357,7 +357,7 @@ SELECT
     cn.note,
     cn.user_id,
     u.first_name,
-    u.last_name,
+    COALESCE(u.last_name, '') AS last_name,
     u.avatar_url
 FROM contact_notes cn
 INNER JOIN users u ON u.id = cn.user_id
@@ -382,7 +382,7 @@ SELECT
     cn.note,
     cn.user_id,
     u.first_name,
-    u.last_name,
+    COALESCE(u.last_name, '') AS last_name,
     u.avatar_url
 FROM contact_notes cn
 INNER JOIN users u ON u.id = cn.user_id
@@ -399,7 +399,7 @@ SELECT
     u.enabled,
     u.avatar_url,
     u.first_name,
-    u.last_name,
+    COALESCE(u.last_name, '') AS last_name,
     u.availability_status,
     u.last_active_at,
     u.last_login_at,
@@ -457,7 +457,7 @@ SELECT
     u.enabled,
     u.avatar_url,
     u.first_name,
-    u.last_name,
+    COALESCE(u.last_name, '') AS last_name,
     u.availability_status,
     u.last_active_at,
     u.last_login_at,

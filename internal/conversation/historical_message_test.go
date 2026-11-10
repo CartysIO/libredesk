@@ -6,7 +6,9 @@ import (
 
 	"github.com/abhinavxd/libredesk/internal/dbutil"
 	mmodels "github.com/abhinavxd/libredesk/internal/media/models"
+	"github.com/abhinavxd/libredesk/internal/template"
 	"github.com/abhinavxd/libredesk/internal/testutil"
+	umodels "github.com/abhinavxd/libredesk/internal/user/models"
 	"github.com/jmoiron/sqlx"
 	"github.com/zerodha/logf"
 )
@@ -20,7 +22,7 @@ func (noopMessageMedia) LinkMessageMediaTx(*sqlx.Tx, int, []mmodels.Media, []str
 func TestInsertHistoricalAgentMessageMidThreadOrder(t *testing.T) {
 	db := testutil.NewDB(t, "historical_message_order")
 	lo := logf.New(logf.Opts{})
-	m := &Manager{lo: &lo, i18n: testutil.NewI18n(t), db: db, mediaStore: noopMessageMedia{}}
+	m := &Manager{lo: &lo, i18n: testutil.NewI18n(t), db: db, mediaStore: noopMessageMedia{}, template: &template.Manager{}}
 	if err := dbutil.ScanSQLFile("queries.sql", &m.q, db, efs); err != nil {
 		t.Fatal(err)
 	}
@@ -33,6 +35,7 @@ func TestInsertHistoricalAgentMessageMidThreadOrder(t *testing.T) {
 	if err := db.QueryRow(`INSERT INTO users (type, email, first_name) VALUES ('agent', 'hist-a@c.test', 'A') RETURNING id`).Scan(&agentID); err != nil {
 		t.Fatal(err)
 	}
+	m.userStore = replyUserStore{agent: umodels.User{ID: agentID, FirstName: "A", Type: umodels.UserTypeAgent}}
 	if err := db.QueryRow(`INSERT INTO inboxes (channel, name) VALUES ('email', 'hist') RETURNING id`).Scan(&inboxID); err != nil {
 		t.Fatal(err)
 	}
