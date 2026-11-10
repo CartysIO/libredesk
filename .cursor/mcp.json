@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "libredesk": {
+      "command": "sh",
+      "args": ["scripts/agent-mcp/cursor.sh"]
+    }
+  }
+}
