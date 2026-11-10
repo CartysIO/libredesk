@@ -78,7 +78,7 @@ func TestImportEndToEnd(t *testing.T) {
 	c105 := existing("105", cust, "cancel account", t0)
 	c106 := existing("106", cust, "Bank feed broken", t0.Add(time.Hour))
 	c107 := existing("107", other, "Other thing", t0)
-	// #106 had live activity after Pylon's last message: its status stays.
+	// #106 had live activity after Pylon's last message; import still copies Pylon's closed status.
 	db.MustExec(`UPDATE conversations SET last_message_at = $2 WHERE id = $1`, c106, t0.Add(48*time.Hour))
 	db.MustExec(`INSERT INTO conversation_messages (type, status, conversation_id, sender_id, sender_type, content, source_id, created_at)
 		VALUES ('incoming', 'received', $1, $2, 'contact', 'i need help canceling', 'abc@mail.gmail.com', $3)`, c105, cust, t0)
@@ -250,8 +250,8 @@ func TestImportEndToEnd(t *testing.T) {
 	if quoted := str(t, db, `SELECT content FROM conversation_messages WHERE meta->>'`+MetaMessageID+`' = 'm9'`); !strings.Contains(quoted, `src="cid:`+cid+`"`) {
 		t.Errorf("quoted image must point at the earlier message's media: %s", quoted)
 	}
-	if s := str(t, db, `SELECT s.name FROM conversations c JOIN conversation_statuses s ON s.id = c.status_id WHERE c.id = $1`, c106); s != StatusOpen {
-		t.Errorf("a merge must keep the live status when Libredesk has newer activity, got %s", s)
+	if s := str(t, db, `SELECT s.name FROM conversations c JOIN conversation_statuses s ON s.id = c.status_id WHERE c.id = $1`, c106); s != StatusResolved {
+		t.Errorf("a merge must copy Pylon status even when Libredesk has newer activity, got %s", s)
 	}
 
 	// Second run: nothing new.

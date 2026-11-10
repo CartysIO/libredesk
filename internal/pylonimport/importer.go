@@ -1040,16 +1040,17 @@ func (im *Importer) importIssue(is Issue, msgs []Message, target *ExistingConver
 	} else {
 		convID = target.ID
 		meta, _ := json.Marshal(map[string]any{MetaMergedIssueID: is.ID, "pylon_number": is.Number, "pylon_link": is.Link, "pylon_source": is.Source})
-		// Pylon's status and assignee win only when Pylon saw the newest activity; otherwise the live state stays.
+		// On merge, always copy Pylon's status and resolution timestamps. Libredesk may move status later on new activity.
+		// Assignee still follows Pylon only when Pylon's latest message is newer than the conversation's last_message_at.
 		if _, err := tx.Exec(`UPDATE conversations SET
 				meta = meta || $2::jsonb,
 				custom_attributes = custom_attributes || $3::jsonb,
 				organization_id = COALESCE(organization_id, $6),
-				status_id = CASE WHEN $8 > COALESCE(last_message_at, 'epoch') THEN $4 ELSE status_id END,
+				status_id = $4,
 				assigned_user_id = CASE WHEN $8 > COALESCE(last_message_at, 'epoch') THEN COALESCE($5, assigned_user_id) ELSE assigned_user_id END,
-				resolved_at = CASE WHEN $8 > COALESCE(last_message_at, 'epoch') THEN COALESCE($7, resolved_at) ELSE resolved_at END,
-				last_resolved_at = CASE WHEN $8 > COALESCE(last_message_at, 'epoch') THEN COALESCE($7, last_resolved_at) ELSE last_resolved_at END,
-				snoozed_until = CASE WHEN $8 > COALESCE(last_message_at, 'epoch') THEN NULL ELSE snoozed_until END
+				resolved_at = $7,
+				last_resolved_at = $7,
+				snoozed_until = NULL
 			WHERE id = $1`, convID, meta, attrsJSON, im.statusIDs[status], assignee, orgID, resolvedAt, lastAt); err != nil {
 			return fmt.Errorf("merging into #%s: %w", target.ReferenceNumber, err)
 		}
