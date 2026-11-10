@@ -292,6 +292,21 @@ html[data-app='desk'] .assign-self-nudge__panel {
   box-shadow: none;
 }
 
+// Kanban: 288px hairline lanes, flat bordered cards (DESIGN.md Board).
+html[data-app='desk'] .board-lane {
+  width: 18rem;
+  background: transparent;
+}
+
+html[data-app='desk'] .board-card {
+  box-shadow: none;
+}
+
+html[data-app='desk'] .board-drawer {
+  // Overlays may lift; keep elevation modest on the hairline grid.
+  box-shadow: 0 10px 15px -3px hsl(var(--foreground) / 0.08), 0 4px 6px -4px hsl(var(--foreground) / 0.06);
+}
+
 // The whose-move swatch: a solid square in a fixed cell. Filled = someone must act, hollow = resolved.
 .code-swatch {
   display: inline-block;
