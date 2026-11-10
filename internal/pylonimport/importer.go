@@ -66,6 +66,8 @@ type Options struct {
 	MediaStore string
 	// AllowMissingFiles imports even when some files could not be downloaded; their URLs stay in message meta.
 	AllowMissingFiles bool
+	// Reconcile re-runs merge absorption and live message backdating for issues already imported (use after upgrading import logic).
+	Reconcile bool
 }
 
 // Importer writes Pylon data into a Libredesk database. It writes rows directly with SQL, in one transaction per
@@ -128,6 +130,8 @@ type Report struct {
 	InlineImages          int
 	MissingFiles          int
 	Duplicates            []string
+	Absorbed              []string
+	ReconciledMessages    int
 	Renumbers             []string
 	SequenceFloor         int
 	Samples               []string
@@ -220,7 +224,16 @@ func (im *Importer) Run(ctx context.Context, d Data) (*Report, error) {
 		im.planDirectory(d)
 		for _, is := range selected {
 			_, merge := matches[is.ID]
+			targetID := 0
+			if m, ok := matches[is.ID]; ok {
+				targetID = m.conv.ID
+				im.planSiblingAbsorption(d.Messages[is.ID], targetID, m.conv.ReferenceNumber)
+			}
 			im.countIssue(is, d.Messages[is.ID], merge)
+			_ = targetID
+		}
+		if im.Opt.Reconcile {
+			im.planReconcile(issues, d.Messages)
 		}
 		im.sample(selected, d.Messages, matches)
 		return im.rep, nil
@@ -287,7 +300,49 @@ func (im *Importer) Run(ctx context.Context, d Data) (*Report, error) {
 		}
 	}
 	im.sample(selected, d.Messages, matches)
+	if im.Opt.Reconcile && !im.Opt.DryRun {
+		if err := im.reconcileImported(ctx, issues, d.Messages); err != nil {
+			return im.rep, err
+		}
+	}
 	return im.rep, nil
+}
+
+// planReconcile counts sibling absorption for issues that were imported on an earlier run.
+func (im *Importer) planReconcile(issues []Issue, msgs map[string][]Message) {
+	for _, is := range issues {
+		convID := im.imported[is.ID]
+		if convID == 0 {
+			continue
+		}
+		ref, err := im.conversationReference(convID)
+		if err != nil {
+			ref = strconv.Itoa(convID)
+		}
+		im.planSiblingAbsorption(msgs[is.ID], convID, ref)
+	}
+}
+
+func (im *Importer) reconcileImported(ctx context.Context, issues []Issue, msgs map[string][]Message) error {
+	for _, is := range issues {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		convID := im.imported[is.ID]
+		if convID == 0 {
+			continue
+		}
+		target, err := im.lookupExistingConversation(convID)
+		if err != nil {
+			return fmt.Errorf("Pylon #%d reconcile lookup: %w", is.Number, err)
+		}
+		if err := im.importIssue(is, msgs[is.ID], target); err != nil {
+			im.rep.FailedConversations = append(im.rep.FailedConversations, fmt.Sprintf("Pylon #%d reconcile: %v", is.Number, err))
+			fmt.Fprintf(im.Out, "pylon reconcile: #%d failed: %v\n", is.Number, err)
+			continue
+		}
+	}
+	return nil
 }
 
 // index builds lookups by Pylon id, adding the users and contacts that only appear as message authors.
@@ -468,13 +523,27 @@ func (im *Importer) load(d Data) error {
 		SourceID string `db:"source_id"`
 		ConvID   int    `db:"conversation_id"`
 	}
-	if err := im.DB.Select(&used, `SELECT DISTINCT ON (source_id) source_id, conversation_id FROM conversation_messages
-		WHERE source_id = ANY($1) ORDER BY source_id, id`, pq.Array(ids)); err != nil {
+	// Libredesk stores source_id without brackets; inbound mail may still have angle brackets in the row.
+	const normSourceID = `trim(both '<>' from trim(source_id))`
+	if err := im.DB.Select(&used, `SELECT DISTINCT ON (`+normSourceID+`) `+normSourceID+` AS source_id, conversation_id
+		FROM conversation_messages
+		WHERE `+normSourceID+` = ANY($1)
+		ORDER BY `+normSourceID+`, conversation_id, id`, pq.Array(ids)); err != nil {
 		return fmt.Errorf("message ids: %w", err)
 	}
 	im.usedSourceIDs = map[string]int{}
 	for _, u := range used {
-		im.usedSourceIDs[u.SourceID] = u.ConvID
+		key := stringutil.NormalizeMessageID(u.SourceID)
+		if key == "" {
+			continue
+		}
+		if prev, ok := im.usedSourceIDs[key]; ok && prev != u.ConvID {
+			if u.ConvID < prev {
+				im.usedSourceIDs[key] = u.ConvID
+			}
+			continue
+		}
+		im.usedSourceIDs[key] = u.ConvID
 	}
 	return nil
 }
@@ -507,8 +576,9 @@ func (im *Importer) existingConversations() ([]ExistingConversation, error) {
 }
 
 // matchDuplicates finds the existing Libredesk conversations that hold a Pylon issue already (both tools read
-// support@clyr.io). An issue matches a conversation that has one of its email Message-IDs, else a conversation of
-// the same contact with the same subject that started within DuplicateWindow. Each conversation matches one issue.
+// support@clyr.io). An issue matches a conversation that has one of its email Message-IDs (oldest Pylon message first,
+// so the opening email wins over a later reply in another inbox thread), else a conversation of the same contact with
+// the same subject that started within DuplicateWindow. Each conversation matches one issue.
 func (im *Importer) matchDuplicates(issues []Issue, msgs map[string][]Message) (map[string]duplicate, error) {
 	existing, err := im.existingConversations()
 	if err != nil {
@@ -531,16 +601,29 @@ func (im *Importer) matchDuplicates(issues []Issue, msgs map[string][]Message) (
 		if im.imported[is.ID] > 0 {
 			continue
 		}
-		for _, m := range msgs[is.ID] {
+		var best *ExistingConversation
+		var bestAt time.Time
+		for _, m := range orderedMessages(is, msgs[is.ID]) {
 			if m.EmailInfo == nil {
 				continue
 			}
 			convID := im.usedSourceIDs[stringutil.NormalizeMessageID(m.EmailInfo.MessageID)]
-			if c, ok := byID[convID]; ok && !claimed[convID] {
-				claimed[convID] = true
-				out[is.ID] = duplicate{conv: c, by: "same email Message-ID"}
-				break
+			if convID == 0 {
+				continue
 			}
+			c, ok := byID[convID]
+			if !ok || claimed[convID] {
+				continue
+			}
+			if best == nil || m.Timestamp.Before(bestAt) {
+				cp := c
+				best = &cp
+				bestAt = m.Timestamp
+			}
+		}
+		if best != nil {
+			claimed[best.ID] = true
+			out[is.ID] = duplicate{conv: *best, by: "same email Message-ID"}
 		}
 	}
 	for _, is := range issues {
@@ -548,12 +631,19 @@ func (im *Importer) matchDuplicates(issues []Issue, msgs map[string][]Message) (
 			continue
 		}
 		email := im.issueContactEmail(is, msgs[is.ID])
-		for _, c := range existing {
-			if !claimed[c.ID] && SameThread(email, is.Title, is.CreatedAt, c.ContactEmail, c.Subject, c.CreatedAt) {
-				claimed[c.ID] = true
-				out[is.ID] = duplicate{conv: c, by: "same contact, subject and day"}
-				break
+		var pick *ExistingConversation
+		for i := range existing {
+			c := &existing[i]
+			if claimed[c.ID] || !SameThread(email, is.Title, is.CreatedAt, c.ContactEmail, c.Subject, c.CreatedAt) {
+				continue
 			}
+			if pick == nil || c.ID < pick.ID {
+				pick = c
+			}
+		}
+		if pick != nil {
+			claimed[pick.ID] = true
+			out[is.ID] = duplicate{conv: *pick, by: "same contact, subject and day"}
 		}
 	}
 	return out, nil
@@ -1056,6 +1146,13 @@ func (im *Importer) importIssue(is Issue, msgs []Message, target *ExistingConver
 		}
 	}
 
+	var postCommitDeletes []string
+	if store, err := im.absorbSiblingConversations(tx, convID, msgs); err != nil {
+		return fmt.Errorf("sibling conversations: %w", err)
+	} else {
+		postCommitDeletes = store
+	}
+
 	participants := map[int]bool{}
 	if assignee.Valid {
 		participants[int(assignee.Int64)] = true
@@ -1109,6 +1206,11 @@ func (im *Importer) importIssue(is Issue, msgs []Message, target *ExistingConver
 	if err := tx.Commit(); err != nil {
 		return err
 	}
+	if im.Media != nil {
+		for _, uuid := range postCommitDeletes {
+			_ = im.Media.Delete(uuid)
+		}
+	}
 	for id, conv := range im.pendingSourceIDs {
 		im.usedSourceIDs[id] = conv
 	}
@@ -1137,6 +1239,13 @@ func (im *Importer) writeMessage(tx *sqlx.Tx, convID int, m Message, merge bool)
 	}
 	if sourceID != "" && (im.usedSourceIDs[sourceID] > 0 || im.pendingSourceIDs[sourceID] > 0) {
 		if merge && im.usedSourceIDs[sourceID] == convID {
+			if err := im.reconcileLiveMessage(tx, convID, m); err != nil {
+				return 0, err
+			}
+			im.rep.SkippedMessages++
+			return 0, nil
+		}
+		if merge && im.usedSourceIDs[sourceID] > 0 && im.usedSourceIDs[sourceID] != convID {
 			im.rep.SkippedMessages++
 			return 0, nil
 		}
@@ -1386,6 +1495,10 @@ func (r *Report) Print(w io.Writer) {
 	}
 	section("Agents", r.Agents)
 	section("Duplicates", r.Duplicates)
+	section("Absorbed siblings", r.Absorbed)
+	if r.ReconciledMessages > 0 {
+		fmt.Fprintf(w, "Live messages backdated: %d\n", r.ReconciledMessages)
+	}
 	section("Reference renumbers", r.Renumbers)
 	section("Failed", r.FailedConversations)
 	section("Samples", r.Samples)

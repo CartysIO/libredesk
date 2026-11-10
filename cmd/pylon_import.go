@@ -28,6 +28,7 @@ func runPylonImport(ctx context.Context, db *sqlx.DB, fs stuffbin.FileSystem, se
 		MediaStore:     ko.MustString("upload.provider"),
 
 		AllowMissingFiles: ko.Bool("pylon-allow-missing-files"),
+		Reconcile:         ko.Bool("pylon-reconcile"),
 	}
 	if s := ko.String("since"); s != "" {
 		t, err := time.Parse("2006-01-02", s)

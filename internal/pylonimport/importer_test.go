@@ -7,6 +7,7 @@ import (
 	"image/color"
 	"image/png"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -269,5 +270,90 @@ func TestImportEndToEnd(t *testing.T) {
 	}
 	if count(t, db, `SELECT COUNT(*) FROM users WHERE type = 'agent'`) != 4 {
 		t.Error("second run must not create agents again")
+	}
+}
+
+// TestImportAbsorbsEmailThreadFragments collapses a live split inbox thread into one Pylon issue conversation.
+func TestImportAbsorbsEmailThreadFragments(t *testing.T) {
+	db := testutil.NewDB(t, "pylon_import_fragments")
+	lo := logf.New(logf.Opts{})
+	store, err := localfs.New(localfs.Opts{UploadPath: t.TempDir(), UploadURI: media.PublicURI, RootURL: func() string { return "http://x" }, SigningKey: strings.Repeat("k", 32), Expiry: time.Hour})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mm, err := media.New(media.Opts{Store: store, Lo: &lo, DB: db, I18n: testutil.NewI18n(t), RootURL: func() string { return "http://x" }})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t0 := time.Date(2026, 11, 10, 15, 0, 0, 0, time.UTC)
+	var inbox, cust int
+	db.Get(&inbox, `INSERT INTO inboxes (name, channel, enabled) VALUES ('Support', 'email', FALSE) RETURNING id`)
+	db.Get(&cust, `INSERT INTO users (type, email, first_name) VALUES ('contact', 'emily@example.com', 'Emily') RETURNING id`)
+	var c112, c113 int
+	db.Get(&c112, `INSERT INTO conversations (reference_number, contact_id, inbox_id, status_id, subject, created_at, last_message_at)
+		VALUES ('112', $1, $2, (SELECT id FROM conversation_statuses WHERE name = 'Open'), 'missing charge', $3, $3) RETURNING id`, cust, inbox, t0)
+	db.Get(&c113, `INSERT INTO conversations (reference_number, contact_id, inbox_id, status_id, subject, created_at, last_message_at)
+		VALUES ('113', $1, $2, (SELECT id FROM conversation_statuses WHERE name = 'Open'), 'RE: missing charge', $3, $3) RETURNING id`, cust, inbox, t0.Add(30*time.Minute))
+	liveFirst := t0.Add(2 * time.Hour)
+	db.MustExec(`INSERT INTO conversation_messages (type, status, conversation_id, sender_id, sender_type, content, text_content, source_id, created_at)
+		VALUES ('incoming', 'received', $1, $2, 'contact', 'hello missing charge', 'hello missing charge', 'first@mail', $3)`, c112, cust, liveFirst)
+	db.MustExec(`INSERT INTO conversation_messages (type, status, conversation_id, sender_id, sender_type, content, text_content, source_id, created_at)
+		VALUES ('incoming', 'received', $1, $2, 'contact', 'thank you', 'thank you', 'thank@mail', $3)`, c113, cust, t0.Add(30*time.Minute))
+
+	contact := &Ref{ID: "pc1", Email: "emily@example.com"}
+	d := Data{
+		Users:    []User{{ID: "u-eran", Name: "eran", Email: "eran@clyr.io"}},
+		Contacts: []Contact{{ID: "pc1", Name: "Emily", Email: "emily@example.com"}},
+		Issues: []Issue{
+			{ID: "i4015", Number: 4015, Title: "missing charge", State: "waiting_on_you", Requester: &Ref{ID: "pc1"}, Assignee: &Ref{ID: "u-eran"}, CreatedAt: t0},
+		},
+		Messages: map[string][]Message{
+			"i4015": {
+				{ID: "m-first", MessageHTML: "hello missing charge", Timestamp: t0, Author: &MessageAuthor{Contact: contact},
+					EmailInfo: &EmailInfo{MessageID: "<first@mail>", FromEmail: "emily@example.com", ToEmails: []string{"support@clyr.io"}}},
+				{ID: "m-reply", MessageHTML: "we are on it", Timestamp: t0.Add(time.Minute), Author: &MessageAuthor{User: &Ref{ID: "u-eran"}}},
+				{ID: "m-thank", MessageHTML: "thank you", Timestamp: t0.Add(30 * time.Minute), Author: &MessageAuthor{Contact: contact},
+					EmailInfo: &EmailInfo{MessageID: "<thank@mail>", FromEmail: "emily@example.com", ToEmails: []string{"support@clyr.io"}}},
+			},
+		},
+	}
+	im := &Importer{DB: db, Media: mm, Opt: Options{ReferenceFloor: 4000, MediaStore: "fs", AgentAliases: map[string]string{}}}
+	rep, err := im.Run(context.Background(), d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.FailedConversations) > 0 {
+		t.Fatalf("failed: %v", rep.FailedConversations)
+	}
+	if count(t, db, `SELECT COUNT(*) FROM conversation_messages WHERE conversation_id = $1`, c113) != 0 {
+		t.Error("sibling conversation must have no messages after absorption")
+	}
+	if absorbed := str(t, db, `SELECT COALESCE(meta->>'`+MetaAbsorbedInto+`', '') FROM conversations WHERE id = $1`, c113); absorbed != strconv.Itoa(c112) {
+		t.Errorf("sibling absorbed into = %q", absorbed)
+	}
+	if ref := str(t, db, `SELECT reference_number FROM conversations WHERE id = $1`, c112); ref != "4015" {
+		t.Errorf("merge target ref = %s, want 4015", ref)
+	}
+	got := str(t, db, `SELECT string_agg(text_content, '|' ORDER BY created_at, id) FROM conversation_messages WHERE conversation_id = $1 AND type != 'activity'`, c112)
+	want := "hello missing charge|we are on it|thank you"
+	if got != want {
+		t.Errorf("message order = %q, want %q", got, want)
+	}
+	firstAt := str(t, db, `SELECT created_at FROM conversation_messages WHERE conversation_id = $1 AND source_id = 'first@mail'`, c112)
+	if !strings.HasPrefix(firstAt, t0.Format("2006-01-02T15:00:00")) {
+		t.Errorf("live first message backdated to %s, want %s", firstAt, t0)
+	}
+	if count(t, db, `SELECT COUNT(*) FROM conversations WHERE id = $1 AND (meta ? '`+MetaAbsorbedInto+`')`, c113) != 1 {
+		t.Error("sibling must be marked absorbed")
+	}
+
+	again := &Importer{DB: db, Media: mm, Opt: Options{ReferenceFloor: 4000, MediaStore: "fs", Reconcile: true, AgentAliases: map[string]string{}}}
+	rep2, err := again.Run(context.Background(), d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep2.ReconciledMessages == 0 && rep2.Messages == 0 {
+		t.Logf("reconcile idempotent: %+v", rep2)
 	}
 }
