@@ -9,7 +9,7 @@
         <div class="flex flex-col space-y-2">
           <div class="flex gap-2 items-center">
             <Building2 size="20" class="text-muted-foreground" />
-            <h2 class="text-xl font-semibold text-foreground" data-cy="organization-name">
+            <h2 class="desk-title text-xl font-semibold text-foreground" data-cy="organization-name">
               {{ organization.name }}
             </h2>
             <DropdownMenu v-if="canWrite || canDelete">
@@ -65,7 +65,7 @@
           class="w-full max-w-md space-y-3"
           data-cy="organization-attributes"
         >
-          <h3 class="text-base font-semibold">{{ t('organization.attributes') }}</h3>
+          <h3 class="text-sm font-semibold">{{ t('organization.attributes') }}</h3>
           <CustomAttributes
             :loading="savingAttributes || !canWrite"
             :attributes="customAttributeStore.organizationAttributeOptions"
@@ -76,7 +76,7 @@
 
         <!-- Contacts -->
         <section class="w-full space-y-3" data-cy="organization-contacts">
-          <h3 class="text-base font-semibold">
+          <h3 class="text-sm font-semibold">
             {{ t('globals.terms.contact', 2) }}
             <span class="text-muted-foreground font-normal"
               >({{ organization.contact_count }})</span
