@@ -11,7 +11,7 @@ defineProps({
   <Badge
     v-if="count > 0"
     variant="outline"
-    class="ml-auto shrink-0 tabular-nums bg-background px-1.5 py-0 font-medium"
+    class="ml-auto shrink-0 tabular-nums bg-background px-1.5 py-0 font-medium group-data-[collapsible=icon]:hidden"
     :aria-label="ariaLabel"
   >
     {{ count > 99 ? '99+' : String(count) }}

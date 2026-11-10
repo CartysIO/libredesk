@@ -16,6 +16,7 @@ export const reportsNavItems = [
 export const adminNavItems = [
   {
     titleKey: 'globals.terms.workspace',
+    icon: 'Settings',
     children: [
       {
         titleKey: 'globals.terms.general',
@@ -44,6 +45,7 @@ export const adminNavItems = [
   {
     titleKey: 'globals.terms.helpCenter',
     badge: 'BETA',
+    icon: 'BookOpen',
     children: [
       {
         titleKey: 'globals.terms.helpCenter',
@@ -56,6 +58,7 @@ export const adminNavItems = [
   {
     titleKey: 'admin.ai.title',
     badge: 'BETA',
+    icon: 'Sparkles',
     children: [
       {
         titleKey: 'globals.terms.provider',
@@ -106,6 +109,7 @@ export const adminNavItems = [
   {
     titleKey: 'globals.terms.channel',
     isTitleKeyPlural: true,
+    icon: 'Inbox',
     children: [
       {
         titleKey: 'globals.terms.inbox',
@@ -126,6 +130,7 @@ export const adminNavItems = [
   {
     titleKey: 'globals.terms.conversation',
     isTitleKeyPlural: true,
+    icon: 'MessageSquare',
     children: [
       {
         titleKey: 'globals.terms.status',
@@ -160,6 +165,7 @@ export const adminNavItems = [
   },
   {
     titleKey: 'globals.terms.productivity',
+    icon: 'Zap',
     children: [
       {
         titleKey: 'globals.terms.macro',
@@ -182,6 +188,7 @@ export const adminNavItems = [
   {
     titleKey: 'globals.terms.teammate',
     isTitleKeyPlural: true,
+    icon: 'UsersRound',
     children: [
       {
         titleKey: 'globals.terms.agent',
@@ -219,6 +226,7 @@ export const adminNavItems = [
   {
     titleKey: 'globals.terms.notification',
     isTitleKeyPlural: true,
+    icon: 'Bell',
     children: [
       {
         titleKey: 'globals.terms.email',
@@ -238,6 +246,7 @@ export const adminNavItems = [
   },
   {
     titleKey: 'globals.terms.security',
+    icon: 'Shield',
     children: [
       {
         titleKey: 'globals.terms.sso',
@@ -251,6 +260,7 @@ export const adminNavItems = [
   {
     titleKey: 'globals.terms.integration',
     isTitleKeyPlural: true,
+    icon: 'Webhook',
     children: [
       {
         titleKey: 'globals.terms.webhook',
