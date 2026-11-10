@@ -376,6 +376,30 @@ html[data-app='desk'] .desk-reports {
   }
 }
 
+// Admin: same hairline panes as the agent desk (lists are DataTable / SimpleTable).
+html[data-app='desk'] .desk-admin {
+  .desk-admin-table {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .admin-help {
+    border-radius: 0;
+    background: transparent;
+    border-left: 1px solid hsl(var(--border) / 0.7);
+    padding-left: 1rem;
+  }
+
+  .box {
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    border: 1px solid hsl(var(--border) / 0.7);
+    border-width: 1px;
+    background: hsl(var(--card));
+  }
+}
+
 // The whose-move swatch: a solid square in a fixed cell. Filled = someone must act, hollow = resolved.
 .code-swatch {
   display: inline-block;
