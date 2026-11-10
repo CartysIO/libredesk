@@ -82,32 +82,34 @@
               >({{ organization.contact_count }})</span
             >
           </h3>
-          <router-link
-            v-for="contact in contacts"
-            :key="contact.id"
-            :to="{ name: 'contact-detail', params: { id: contact.id } }"
-            class="flex items-center gap-3 p-3 rounded-md border hover:bg-accent/50"
-          >
-            <Avatar class="h-8 w-8 border">
-              <AvatarImage :src="contact.avatar_url || ''" />
-              <AvatarFallback class="text-xs">
-                {{ initials(contact.first_name, contact.last_name) }}
-              </AvatarFallback>
-            </Avatar>
-            <div class="min-w-0">
-              <p class="text-sm font-medium truncate">
-                {{ contact.first_name }} {{ contact.last_name }}
-              </p>
-              <p class="text-xs text-muted-foreground truncate">{{ contact.email }}</p>
-            </div>
-            <span
-              v-if="contact.is_default"
-              class="ml-auto shrink-0 rounded border px-1.5 py-0.5 text-xs text-muted-foreground"
-              :title="t('organization.defaultHelp')"
+          <div class="desk-directory-stack border-t border-border/70">
+            <router-link
+              v-for="contact in contacts"
+              :key="contact.id"
+              :to="{ name: 'contact-detail', params: { id: contact.id } }"
+              class="desk-directory-row flex items-center gap-3 px-3 py-3"
             >
-              {{ t('organization.default') }}
-            </span>
-          </router-link>
+              <Avatar class="h-8 w-8 border">
+                <AvatarImage :src="contact.avatar_url || ''" />
+                <AvatarFallback class="text-xs">
+                  {{ initials(contact.first_name, contact.last_name) }}
+                </AvatarFallback>
+              </Avatar>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium truncate">
+                  {{ contact.first_name }} {{ contact.last_name }}
+                </p>
+                <p class="text-xs text-muted-foreground truncate">{{ contact.email }}</p>
+              </div>
+              <span
+                v-if="contact.is_default"
+                class="ml-auto shrink-0 rounded border px-1.5 py-0.5 text-xs text-muted-foreground"
+                :title="t('organization.defaultHelp')"
+              >
+                {{ t('organization.default') }}
+              </span>
+            </router-link>
+          </div>
           <p v-if="contacts.length === 0" class="text-sm text-muted-foreground">
             {{ t('organization.noContacts') }}
           </p>
@@ -132,27 +134,32 @@
             {{ t('globals.terms.conversation', 2) }}
             <span class="text-muted-foreground font-normal">({{ conversationsTotal }})</span>
           </h3>
-          <router-link
-            v-for="conv in conversations"
-            :key="conv.uuid"
-            :to="{ name: 'inbox-conversation', params: { type: 'all', uuid: conv.uuid } }"
-            class="flex items-start justify-between gap-3 p-3 rounded-md border hover:bg-accent/50"
-          >
-            <div class="min-w-0">
-              <p class="text-sm font-medium truncate">
-                #{{ conv.reference_number }} {{ conv.subject || conv.last_message }}
-              </p>
-              <p class="text-xs text-muted-foreground truncate">
-                {{ conv.contact?.first_name }} {{ conv.contact?.last_name }}
-              </p>
-            </div>
-            <div class="flex flex-col items-end gap-1 shrink-0">
-              <Badge variant="secondary" class="text-xs">{{ conv.status }}</Badge>
-              <span v-if="conv.last_message_at" class="text-xs text-muted-foreground">
-                {{ getRelativeTime(new Date(conv.last_message_at)) }}
-              </span>
-            </div>
-          </router-link>
+          <div class="desk-directory-stack border-t border-border/70">
+            <router-link
+              v-for="conv in conversations"
+              :key="conv.uuid"
+              :to="{ name: 'inbox-conversation', params: { type: 'all', uuid: conv.uuid } }"
+              class="desk-directory-row flex items-start justify-between gap-3 px-3 py-3"
+            >
+              <div class="min-w-0">
+                <p class="text-sm font-medium truncate">
+                  #{{ conv.reference_number }} {{ conv.subject || conv.last_message }}
+                </p>
+                <p class="text-xs text-muted-foreground truncate">
+                  {{ conv.contact?.first_name }} {{ conv.contact?.last_name }}
+                </p>
+              </div>
+              <div class="flex flex-col items-end gap-1 shrink-0">
+                <Badge variant="secondary" class="text-xs">{{ conv.status }}</Badge>
+                <span
+                  v-if="conv.last_message_at"
+                  class="text-xs text-muted-foreground tabular-nums"
+                >
+                  {{ getRelativeTime(new Date(conv.last_message_at)) }}
+                </span>
+              </div>
+            </router-link>
+          </div>
           <p v-if="conversations.length === 0" class="text-sm text-muted-foreground">
             {{ t('organization.noConversations') }}
           </p>

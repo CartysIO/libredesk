@@ -331,6 +331,34 @@ html[data-app='desk'] .desk-search-panel {
   background: transparent;
 }
 
+html[data-app='desk'] .desk-directory-stack {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-app='desk'] .desk-directory-page,
+html[data-app='desk'] .desk-directory-surface {
+  .box {
+    border-width: 1px;
+    border-style: solid;
+    border-color: hsl(var(--border) / 0.7);
+    border-radius: 0;
+    box-shadow: none;
+    background: hsl(var(--card));
+  }
+}
+
+html[data-app='desk'] .desk-admin-panel--dashed {
+  border-radius: var(--radius);
+  box-shadow: none;
+  background: hsl(var(--muted) / 0.2);
+}
+
+html[data-app='desk'] .desk-search-pagination {
+  border-radius: 0;
+  box-shadow: none;
+}
+
 html[data-app='desk'] .ui-display-heading {
   font-size: 1rem;
   line-height: 1.5rem;
