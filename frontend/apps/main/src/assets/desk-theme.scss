@@ -307,6 +307,36 @@ html[data-app='desk'] .board-drawer {
   box-shadow: 0 10px 15px -3px hsl(var(--foreground) / 0.08), 0 4px 6px -4px hsl(var(--foreground) / 0.06);
 }
 
+// Search, contacts and organizations: hairline rows, not floating cards.
+html[data-app='desk'] .desk-directory-row {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid hsl(var(--border) / 0.7);
+  transition: background-color 150ms ease-in-out;
+
+  &:hover {
+    background-color: hsl(var(--accent) / 0.5);
+  }
+
+  &:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: -2px;
+  }
+}
+
+html[data-app='desk'] .desk-search-panel {
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+html[data-app='desk'] .ui-display-heading {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+}
+
 // The whose-move swatch: a solid square in a fixed cell. Filled = someone must act, hollow = resolved.
 .code-swatch {
   display: inline-block;

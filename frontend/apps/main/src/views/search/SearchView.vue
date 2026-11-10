@@ -2,8 +2,8 @@
   <div class="flex flex-col min-h-0">
     <SearchHeader />
     <div ref="scrollRef" class="flex-1 min-h-0 overflow-y-auto">
-      <div class="mx-auto max-w-6xl px-4 pb-6">
-        <div class="search-toolbar sticky top-0 z-20 space-y-3 border-b border-border bg-card py-4">
+      <div class="px-3 pb-6">
+        <div class="search-toolbar sticky top-0 z-20 space-y-3 border-b border-border/70 bg-background py-4">
           <SearchInput
             ref="inputRef"
             v-model="term"
