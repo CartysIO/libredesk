@@ -1,6 +1,6 @@
 ---
 name: Clyr Support desk
-description: Clyr's support desk (Signal Console visual system). Agent app only; widget and help center keep upstream Libredesk tokens.
+description: Clyr's support desk (Chronicle visual system). Agent app only; widget and help center keep upstream Libredesk tokens.
 colors:
   brand: "hsl(135 45% 58%)"
   primary: "hsl(213 52% 24%)"
@@ -151,24 +151,22 @@ This file covers two systems in one codebase.
 **Source of truth for the desk:**
 - Tokens: `apps/main/src/assets/desk-theme.scss`. Every rule is scoped to `html[data-app='desk']`, set in `apps/main/index.html`, so nothing leaks into the widget or help center.
 - Tailwind mapping: `tailwind.config.cjs` (`brand` and `code.{new,you,customer,hold,done}`, both read `hsl(var(--x))`).
-- Font: `static/public/static/fonts.css` (Urbanist variable, roman and italic, weights 100 to 900, SIL OFL), preloaded in `apps/main/index.html`.
+- Fonts: Google Fonts in `apps/main/index.html` (Plus Jakarta Sans, IBM Plex Mono). Scale and roles: `apps/main/src/assets/desk-typography.scss`. `static/public/static/fonts.css` still serves Geist/Urbanist for upstream paths the desk does not override.
 - Brand pieces: `apps/main/src/components/brand/ClyrMark.vue`, `StatusSwatch.vue`.
 - Behaviour: `apps/main/src/utils/conversationCode.js`, `threadFold.js`, `initials.js` (each with a `.test.js`).
 
-The desk overrides the upstream token names (`--primary`, `--border`, `--canvas` ...) rather than inventing new ones, so every shadcn primitive and upstream screen picks up the desk palette with no markup change. New desk-only tokens are `--brand`, `--code-*` and `--desk-font`. Values are HSL channel triples, like upstream; the frontmatter writes them as `hsl()`.
+The desk overrides the upstream token names (`--primary`, `--border`, `--canvas` ...) rather than inventing new ones, so every shadcn primitive and upstream screen picks up the desk palette with minimal markup change. New desk-only tokens include `--brand`, `--code-*`, `--desk-font*`, and `--desk-rail-*`. Values are HSL channel triples, like upstream; the frontmatter writes them as `hsl()`.
 
 ## Overview
 
-**Creative North Star: "Signal Console"**
+**Creative North Star: "Chronicle"**
 
-A calm operations console for support agents: cool slate grounds, Lexend headings, Source Sans 3 body copy, and navy for primary chrome. Clyr green remains identity on the mark and selection accents only. Panes float as rounded cards with light elevation on a soft gradient canvas—not a hairline grid. The whose-move code still carries ticket state on circular swatches.
+An editorial operations desk for support agents: warm stone canvas, Plus Jakarta Sans for UI and headings, IBM Plex Mono for ticket refs and metrics, cobalt primary actions. The app shell is full-bleed—no floating card chrome. A dark ink command rail (Clyr green on the mark only) anchors navigation; everything else is flat surfaces separated by hairline and double rules, not shadows.
 
-Density is high but scannable. The agent reads rows by their coded swatch, opens a ticket whose reference number is the headline, and reads the newest email first, with older messages folded to one-line rows. Chrome (headers, recipients, quoted history, signatures) stays out of view until asked for.
-
-The system rejects the grey shadcn admin with one green accent. Green is identity (rail, mark, primary action), and the whose-move code is the only other colour family in the chrome.
+Density stays high. List rows read as ruled ledger lines with an inset accent on the active ticket. Section labels use sentence case, not tracked caps. Radius is 4px at most.
 
 **Key Characteristics:**
-- Deep green rail (48px) with the Clyr "C" mark; everything else is light panes on hairlines.
+- Ink command rail (~56px) with the Clyr mark; workspace is a continuous light pane beside it.
 - One five-value whose-move code, shown as an 8px square swatch, filled or hollow.
 - Three type sizes (12 / 14 / 16), Urbanist only, rank by weight and case.
 - Tabular figures for every number, time and reference.
@@ -216,24 +214,36 @@ The rail (`.desk-rail`) redefines its own tokens so shadcn sidebar parts, avatar
 
 ## Typography
 
-**Display Font:** none. The desk has no display tier.
-**Body Font:** Urbanist (fallback `ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif`), via `--desk-font`.
-**Label/Mono Font:** none; labels are Urbanist too.
+**Source of truth:** `apps/main/src/assets/desk-typography.scss` (imported after `desk-theme.scss` in `main.js`).
 
-**Character:** Urbanist is Clyr's own face from clyr.io: geometric, open, friendly at small sizes. It replaces upstream Geist on `html`, `body`, `.font-sans`, chart text (`--vis-font-family`) and form controls (`fonts.css` makes buttons and inputs inherit the page font).
+**UI / headings:** Plus Jakarta Sans (`--desk-font`, `--desk-font-display`) — weights 400–800 for body through display.
 
-### Hierarchy
-- **Title** (600, 16px, 24px line): page and panel titles. Upstream `text-xl` titles marked `desk-title`, and every `text-xl` in the secondary nav column, are stepped down to 16px.
-- **Reference** (700, 16px, `tracking-tight`, tabular): the `#reference` in the ticket header. It is the ticket's headline; the contact name sits beside it at 12px muted and the subject on the second line at 14px semibold.
-- **Body** (400, 14px): list snippets, values, messages. Email HTML in a thread reads at 14px with a 1.55 line height; inline email styles still win.
-- **Body Strong** (600, 14px): sender names on list rows, fold rows and thread headers, the ticket subject. Unread list rows go to 700 on the name and 500 `foreground` on the snippet.
-- **Meta** (400, 12px, tabular): times, recipients summary, channel and counts.
-- **Label** (600, 12px, uppercase, `tracking-wider`, muted): the right sidebar's section headers (accordion triggers). Spec-table field labels are 12px at 500, sentence case.
+**Data / references:** IBM Plex Mono (`--desk-font-mono`) — ticket `#reference`, metrics, command kbd, thread summary counts.
+
+**Character:** Single sans family for chrome with weight-led hierarchy; mono only where numbers and IDs must align. Replaces Sora/Urbanist/Geist on the agent app (`html[data-app='desk']`). Widget and help center keep upstream Geist.
+
+### Token scale (rem)
+| Token | Size | Typical use |
+|-------|------|-------------|
+| `--desk-text-2xs` | 11px | Table headers, command group labels |
+| `--desk-text-xs` | 12px | Meta, badges, sidebar labels |
+| `--desk-text-sm` | 13px | UI body, nav, inputs, table cells |
+| `--desk-text-base` | 15px | Default body, email thread HTML |
+| `--desk-text-lg` | 17px | `.ui-heading`, panel titles |
+| `--desk-text-xl` | 18–21px (fluid) | Page titles, `.desk-title` |
+| `--desk-text-2xl` | 22–24px (fluid) | `.ui-display-heading`, auth titles |
+
+### Semantic classes
+- `.ui-display-heading` — 2xl, weight 700
+- `.ui-heading` — lg, weight 600
+- `.ui-subheading` — sm, weight 500, muted
+- `.desk-title` — lg/xl by context, weight 600–700
+- `.font-display` — display family, snug tracking
 
 ### Named Rules
-**The Three Sizes Rule.** The desk uses 12, 14 and 16px. Rank comes from weight (400 / 500 / 600 / 700) and case, not size.
+**The Weight Rule.** Rank with 400 / 500 / 600 / 700 / 800, not extra sizes.
 
-**The Tabular Rule.** Every reference number, time, count and date uses `tabular-nums`.
+**The Tabular Rule.** References, times, counts, and report metrics use `tabular-nums` and often `--desk-font-mono`.
 
 ## Layout
 
@@ -306,7 +316,7 @@ Upstream shadcn primitives, recoloured by the desk tokens: primary buttons in De
 
 ### Do:
 - **Do** show ticket state with `StatusSwatch` and `statusCode()`, filled for every status but Resolved.
-- **Do** keep chrome to 12, 14 and 16px Urbanist; rank with weight and case.
+- **Do** keep chrome on the `desk-typography` scale; rank with weight, not ad-hoc pixel sizes.
 - **Do** use `tabular-nums` on every reference, time, date and count.
 - **Do** separate panes, rows and sections with one 1px `border` line.
 - **Do** keep unread and priority neutral (`foreground` / `muted-foreground`).

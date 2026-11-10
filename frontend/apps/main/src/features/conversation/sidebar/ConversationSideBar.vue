@@ -233,7 +233,7 @@ import { TAG_ACTION } from '@/constants/conversation'
 import api from '@/api'
 
 const SIDEBAR_TAB_CLASS =
-  'h-9 rounded-full border border-transparent px-4 text-xs font-medium shadow-none transition-colors data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:shadow-sm focus-visible:ring-2 focus-visible:ring-ring'
+  'desk-sidebar-tab border-transparent text-xs font-medium shadow-none transition-colors focus-visible:ring-2 focus-visible:ring-ring'
 
 const customAttributeStore = useCustomAttributeStore()
 const emitter = useEmitter()

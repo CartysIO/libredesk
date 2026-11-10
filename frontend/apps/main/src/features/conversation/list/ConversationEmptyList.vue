@@ -1,7 +1,7 @@
 <template>
   <div class="desk-empty-list flex h-auto min-h-48 flex-col items-center justify-center text-center select-none">
     <div
-      class="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground"
+      class="desk-empty-state-icon mb-4 flex h-12 w-12 items-center justify-center text-muted-foreground"
       aria-hidden="true"
     >
       <component :is="icon" :stroke-width="1.5" :size="24" />

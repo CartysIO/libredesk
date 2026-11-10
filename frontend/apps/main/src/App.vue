@@ -1,17 +1,18 @@
 <template>
-  <div class="desk-shell flex w-full h-dvh gap-2 p-2 text-foreground">
-    <SidebarProvider v-if="!isMobile" style="--sidebar-width: 3.25rem" class="w-auto z-50 shrink-0">
-      <ShadcnSidebar
-        collapsible="none"
-        class="desk-rail desk-surface !h-[calc(100dvh-1rem)] overflow-hidden"
-      >
-        <SidebarHeader class="items-center pt-3 pb-1">
+  <div class="desk-shell flex w-full h-dvh text-foreground">
+    <SidebarProvider
+      v-if="!isMobile"
+      style="--sidebar-width: 3.5rem"
+      class="w-auto z-50 shrink-0 min-h-0 h-full"
+    >
+      <ShadcnSidebar collapsible="none" class="desk-rail !h-full overflow-hidden">
+        <SidebarHeader class="desk-rail-header items-center justify-center pb-2 pt-3">
           <router-link
             :to="{ name: 'inboxes' }"
-            class="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/60 text-brand transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+            class="desk-rail-mark flex h-10 w-10 items-center justify-center text-brand transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
             :aria-label="t('globals.terms.inbox')"
           >
-            <ClyrMark class="h-6 w-auto" />
+            <ClyrMark class="h-7 w-auto" />
           </router-link>
         </SidebarHeader>
         <SidebarContent>
@@ -43,8 +44,7 @@
       </ShadcnSidebar>
     </SidebarProvider>
 
-    <!-- Main sidebar that collapses -->
-    <div class="desk-surface flex min-w-0 flex-1 overflow-hidden">
+  <div class="desk-workspace flex min-w-0 flex-1 overflow-hidden">
       <Sidebar
         :userTeams="userStore.teams"
         :userViews="viewStore.views"
@@ -54,7 +54,7 @@
         @delete-view="deleteView"
         @create-conversation="openCreateConversation()"
       >
-        <div class="flex h-full min-h-0 flex-col overflow-hidden bg-background/50">
+        <div class="desk-main-canvas flex h-full min-h-0 flex-col overflow-hidden">
           <ConnectionBanner />
 
           <!-- Show admin banner only in admin routes -->
@@ -315,7 +315,7 @@ const refreshViews = async (data) => {
 
 <style scoped>
 :deep(.group\/sidebar-wrapper) {
-  min-height: auto !important;
+  min-height: 0 !important;
   height: 100%;
 }
 </style>
