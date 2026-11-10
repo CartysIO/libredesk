@@ -1,5 +1,5 @@
 <template>
-  <div class="desk-list-row flex items-start gap-2.5 px-4 py-3">
+  <div class="desk-list-row mx-2 my-1.5 flex items-start gap-2.5 px-3 py-2.5">
     <div class="flex h-5 w-4 flex-shrink-0 items-center justify-center">
       <div class="skel-bar h-2.5 w-2.5 rounded-full" />
     </div>

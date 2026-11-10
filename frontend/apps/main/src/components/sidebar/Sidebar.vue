@@ -568,7 +568,7 @@ onMounted(() => {
     </template>
 
     <!-- Main Content Area -->
-    <SidebarInset class="desk-pane-inset !min-h-0 !h-full">
+    <SidebarInset class="!min-h-0 !h-full bg-background/40">
       <slot></slot>
     </SidebarInset>
   </SidebarProvider>
@@ -593,32 +593,16 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* Chronicle: secondary nav column inside the workspace. */
-:deep(.group.peer:has(.sidebar-secondary)) {
-  position: relative;
-  height: 100%;
-  align-self: stretch;
-  flex-shrink: 0;
-}
-
-/* Spacer reserves width only; height follows the shell (not 100svh). */
-:deep(.group.peer:has(.sidebar-secondary) > div:first-child) {
-  height: 100% !important;
-}
-
+/* Signal Console: inset nav column inside the main surface. */
 :deep(.sidebar-secondary) {
-  @apply ml-0 overflow-hidden border-r-2 border-sidebar-border bg-sidebar;
-  position: absolute !important;
+  @apply ml-0 overflow-hidden border-r border-sidebar-border/80 bg-sidebar/50;
   top: 0 !important;
-  right: auto !important;
   bottom: 0 !important;
-  left: 0 !important;
-  height: 100% !important;
-  z-index: 1;
+  height: auto !important;
 }
 
 :deep(.group\/sidebar-wrapper) {
-  min-height: 0 !important;
+  min-height: auto !important;
   height: 100%;
 }
 </style>

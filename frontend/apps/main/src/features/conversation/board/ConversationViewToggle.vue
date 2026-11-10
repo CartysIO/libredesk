@@ -1,5 +1,5 @@
 <template>
-  <div class="desk-view-toggle inline-flex shrink-0 items-center border" role="group">
+  <div class="desk-view-toggle inline-flex shrink-0 items-center rounded-full border p-0.5" role="group">
     <Button
       v-for="option in options"
       :key="option.value"

@@ -9,7 +9,7 @@
           </h2>
 
           <div class="space-y-4 mb-6">
-            <div class="checklist-item desk-checklist-item" :class="{ completed: hasInboxes }">
+            <div class="checklist-item" :class="{ completed: hasInboxes }">
               <CheckCircle v-if="hasInboxes" class="check-icon completed" />
               <Circle v-else class="w-5 h-5 text-muted-foreground" />
               <span class="flex-1 text-left ml-3 text-foreground">
@@ -26,10 +26,7 @@
               </Button>
             </div>
 
-            <div
-              class="checklist-item desk-checklist-item"
-              :class="{ completed: hasAgents, disabled: !hasInboxes }"
-            >
+            <div class="checklist-item" :class="{ completed: hasAgents, disabled: !hasInboxes }">
               <CheckCircle v-if="hasAgents" class="check-icon completed" />
               <Circle v-else class="w-5 h-5 text-muted-foreground" />
               <span class="flex-1 text-left ml-3 text-foreground">
@@ -50,7 +47,7 @@
       </div>
       <div v-else class="desk-empty-state flex max-w-md flex-col items-center gap-4 px-8 text-center">
         <div
-          class="desk-empty-state-icon flex h-14 w-14 items-center justify-center text-primary"
+          class="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary"
           aria-hidden="true"
         >
           <Circle class="h-7 w-7" />
@@ -93,9 +90,7 @@ const showGettingStarted = computed(() => !hasInboxes.value || !hasAgents.value)
 <style scoped>
 .placeholder-container {
   @apply relative flex h-full w-full min-w-0 items-center justify-center border-0 bg-transparent;
-  background:
-    linear-gradient(90deg, hsl(var(--foreground) / 0.04) 1px, transparent 1px) 0 0 / 2rem 100%,
-    hsl(var(--background));
+  background: radial-gradient(ellipse 80% 60% at 50% 40%, hsl(var(--primary) / 0.06), transparent 70%);
 }
 
 .getting-started-wrapper {
@@ -103,7 +98,7 @@ const showGettingStarted = computed(() => !hasInboxes.value || !hasAgents.value)
 }
 
 .checklist-item {
-  @apply flex items-center justify-between px-4 py-3;
+  @apply flex items-center justify-between rounded-xl border border-border/80 bg-card px-4 py-3 shadow-sm;
 }
 
 .checklist-item.completed {

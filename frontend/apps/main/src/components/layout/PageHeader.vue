@@ -1,20 +1,20 @@
 <template>
-  <header v-if="!isHidden" class="desk-page-header shrink-0">
-    <div class="desk-page-header__bar flex min-h-[3.75rem] items-stretch">
-      <p class="desk-page-header__rail" aria-hidden="true" />
-      <div class="flex min-w-0 flex-1 items-center gap-3 px-4 py-3">
-        <SidebarTrigger class="desk-page-trigger cursor-pointer" />
-        <div class="min-w-0 flex-1 border-l border-border/80 pl-4">
-          <p v-if="sectionHint" class="desk-page-header__meta">
-            {{ sectionHint }}
-          </p>
-          <h1 class="desk-title min-w-0 truncate text-xl font-semibold tracking-tight">
-            {{ title }}
-          </h1>
-        </div>
+  <div v-if="!isHidden" class="desk-page-header shrink-0 border-b border-border/60">
+    <div class="flex h-16 shrink-0 items-center gap-4 px-5">
+      <SidebarTrigger class="cursor-pointer rounded-lg border border-border/70 bg-card p-1 shadow-sm" />
+      <div class="min-w-0 flex-1">
+        <p
+          v-if="sectionHint"
+          class="text-[0.6875rem] font-semibold uppercase tracking-widest text-muted-foreground"
+        >
+          {{ sectionHint }}
+        </p>
+        <h1 class="desk-title font-display min-w-0 truncate text-lg font-semibold tracking-tight">
+          {{ title }}
+        </h1>
       </div>
     </div>
-  </header>
+  </div>
 </template>
 
 <script setup>

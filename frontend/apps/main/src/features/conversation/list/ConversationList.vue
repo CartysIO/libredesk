@@ -1,8 +1,10 @@
 <template>
   <div class="desk-inbox-list flex h-full min-h-0 flex-col">
     <!-- Header -->
-    <div class="desk-inbox-list-header flex min-h-[3.75rem] shrink-0 items-center gap-3 px-4">
-      <SidebarTrigger class="desk-page-trigger cursor-pointer" />
+    <div class="desk-inbox-list-header flex h-16 shrink-0 items-center gap-3 border-b border-border/60 px-4">
+      <SidebarTrigger
+        class="cursor-pointer rounded-lg border border-border/70 bg-background p-1 shadow-sm"
+      />
       <h1
         class="desk-title font-display min-w-0 flex-1 truncate text-lg font-semibold tracking-tight"
         :title="title"

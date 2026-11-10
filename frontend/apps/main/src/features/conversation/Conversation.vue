@@ -2,7 +2,7 @@
   <div class="flex h-full min-h-0 flex-col">
     <!-- Header -->
     <div
-      class="desk-conversation-header flex min-h-[4.25rem] shrink-0 items-center justify-between gap-3 px-4 py-3"
+      class="desk-conversation-header flex min-h-[4.25rem] shrink-0 items-center justify-between gap-3 border-b border-border/60 px-4 py-3"
     >
       <div class="flex min-w-0 items-center gap-2">
         <Button

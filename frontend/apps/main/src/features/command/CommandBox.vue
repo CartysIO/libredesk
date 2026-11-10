@@ -6,7 +6,7 @@
     :filter-function="filterFunction"
     @update:open="onOpenChange"
     :class="[
-      'desk-command-dialog z-[51] !top-[42%] !w-[calc(100%-1.5rem)] !min-w-0 gap-0 border-border bg-popover shadow-lg [&>button]:right-4 [&>button]:top-4 [&>button]:rounded-none [&>button]:border-2 [&>button]:border-border [&>button]:bg-card [&>button]:opacity-90 [&>button]:shadow-none [&>button]:hover:opacity-100',
+      'desk-command-dialog z-[51] !top-[42%] !w-[calc(100%-1.5rem)] !min-w-0 gap-0 border-border/80 bg-popover shadow-lg [&>button]:right-4 [&>button]:top-4 [&>button]:rounded-full [&>button]:border [&>button]:border-border/70 [&>button]:bg-card [&>button]:opacity-80 [&>button]:shadow-sm [&>button]:hover:opacity-100',
       isMacroMode ? '!max-w-5xl' : '!max-w-2xl'
     ]"
     command-class="desk-command-palette rounded-lg bg-popover"
@@ -114,7 +114,7 @@
 
 <script setup>
 const KBD_CLASS =
-  'desk-command-kbd inline-flex h-5 min-w-5 items-center justify-center border-2 border-border bg-card px-1.5 font-mono text-[0.6875rem] font-semibold text-foreground'
+  'desk-command-kbd inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-border/70 bg-card px-1.5 font-mono text-[0.6875rem] font-semibold text-foreground shadow-sm'
 const ASYNC_SEARCH_DEBOUNCE = 250
 
 import { computed, ref, watch } from 'vue'

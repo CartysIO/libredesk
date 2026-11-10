@@ -41,7 +41,7 @@
           <ChevronLeft class="h-4 w-4" aria-hidden="true" />
         </Button>
 
-        <div class="desk-pagination-pages flex items-center">
+        <div class="flex items-center bg-muted rounded-lg p-1">
           <template v-for="pageNumber in visiblePages" :key="pageNumber">
             <span
               v-if="pageNumber === '...'"
@@ -56,11 +56,11 @@
               @click="goToPage(pageNumber)"
               :aria-label="`${t('globals.terms.page')} ${pageNumber}`"
               :aria-current="pageNumber === page ? 'page' : undefined"
-              class="h-8 min-w-8 px-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              class="h-7 min-w-7 px-2 rounded-md text-sm font-medium transition-[color,background-color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               :class="
                 pageNumber === page
-                  ? 'bg-background text-foreground'
-                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               "
             >
               {{ pageNumber }}

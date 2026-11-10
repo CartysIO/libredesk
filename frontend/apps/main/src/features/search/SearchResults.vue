@@ -2,12 +2,12 @@
   <div>
     <Tabs :model-value="activeTab" @update:model-value="emit('update:activeTab', $event)">
       <div class="mb-3 flex flex-wrap items-center gap-2">
-        <TabsList class="desk-search-tabs">
+        <TabsList class="h-10 rounded-full border border-border/70 bg-muted/40 p-1">
           <TabsTrigger
             v-for="type in TYPES"
             :key="type"
             :value="type"
-            class="gap-1.5 px-4"
+            class="gap-1.5 rounded-full px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm"
           >
             {{ t(tabLabelKeys[type], 2) }}
             <span class="text-xs tabular-nums text-muted-foreground">
