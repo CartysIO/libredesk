@@ -16,7 +16,7 @@
       <ResizablePanel
         :order="1"
         :min-size="55"
-        class="min-w-0 overflow-hidden rounded-xl border border-border bg-card"
+        class="min-w-0 overflow-hidden rounded-none border-0 border-r border-border/70 bg-card shadow-none"
       >
         <Conversation :details-open="useDetailsDrawer ? sheetSidebarOpen : sidebarOpen" />
       </ResizablePanel>
@@ -43,7 +43,7 @@
         :min-size="240"
         :collapsible="true"
         :collapsed-size="0"
-        class="min-w-0 overflow-hidden rounded-xl border border-border bg-background data-[state=collapsed]:border-0"
+        class="min-w-0 overflow-hidden rounded-none border-0 bg-background shadow-none data-[state=collapsed]:border-0"
         @collapse="onSidebarCollapse"
         @expand="onSidebarExpand"
       >
