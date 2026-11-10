@@ -1,5 +1,27 @@
 <template>
-  <div class="py-2 space-y-5">
+  <div v-if="variant === 'thread'" class="py-0">
+    <div
+      v-for="idx in threadFoldCount"
+      :key="idx"
+      class="flex items-center gap-3 border-b border-border/70 px-4 py-2"
+    >
+      <div class="skel-bar h-6 w-6 shrink-0 rounded-full" />
+      <div class="skel-bar h-3 w-20 shrink-0 rounded-sm sm:w-28" />
+      <div class="skel-bar h-3 min-w-0 flex-1 rounded-sm" :style="{ maxWidth: threadSnippetWidth(idx) }" />
+      <div class="skel-bar h-3 w-10 shrink-0 rounded-sm" />
+    </div>
+    <div class="border-b border-border/70 px-4 py-3">
+      <div class="mb-3 flex items-center gap-2">
+        <div class="skel-bar h-6 w-6 shrink-0 rounded-full" />
+        <div class="skel-bar h-3 w-24 rounded-sm" />
+        <div class="skel-bar ml-auto h-3 w-12 rounded-sm" />
+      </div>
+      <div class="space-y-2 pl-8">
+        <div v-for="line in 4" :key="line" class="skel-bar h-3 rounded-sm" :style="{ width: openBlockLineWidth(line) }" />
+      </div>
+    </div>
+  </div>
+  <div v-else class="py-2 space-y-5">
     <div v-for="(row, idx) in rows" :key="idx">
       <div
         v-if="row.showName"
@@ -18,7 +40,7 @@
 
         <div class="w-4/5" :class="{ 'flex justify-end': row.outgoing }">
           <div
-            class="skel-bubble flex flex-col gap-2 px-4 pt-3 pb-3 rounded-md border border-border shadow-sm"
+            class="skel-bubble flex flex-col gap-2 px-4 pt-3 pb-3 rounded-md border border-border"
             :style="{ width: row.width }"
           >
             <div
@@ -48,6 +70,11 @@ import { computed } from 'vue'
 
 const props = defineProps({
   count: { type: Number, default: 8 },
+  variant: {
+    type: String,
+    default: 'bubble',
+    validator: (v) => v === 'bubble' || v === 'thread'
+  }
 })
 
 const pattern = [
@@ -58,7 +85,7 @@ const pattern = [
   { outgoing: true, showAvatar: true, showName: true, width: '50%', lines: ['100%'], showTime: true },
   { outgoing: true, showAvatar: false, showName: false, width: '38%', lines: ['100%'], showTime: false },
   { outgoing: false, showAvatar: true, showName: true, width: '60%', lines: ['100%', '70%'], showTime: true },
-  { outgoing: true, showAvatar: true, showName: true, width: '54%', lines: ['100%', '88%'], showTime: true },
+  { outgoing: true, showAvatar: true, showName: true, width: '54%', lines: ['100%', '88%'], showTime: true }
 ]
 
 const rows = computed(() => {
@@ -68,6 +95,18 @@ const rows = computed(() => {
   }
   return out
 })
+
+const threadFoldCount = computed(() => Math.min(4, Math.max(0, props.count - 1)))
+
+const threadSnippetWidth = (idx) => {
+  const widths = ['72%', '58%', '65%', '48%', '80%']
+  return widths[(idx - 1) % widths.length]
+}
+
+const openBlockLineWidth = (line) => {
+  const widths = ['100%', '92%', '78%', '54%']
+  return widths[line - 1]
+}
 </script>
 
 <style scoped>
@@ -79,7 +118,12 @@ const rows = computed(() => {
   background-color: hsl(var(--muted) / 0.35);
 }
 @keyframes skel-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.55; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
 }
 </style>
