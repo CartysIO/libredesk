@@ -30,10 +30,10 @@
           <button
             v-if="item.kind === 'summary'"
             type="button"
-            class="mx-3 my-2 flex w-[calc(100%-1.5rem)] items-center gap-3 rounded-xl border border-border/70 bg-card px-4 py-2 text-left text-xs font-semibold text-muted-foreground shadow-sm transition-colors hover:bg-accent/50 hover:text-foreground"
+            class="desk-thread-summary flex w-full items-center gap-3 px-4 py-2.5 text-left text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
             @click="expandRun(item.key)"
           >
-            <span class="flex h-6 w-6 items-center justify-center rounded-full border border-border tabular-nums">{{ item.count }}</span>
+            <span class="flex h-6 w-6 items-center justify-center border-2 border-border tabular-nums">{{ item.count }}</span>
             {{ t('conversation.earlierMessages', { count: item.count }, item.count) }}
           </button>
           <MessageFoldRow

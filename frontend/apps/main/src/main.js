@@ -7,6 +7,7 @@ import mitt from 'mitt'
 import api from './api'
 import '@shared-ui/assets/styles/main.scss'
 import './assets/desk-theme.scss'
+import './assets/desk-typography.scss'
 import '@shared-ui/utils/string.js'
 import Root from './Root.vue'
 

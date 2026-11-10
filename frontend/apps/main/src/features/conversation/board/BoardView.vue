@@ -1,9 +1,7 @@
 <template>
   <div ref="root" class="relative h-full flex flex-col overflow-hidden">
-    <div class="desk-board-header flex h-16 shrink-0 items-center gap-4 border-b border-border/60 px-4">
-      <SidebarTrigger
-        class="cursor-pointer rounded-lg border border-border/70 bg-background p-1 shadow-sm"
-      />
+    <div class="desk-board-header flex min-h-[3.75rem] shrink-0 items-center gap-4 px-4">
+      <SidebarTrigger class="desk-page-trigger cursor-pointer" />
       <span class="desk-title font-display truncate text-lg font-semibold tracking-tight">{{
         title
       }}</span>
