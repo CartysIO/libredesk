@@ -4,46 +4,56 @@
     tabindex="0"
     draggable="true"
     :data-uuid="conversation.uuid"
-    class="rounded-md border bg-card text-card-foreground px-3 py-2.5 space-y-1 cursor-pointer select-none hover:border-input hover:bg-accent/40 transition-colors"
-    :class="{ 'opacity-50': isDragging, 'ring-2 ring-primary bg-accent/60': active }"
+    class="board-card rounded-md border border-border bg-card text-card-foreground px-3 py-2.5 cursor-pointer select-none transition-colors duration-150 hover:border-input hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+    :class="{
+      'opacity-50': isDragging,
+      'board-card--active border-input bg-accent/40': active
+    }"
     :aria-current="active ? 'true' : undefined"
     @click="$emit('open', conversation)"
     @keydown.enter.self="$emit('open', conversation)"
     @dragstart="onDragStart"
     @dragend="$emit('dragend')"
   >
-    <div class="flex items-center gap-2">
+    <!-- Line 1: whose-move swatch, reference, neutral unread dot (DESIGN.md board card). -->
+    <div class="flex items-center gap-2 text-xs tabular-nums">
       <StatusSwatch :status="conversation.status" />
-      <span class="text-xs font-bold tabular-nums shrink-0">#{{ conversation.reference_number }}</span>
-      <h3 class="text-sm font-semibold truncate min-w-0">{{ title }}</h3>
+      <span class="font-bold shrink-0">#{{ conversation.reference_number }}</span>
+      <span class="min-w-0 flex-1" />
+      <span
+        v-if="isUnread"
+        class="h-2 w-2 shrink-0 rounded-full bg-foreground"
+        :aria-label="t('kanban.unread')"
+      />
     </div>
-    <p v-if="conversation.organization_name" class="text-xs text-muted-foreground truncate">
-      {{ contactName }}
+
+    <p class="mt-1 text-sm font-semibold line-clamp-2 break-words text-foreground">
+      {{ headline }}
     </p>
-    <p class="text-sm line-clamp-2 break-words" :class="{ 'font-medium': isUnread }">
-      {{ summary }}
+    <p
+      v-if="preview && preview !== headline"
+      class="mt-0.5 text-sm line-clamp-2 break-words text-muted-foreground"
+      :class="{ 'font-medium text-foreground': isUnread }"
+    >
+      {{ preview }}
     </p>
 
-    <div class="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
-      <Avatar v-if="assignee" class="w-5 h-5">
+    <div class="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+      <Avatar v-if="assignee" class="h-5 w-5">
         <AvatarImage :src="assignee.avatar_url || ''" class="object-cover" />
         <AvatarFallback class="text-[9px]">{{ assigneeInitials }}</AvatarFallback>
       </Avatar>
       <span
         v-else
-        class="w-5 h-5 rounded-full border border-dashed border-muted-foreground/60 shrink-0"
+        class="h-5 w-5 shrink-0 rounded-full border border-dashed border-muted-foreground/60"
         :title="t('globals.terms.unassigned')"
       />
-      <span v-if="relativeTime" class="tabular-nums">· {{ relativeTime }}</span>
+      <span v-if="metaLabel" class="truncate">{{ metaLabel }}</span>
+      <span v-if="relativeTime" class="shrink-0 tabular-nums">· {{ relativeTime }}</span>
       <span class="flex-1" />
-      <span
-        v-if="isUnread"
-        class="w-2 h-2 rounded-full bg-foreground shrink-0"
-        :aria-label="t('kanban.unread')"
-      />
       <component
         :is="channelIcon"
-        class="w-3.5 h-3.5 shrink-0"
+        class="h-3.5 w-3.5 shrink-0"
         role="img"
         :aria-label="conversation.inbox_name"
       />
@@ -75,15 +85,25 @@ const contactName = computed(() => {
   const c = props.conversation.contact || {}
   return `${c.first_name || ''} ${c.last_name || ''}`.trim()
 })
-const title = computed(() => props.conversation.organization_name || contactName.value)
 // last_interaction skips activity rows ("X marked the conversation as …"), which every auto-move adds.
 const summary = computed(
   () =>
-    props.conversation.subject ||
     props.conversation.last_interaction ||
     props.conversation.last_message ||
     ''
 )
+const headline = computed(
+  () => props.conversation.subject || summary.value || contactName.value || '—'
+)
+const preview = computed(() => {
+  if (props.conversation.subject) return summary.value
+  return ''
+})
+const metaLabel = computed(() => {
+  if (props.conversation.organization_name) return props.conversation.organization_name
+  if (props.conversation.subject && contactName.value) return contactName.value
+  return ''
+})
 const isUnread = computed(() => props.conversation.unread_message_count > 0)
 const channelIcon = computed(() => CHANNEL_ICONS[props.conversation.inbox_channel] || Mail)
 

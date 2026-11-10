@@ -59,15 +59,15 @@
         class="pointer-events-none absolute z-50"
         :style="{ left: `${tip.x}px`, top: `${tip.y}px` }"
       >
-        <Card class="text-sm shadow-md border">
-          <CardHeader class="p-3 border-b">
-            <CardTitle class="text-sm font-medium">{{ tip.label }}</CardTitle>
-          </CardHeader>
-          <CardContent class="p-3 flex justify-between gap-4">
-            <span class="text-muted-foreground">{{ valueLabel }}</span>
-            <span class="font-semibold tabular-nums">{{ tip.value }}</span>
-          </CardContent>
-        </Card>
+        <div
+          class="min-w-[10rem] rounded-sm border border-border bg-popover px-3 py-2 text-sm shadow-lg"
+        >
+          <p class="font-medium">{{ tip.label }}</p>
+          <p class="mt-1 flex justify-between gap-4 text-muted-foreground">
+            <span>{{ valueLabel }}</span>
+            <span class="font-semibold tabular-nums text-foreground">{{ tip.value }}</span>
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -76,7 +76,6 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { ChartLegend, useLegendItems } from '@shared-ui/components/ui/chart'
-import { Card, CardContent, CardHeader, CardTitle } from '@shared-ui/components/ui/card'
 import { donutArcPath, donutSegmentColors, polarToCartesian } from './donutSegments.js'
 
 const OUTER_R = 70

@@ -1,24 +1,33 @@
 <template>
   <section
-    class="flex flex-col h-full w-72 shrink-0 border-r border-border/70 transition-colors"
+    class="board-lane flex h-full w-72 shrink-0 flex-col border-r border-border/70 transition-colors"
     :class="{ 'bg-accent/50': isOver }"
     :aria-label="t(column.labelKey)"
     @dragover.prevent="onDragOver"
     @dragleave="onDragLeave"
     @drop.prevent="onDrop"
   >
-    <header class="flex items-center gap-2 px-3 py-2 shrink-0">
+    <header class="flex shrink-0 items-center gap-2 px-3 pb-2 pt-3">
       <span class="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
         <StatusSwatch :status="column.status" />
         {{ t(column.labelKey) }}
       </span>
-      <span class="text-sm text-muted-foreground tabular-nums">{{ state.total }}</span>
+      <span class="text-sm tabular-nums text-muted-foreground">{{ state.total }}</span>
     </header>
 
     <!-- overscroll-y only: a sideways swipe on a card must chain to the board so columns scroll on phones. -->
-    <div ref="scroller" class="flex-1 overflow-y-auto overscroll-y-contain px-2 pb-2 space-y-2" @scroll.passive="onScroll">
+    <div
+      ref="scroller"
+      class="flex flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain px-3 pb-3"
+      @scroll.passive="onScroll"
+    >
       <template v-if="state.loading">
-        <Skeleton v-for="i in 4" :key="i" class="h-24 w-full" />
+        <div
+          v-for="i in 4"
+          :key="i"
+          class="board-card-skeleton h-[5.5rem] w-full animate-pulse rounded-md border border-border bg-muted/30"
+          aria-hidden="true"
+        />
       </template>
       <template v-else>
         <BoardCardMenu
@@ -55,7 +64,6 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Loader2 } from 'lucide-vue-next'
-import { Skeleton } from '@shared-ui/components/ui/skeleton'
 import BoardCard from './BoardCard.vue'
 import BoardCardMenu from './BoardCardMenu.vue'
 import StatusSwatch from '@main/components/brand/StatusSwatch.vue'

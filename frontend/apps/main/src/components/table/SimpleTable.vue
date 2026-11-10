@@ -1,7 +1,7 @@
 <template>
-  <div class="relative overflow-auto rounded-lg border border-border bg-card shadow-sm">
-    <table class="min-w-full table-fixed divide-y divide-border">
-      <thead class="bg-muted/40">
+  <div class="desk-admin-table relative overflow-auto border border-border/70 bg-background">
+    <table class="min-w-full table-fixed divide-y divide-border/70">
+      <thead class="bg-background">
         <tr>
           <th
             v-for="(header, index) in headers"
@@ -14,7 +14,7 @@
           <th v-if="showDelete" scope="col" class="relative px-6 py-3"></th>
         </tr>
       </thead>
-      <tbody class="bg-card divide-y divide-border">
+      <tbody class="divide-y divide-border/70 bg-background">
         <!-- Loading State -->
         <template v-if="loading">
           <tr v-for="i in skeletonRows" :key="`skeleton-${i}`" class="hover:bg-accent">

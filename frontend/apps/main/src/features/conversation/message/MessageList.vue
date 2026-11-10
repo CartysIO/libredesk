@@ -2,7 +2,11 @@
   <div class="flex flex-col relative h-full">
     <div ref="threadEl" class="flex-1 overflow-y-auto overscroll-contain [overflow-anchor:none]" @scroll="handleScroll">
       <div ref="contentEl" class="min-h-full relative" :class="isEmailThread ? 'pb-6' : 'px-4 pb-10'">
-        <MessagesSkeleton :count="10" v-if="conversationStore.messages.loading" />
+        <MessagesSkeleton
+          v-if="conversationStore.messages.loading"
+          :count="10"
+          :variant="isEmailThread ? 'thread' : 'bubble'"
+        />
 
         <!-- The key also changes when the first messages land: the conversation often loads before
              its messages, and the group must not animate them in as if they had just arrived. -->
@@ -76,7 +80,7 @@
 
     <div
       v-if="olderSpinner"
-      class="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-full bg-background p-2 text-muted-foreground shadow-sm"
+      class="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-full border border-border bg-background p-2 text-muted-foreground"
       role="status"
     >
       <Loader2 class="size-4 animate-spin" aria-hidden="true" />

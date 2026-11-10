@@ -1,66 +1,71 @@
 <template>
-  <div class="min-h-screen flex flex-col">
-    <div class="flex flex-wrap gap-4 pb-4">
-      <div class="flex items-center gap-4 mb-4 w-full">
-        <Input
-          type="text"
-          class="max-w-sm"
-          v-model="searchTerm"
-          :placeholder="$t('organization.searchPlaceholder')"
-          @input="fetchOrganizationsDebounced"
-        />
+  <div class="flex min-h-full flex-col">
+    <div class="mb-4 flex w-full items-center gap-4">
+      <Input
+        v-model="searchTerm"
+        type="text"
+        class="max-w-sm"
+        :placeholder="$t('organization.searchPlaceholder')"
+        @input="fetchOrganizationsDebounced"
+      />
 
-        <Button
-          v-if="userStore.can('contacts:write')"
-          size="sm"
-          class="flex items-center h-8 ml-auto"
-          @click="showCreateDialog = true"
+      <Button
+        v-if="userStore.can('contacts:write')"
+        size="sm"
+        class="ml-auto flex h-8 items-center"
+        @click="showCreateDialog = true"
+      >
+        {{ $t('organization.new') }}
+      </Button>
+    </div>
+
+    <div class="w-full border-t border-border/70">
+      <div v-if="loading" class="w-full">
+        <div
+          v-for="i in perPage"
+          :key="i"
+          class="flex animate-pulse items-center gap-4 border-b border-border/70 px-3 py-3"
         >
-          {{ $t('organization.new') }}
-        </Button>
-      </div>
-
-      <div v-if="loading" class="flex flex-col gap-4 w-full">
-        <Card v-for="i in perPage" :key="i" class="p-4 flex-shrink-0">
-          <div class="flex items-center gap-4">
-            <Skeleton class="h-10 w-10 rounded-md" />
-            <div class="space-y-2">
-              <Skeleton class="h-3 w-[160px]" />
-              <Skeleton class="h-3 w-[140px]" />
-            </div>
+          <Skeleton class="h-10 w-10 rounded-md" />
+          <div class="space-y-2">
+            <Skeleton class="h-3 w-40" />
+            <Skeleton class="h-3 w-28" />
           </div>
-        </Card>
+        </div>
       </div>
 
       <template v-else>
-        <Card
+        <router-link
           v-for="org in organizations"
           :key="org.id"
-          class="p-4 w-full hover:bg-accent/50 cursor-pointer"
+          :to="{ name: 'organization-detail', params: { id: org.id } }"
+          class="desk-directory-row px-3 py-3"
           data-cy="organization-row"
-          @click="$router.push({ name: 'organization-detail', params: { id: org.id } })"
         >
           <div class="flex items-center gap-4">
-            <div class="h-10 w-10 rounded-md border flex items-center justify-center">
+            <div class="flex h-10 w-10 items-center justify-center rounded-md border">
               <Building2 size="18" class="text-muted-foreground" />
             </div>
-            <div class="space-y-1 overflow-hidden flex-1">
-              <h4 class="text-sm font-semibold truncate">{{ org.name }}</h4>
+            <div class="min-w-0 flex-1 space-y-1">
+              <h4 class="truncate text-sm font-semibold">{{ org.name }}</h4>
               <div
                 v-if="org.external_id"
                 class="flex items-center gap-1 text-xs text-muted-foreground"
               >
-                <IdCardIcon size="12" class="flex-shrink-0" />
+                <IdCardIcon size="12" class="shrink-0" />
                 <span class="truncate">{{ org.external_id }}</span>
               </div>
             </div>
-            <Badge variant="secondary" class="text-xs">
+            <Badge variant="secondary" class="shrink-0 text-xs tabular-nums">
               {{ $t('organization.contactCount', { count: org.contact_count }, org.contact_count) }}
             </Badge>
           </div>
-        </Card>
-        <div v-if="organizations.length === 0" class="flex items-center justify-center w-full h-32">
-          <p class="text-lg text-muted-foreground">{{ $t('organization.noneFound') }}</p>
+        </router-link>
+        <div
+          v-if="organizations.length === 0"
+          class="flex h-32 w-full items-center justify-center border-b border-border/70"
+        >
+          <p class="text-sm text-muted-foreground">{{ $t('organization.noneFound') }}</p>
         </div>
       </template>
     </div>
@@ -76,7 +81,6 @@ import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDebounceFn } from '@vueuse/core'
 import { Building2, IdCardIcon } from 'lucide-vue-next'
-import { Card } from '@shared-ui/components/ui/card'
 import { Skeleton } from '@shared-ui/components/ui/skeleton'
 import { Badge } from '@shared-ui/components/ui/badge'
 import { Input } from '@shared-ui/components/ui/input'

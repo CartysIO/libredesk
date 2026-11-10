@@ -1,5 +1,5 @@
 <template>
-  <div class="border-b">
+  <div class="border-b border-border/70">
     <!-- Update notification -->
     <div
       v-if="appSettingsStore.settings['app.update']?.update?.is_new"

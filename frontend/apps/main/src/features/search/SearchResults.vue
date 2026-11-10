@@ -47,7 +47,7 @@
 
       <TabsContent v-for="type in TYPES" :key="type" :value="type" class="mt-0">
         <div
-          class="overflow-hidden rounded-md border bg-background"
+          class="desk-search-panel overflow-hidden border-y border-border/70"
           :class="{ 'border-dashed': results[type].results.length === 0 }"
         >
           <div
@@ -61,7 +61,7 @@
               <p class="mt-1">{{ t('search.adjustSearchTerms') }}</p>
             </template>
           </div>
-          <div v-else class="divide-y divide-border" :inert="loading">
+          <div v-else :inert="loading">
             <SearchResultItem
               v-for="item in results[type].results"
               :key="item.uuid"

@@ -112,7 +112,7 @@
         <TooltipContent>{{ $t('replyBox.generateReply') }}</TooltipContent>
       </Tooltip>
     </div>
-    <div class="ml-auto flex items-center rounded-md shadow-sm">
+    <div class="ml-auto flex items-center rounded-md">
       <Button
         class="h-8 max-md:h-11 px-4 rounded-r-none"
         @click="handleSend"

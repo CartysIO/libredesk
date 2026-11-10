@@ -10,16 +10,16 @@
 
     <div
       ref="scrollContainer"
-      class="relative overflow-auto rounded-lg border border-border bg-card shadow-sm"
+      class="desk-admin-table relative overflow-auto border border-border/70 bg-background"
       :style="{ maxHeight }"
       :aria-busy="loading"
     >
       <table class="w-full table-auto caption-bottom text-sm">
-        <TableHeader class="sticky top-0 z-10 bg-card">
+        <TableHeader class="sticky top-0 z-10 bg-background">
           <TableRow
             v-for="headerGroup in table.getHeaderGroups()"
             :key="headerGroup.id"
-            class="border-b border-border bg-muted/40 hover:bg-muted/40"
+            class="border-b border-border/70 bg-background hover:bg-background"
           >
             <TableHead
               v-for="(header, headerIndex) in headerGroup.headers"
@@ -92,7 +92,7 @@
               :ref="measureRow"
               :data-index="virtualRow.index"
               :data-state="rows[virtualRow.index].getIsSelected() ? 'selected' : undefined"
-              class="group/row border-b border-border/50 transition-colors last:border-0 hover:bg-muted/30 data-[state=selected]:bg-muted"
+              class="group/row border-b border-border/70 transition-colors duration-150 last:border-0 hover:bg-accent/50 data-[state=selected]:bg-accent/40"
             >
               <TableCell
                 v-for="(cell, cellIndex) in rows[virtualRow.index].getVisibleCells()"

@@ -1,7 +1,7 @@
 <template>
   <router-link
     :to="{ name: 'inbox-conversation', params: { uuid: conversationUUID, type: 'assigned' } }"
-    class="flex gap-4 px-5 py-4 hover:bg-accent/40 transition-colors"
+    class="desk-directory-row flex gap-4 px-3 py-3"
   >
     <Avatar class="w-10 h-10 rounded-full shrink-0 mt-0.5">
       <AvatarImage :src="item.contact.avatar_url || ''" class="object-cover" />
@@ -27,7 +27,7 @@
         </time>
       </div>
 
-      <p v-if="subject" class="mt-1 truncate text-base font-medium leading-snug text-foreground">
+      <p v-if="subject" class="mt-1 truncate text-sm font-semibold leading-snug text-foreground">
         <HighlightedText :text="subject" :term="term" />
       </p>
 
@@ -46,12 +46,15 @@
       <div
         class="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground"
       >
-        <Badge v-if="status" variant="outline" class="font-normal">{{ status }}</Badge>
+        <span v-if="status" class="inline-flex items-center gap-1.5">
+          <StatusSwatch :status="status" />
+          <span>{{ status }}</span>
+        </span>
         <span v-if="item.priority" class="inline-flex items-center gap-1">
           <PriorityMarker :priority="item.priority" />
           {{ item.priority }}
         </span>
-        <span class="tabular-nums">#{{ referenceNumber }}</span>
+        <span class="font-bold tabular-nums">#{{ referenceNumber }}</span>
         <span v-if="item.inbox_name" class="inline-flex items-center gap-1.5 min-w-0">
           <component
             :is="channelIcon"
@@ -89,8 +92,8 @@ import { format } from 'date-fns'
 import { Mail, Tag, UserRound, UsersRound } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { Avatar, AvatarFallback, AvatarImage } from '@shared-ui/components/ui/avatar'
-import { Badge } from '@shared-ui/components/ui/badge'
 import { getRelativeTime } from '@shared-ui/utils/datetime.js'
+import StatusSwatch from '@main/components/brand/StatusSwatch.vue'
 import PriorityMarker from '@main/features/conversation/PriorityMarker.vue'
 import { CHANNEL_ICONS } from '@main/constants/channelIcons.js'
 import HighlightedText from './HighlightedText.vue'
