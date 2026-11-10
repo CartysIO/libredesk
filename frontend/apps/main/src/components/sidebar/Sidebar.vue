@@ -36,7 +36,10 @@ import {
   Plus,
   UserRoundX,
   Inbox,
-  AtSign
+  AtSign,
+  UsersRound,
+  Eye,
+  Share2
 } from 'lucide-vue-next'
 
 import {
@@ -173,14 +176,18 @@ onMounted(() => {
     <template
       v-if="route.matched.some((record) => record.name && record.name.startsWith('contact'))"
     >
-      <Sidebar collapsible="offcanvas" class="sidebar-secondary">
+      <Sidebar collapsible="icon" class="sidebar-secondary">
         <SidebarSectionHeader :title="t('globals.terms.contact', 2)" />
         <SidebarContent>
           <MobileDrawerNav />
           <SidebarGroup>
             <SidebarMenu>
               <SidebarMenuItem v-for="item in filteredContactsNavItems" :key="item.titleKey">
-                <SidebarMenuButton :isActive="isActiveParent(item.href)" asChild>
+                <SidebarMenuButton
+                  :isActive="isActiveParent(item.href)"
+                  asChild
+                  :tooltip="t(item.allLabelKey)"
+                >
                   <router-link :to="item.href">
                     <component :is="navIconMap[item.icon]" v-if="item.icon" />
                     <span>{{ t(item.allLabelKey) }}</span>
@@ -201,14 +208,18 @@ onMounted(() => {
         route.matched.some((record) => record.name && record.name.startsWith('reports'))
       "
     >
-      <Sidebar collapsible="offcanvas" class="sidebar-secondary">
+      <Sidebar collapsible="icon" class="sidebar-secondary">
         <SidebarSectionHeader :title="t('globals.terms.report', 2)" />
         <SidebarContent>
           <MobileDrawerNav />
           <SidebarGroup>
             <SidebarMenu>
               <SidebarMenuItem v-for="item in filteredReportsNavItems" :key="item.titleKey">
-                <SidebarMenuButton :isActive="isActiveParent(item.href)" asChild>
+                <SidebarMenuButton
+                  :isActive="isActiveParent(item.href)"
+                  asChild
+                  :tooltip="t(item.titleKey)"
+                >
                   <router-link :to="item.href">
                     <component :is="navIconMap[item.icon]" v-if="item.icon" />
                     <span>{{ t(item.titleKey) }}</span>
@@ -224,7 +235,7 @@ onMounted(() => {
 
     <!-- Admin Sidebar -->
     <template v-if="route.matched.some((record) => record.name && record.name.startsWith('admin'))">
-      <Sidebar collapsible="offcanvas" class="sidebar-secondary">
+      <Sidebar collapsible="icon" class="sidebar-secondary">
         <SidebarSectionHeader :title="t('globals.terms.admin')">
           <template #suffix>
             <span>({{ settingsStore.settings['app.version'] }})</span>
@@ -239,8 +250,10 @@ onMounted(() => {
                   v-if="!item.children"
                   :isActive="isActiveParent(item.href)"
                   asChild
+                  :tooltip="t(item.titleKey, item.isTitleKeyPlural === true ? 2 : 1)"
                 >
                   <router-link :to="item.href">
+                    <component :is="navIconMap[item.icon]" v-if="item.icon" />
                     <span>{{ t(item.titleKey) }}</span>
                   </router-link>
                 </SidebarMenuButton>
@@ -252,20 +265,31 @@ onMounted(() => {
                   @update:open="toggleAdminCollapsible(item.titleKey)"
                 >
                   <CollapsibleTrigger as-child>
-                    <SidebarMenuButton :isActive="isActiveParent(item.href)">
+                    <SidebarMenuButton
+                      :isActive="isActiveParent(item.href)"
+                      :tooltip="t(item.titleKey, item.isTitleKeyPlural === true ? 2 : 1)"
+                    >
+                      <component :is="navIconMap[item.icon]" v-if="item.icon" />
                       <span>{{ t(item.titleKey, item.isTitleKeyPlural === true ? 2 : 1) }}</span>
-                      <BetaBadge v-if="item.badge" class="ml-1.5">
+                      <BetaBadge v-if="item.badge" class="sidebar-collapsible-extra ml-1.5">
                         {{ item.badge }}
                       </BetaBadge>
                       <ChevronRight
-                        class="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
+                        class="sidebar-collapsible-extra ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
                       />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
                       <SidebarMenuSubItem v-for="child in item.children" :key="child.titleKey">
-                        <SidebarMenuButton size="sm" :isActive="isActiveParent(child.href)" asChild>
+                        <SidebarMenuButton
+                          size="sm"
+                          :isActive="isActiveParent(child.href)"
+                          asChild
+                          :tooltip="
+                            t(child.titleKey, child.isTitleKeyPlural === true ? 2 : 1)
+                          "
+                        >
                           <router-link :to="child.href">
                             <component :is="navIconMap[child.icon]" v-if="child.icon" />
                             <span>{{
@@ -287,14 +311,18 @@ onMounted(() => {
 
     <!-- Account sidebar -->
     <template v-if="isActiveParent('/account')">
-      <Sidebar collapsible="offcanvas" class="sidebar-secondary">
+      <Sidebar collapsible="icon" class="sidebar-secondary">
         <SidebarSectionHeader :title="t('globals.terms.account')" />
         <SidebarContent>
           <MobileDrawerNav />
           <SidebarGroup>
             <SidebarMenu>
               <SidebarMenuItem v-for="item in accountNavItems" :key="item.titleKey">
-                <SidebarMenuButton :isActive="isActiveParent(item.href)" asChild>
+                <SidebarMenuButton
+                  :isActive="isActiveParent(item.href)"
+                  asChild
+                  :tooltip="t(item.titleKey)"
+                >
                   <router-link :to="item.href">
                     <component :is="navIconMap[item.icon]" v-if="item.icon" />
                     <span>{{ t(item.titleKey) }}</span>
@@ -313,7 +341,7 @@ onMounted(() => {
 
     <!-- Inbox sidebar -->
     <template v-if="route.path && isInboxRoute(route.path)">
-      <Sidebar collapsible="offcanvas" class="sidebar-secondary">
+      <Sidebar collapsible="icon" class="sidebar-secondary">
         <SidebarSectionHeader :title="t('globals.terms.inbox')">
           <template #actions>
             <Button variant="ghost" size="icon" as-child class="size-8 text-muted-foreground">
@@ -329,7 +357,10 @@ onMounted(() => {
           <SidebarGroup>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton @click="emit('createConversation')">
+                <SidebarMenuButton
+                  :tooltip="t('conversation.newConversation')"
+                  @click="emit('createConversation')"
+                >
                   <Plus />
                   <span>{{ t('conversation.newConversation') }}</span>
                 </SidebarMenuButton>
@@ -337,6 +368,7 @@ onMounted(() => {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   :isActive="isActiveParent('/inboxes/assigned')"
+                  :tooltip="t('globals.terms.myInbox')"
                   @click="navigateToInbox('assigned')"
                 >
                   <User />
@@ -356,6 +388,7 @@ onMounted(() => {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   :isActive="isActiveParent('/inboxes/mentioned')"
+                  :tooltip="t('globals.terms.mention', 2)"
                   @click="navigateToInbox('mentioned')"
                 >
                   <AtSign />
@@ -377,6 +410,7 @@ onMounted(() => {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   :isActive="isActiveParent('/inboxes/unassigned')"
+                  :tooltip="t('globals.terms.unassigned')"
                   @click="navigateToInbox('unassigned')"
                 >
                   <UserRoundX />
@@ -398,6 +432,7 @@ onMounted(() => {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   :isActive="isActiveParent('/inboxes/all')"
+                  :tooltip="t('globals.messages.all')"
                   @click="navigateToInbox('all')"
                 >
                   <Inbox />
@@ -422,12 +457,13 @@ onMounted(() => {
               >
                 <SidebarMenuItem>
                   <CollapsibleTrigger as-child>
-                    <SidebarMenuButton>
+                    <SidebarMenuButton :tooltip="t('globals.terms.teamInbox', 2)">
+                      <UsersRound />
                       <span class="sidebar-section-label">
                         {{ t('globals.terms.teamInbox', 2) }}
                       </span>
                       <ChevronRight
-                        class="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
+                        class="sidebar-collapsible-extra ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
                       />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
@@ -437,10 +473,14 @@ onMounted(() => {
                         <SidebarMenuButton
                           size="sm"
                           :is-active="route.params.teamID == team.id"
+                          :tooltip="team.name"
                           @click="navigateToTeamInbox(team.id)"
                         >
-                          {{ team.emoji
-                          }}<span class="flex-1 truncate" :title="team.name">{{ team.name }}</span>
+                          <UsersRound class="inbox-subitem-icon" />
+                          <span v-if="team.emoji" class="inbox-subitem-emoji shrink-0">{{
+                            team.emoji
+                          }}</span>
+                          <span class="flex-1 truncate" :title="team.name">{{ team.name }}</span>
                         </SidebarMenuButton>
                       </SidebarMenuSubItem>
                     </SidebarMenuSub>
@@ -457,11 +497,15 @@ onMounted(() => {
               >
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton class="group/item !p-2">
+                    <SidebarMenuButton
+                      class="group/item !p-2"
+                      :tooltip="t('globals.terms.view', 2)"
+                    >
+                      <Eye />
                       <span class="sidebar-section-label">
                         {{ t('globals.terms.view', 2) }}
                       </span>
-                      <div>
+                      <div class="sidebar-collapsible-extra">
                         <Plus
                           size="18"
                           @click.stop="openCreateViewDialog"
@@ -469,7 +513,7 @@ onMounted(() => {
                         />
                       </div>
                       <ChevronRight
-                        class="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
+                        class="sidebar-collapsible-extra ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
                         v-if="userViews.length"
                       />
                     </SidebarMenuButton>
@@ -486,8 +530,10 @@ onMounted(() => {
                           size="sm"
                           class="group-has-[[data-sidebar=menu-action]]/menu-item:pr-7"
                           :isActive="route.params.viewID == view.id"
+                          :tooltip="view.name"
                           @click="navigateToViewInbox(view.id)"
                         >
+                          <Eye class="inbox-subitem-icon" />
                           <span class="flex-1 truncate" :title="view.name">{{ view.name }}</span>
                           <SidebarCountBadge
                             :count="viewSidebarCount(view.id)"
@@ -529,12 +575,16 @@ onMounted(() => {
               >
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton class="!p-2">
+                    <SidebarMenuButton
+                      class="!p-2"
+                      :tooltip="t('globals.terms.sharedView', 2)"
+                    >
+                      <Share2 />
                       <span class="sidebar-section-label">
                         {{ t('globals.terms.sharedView', 2) }}
                       </span>
                       <ChevronRight
-                        class="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
+                        class="sidebar-collapsible-extra ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
                       />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
@@ -545,8 +595,10 @@ onMounted(() => {
                         <SidebarMenuButton
                           size="sm"
                           :isActive="route.params.viewID == view.id"
+                          :tooltip="view.name"
                           @click="navigateToViewInbox(view.id)"
                         >
+                          <Share2 class="inbox-subitem-icon" />
                           <span class="flex-1 truncate" :title="view.name">{{ view.name }}</span>
                           <SidebarCountBadge
                             :count="viewSidebarCount(view.id)"
@@ -606,9 +658,63 @@ onMounted(() => {
 :deep(.sidebar-secondary) {
   @apply z-10 ml-0 overflow-hidden border-r border-sidebar-border/80 bg-sidebar/50;
   position: absolute !important;
-  inset: 0 auto 0 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: auto !important;
   height: auto !important;
   max-height: 100%;
+}
+
+:deep(.group.peer[data-state='collapsed'][data-collapsible='icon'] > .sidebar-secondary) {
+  width: var(--sidebar-width-icon) !important;
+}
+
+:deep(
+  .group.peer[data-state='collapsed'][data-collapsible='icon']
+    .sidebar-secondary
+    [data-sidebar='header']
+) {
+  @apply justify-center border-b border-sidebar-border/50 px-0;
+}
+
+:deep(
+  .group.peer[data-state='collapsed'][data-collapsible='icon']
+    .sidebar-secondary
+    [data-sidebar='header']
+    h2,
+  .group.peer[data-state='collapsed'][data-collapsible='icon']
+    .sidebar-secondary
+    [data-sidebar='header']
+    .text-xs
+) {
+  @apply sr-only;
+}
+
+:deep(
+  .group.peer[data-state='collapsed'][data-collapsible='icon'] .sidebar-secondary .sidebar-section-label
+) {
+  @apply sr-only;
+}
+
+:deep(
+  .group.peer[data-state='collapsed'][data-collapsible='icon']
+    .sidebar-secondary
+    .sidebar-collapsible-extra
+) {
+  @apply hidden;
+}
+
+:deep(.group.peer[data-state='expanded'] .sidebar-secondary .inbox-subitem-icon) {
+  @apply hidden;
+}
+
+:deep(
+  .group.peer[data-state='collapsed'][data-collapsible='icon']
+    .sidebar-secondary
+    .inbox-subitem-emoji
+) {
+  @apply hidden;
 }
 
 :deep(.group\/sidebar-wrapper) {
