@@ -16,6 +16,34 @@ import (
 // conversations.meta: sibling conversation absorbed into the merge target of a Pylon issue.
 const MetaAbsorbedInto = "pylon_absorbed_into_conversation_id"
 
+// effectiveSourceIDsForImport returns usedSourceIDs after sibling absorption would remove
+// duplicate issue emails from fragment conversations, matching in-tx behavior for message planning.
+func (im *Importer) effectiveSourceIDsForImport(msgs []Message, targetID int) (map[string]int, error) {
+	eff := make(map[string]int, len(im.usedSourceIDs))
+	for k, v := range im.usedSourceIDs {
+		eff[k] = v
+	}
+	if targetID <= 0 {
+		return eff, nil
+	}
+	issueIDs := issueEmailMessageIDs(msgs)
+	for _, sibID := range im.siblingConversationIDs(msgs, targetID) {
+		var rows []struct {
+			SourceID sql.NullString `db:"source_id"`
+		}
+		if err := im.DB.Select(&rows, `SELECT source_id FROM conversation_messages WHERE conversation_id = $1`, sibID); err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			sid := stringutil.NormalizeMessageID(row.SourceID.String)
+			if sid != "" && issueIDs[sid] {
+				delete(eff, sid)
+			}
+		}
+	}
+	return eff, nil
+}
+
 // issueEmailMessageIDs returns normalized Message-IDs from a Pylon issue's messages.
 func issueEmailMessageIDs(msgs []Message) map[string]bool {
 	out := map[string]bool{}
@@ -50,7 +78,7 @@ func (im *Importer) siblingConversationIDs(msgs []Message, primaryID int) []int 
 func (im *Importer) planSiblingAbsorption(msgs []Message, primaryID int, primaryRef string) {
 	for _, sibID := range im.siblingConversationIDs(msgs, primaryID) {
 		ref := strconv.Itoa(sibID)
-		if r, err := im.conversationReference(sibID); err == nil && r != "" {
+		if r, err := im.conversationReference(im.DB, sibID); err == nil && r != "" {
 			ref = r
 		}
 		im.rep.Absorbed = append(im.rep.Absorbed, fmt.Sprintf("Libredesk #%s -> merge target #%s (Pylon email fragment)", ref, primaryRef))
@@ -58,9 +86,9 @@ func (im *Importer) planSiblingAbsorption(msgs []Message, primaryID int, primary
 	sort.Strings(im.rep.Absorbed)
 }
 
-func (im *Importer) conversationReference(id int) (string, error) {
+func (im *Importer) conversationReference(g getter, id int) (string, error) {
 	var ref string
-	err := im.DB.Get(&ref, `SELECT reference_number FROM conversations WHERE id = $1`, id)
+	err := g.Get(&ref, `SELECT reference_number FROM conversations WHERE id = $1`, id)
 	return ref, err
 }
 
@@ -97,8 +125,8 @@ func (im *Importer) absorbSiblingConversations(tx *sqlx.Tx, targetID int, msgs [
 		if imported {
 			continue
 		}
-		ref, _ := im.conversationReference(sibID)
-		targetRef, _ := im.conversationReference(targetID)
+		ref, _ := im.conversationReference(tx, sibID)
+		targetRef, _ := im.conversationReference(tx, targetID)
 		if ref == "" {
 			ref = strconv.Itoa(sibID)
 		}
