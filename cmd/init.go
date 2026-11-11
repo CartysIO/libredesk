@@ -161,6 +161,8 @@ func initFlags() {
 	f.Int("pylon-reference-floor", 4000, "with --pylon-import: new conversations get reference numbers from here up (at least the highest Pylon number + 1)")
 	f.Bool("pylon-allow-missing-files", false, "with --pylon-import: import even when some files cannot be downloaded (their URLs stay in message meta)")
 	f.Bool("pylon-reconcile", false, "with --pylon-import: after import, re-merge every already-imported issue (sibling absorption and live message timestamps)")
+	f.Bool("pylon-verify-live", true, "with --pylon-import: skip issues that no longer exist in Pylon (GET /issues/{id}); needs PYLON_API_KEY")
+	f.Bool("pylon-refresh-issues", false, "with --pylon-import: refetch the issue list from the Pylon API instead of issues.json cache")
 	f.StringSlice("pylon-agent-alias", []string{"omer.menashe@gmail.com=omer@clyr.io"}, "with --pylon-import: pylon-user-email=libredesk-agent-email")
 
 	// Clyr fork: wipe all conversations before re-running --pylon-import (cmd/pylon_wipe.go).
