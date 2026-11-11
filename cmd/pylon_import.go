@@ -80,8 +80,7 @@ func runPylonImport(ctx context.Context, db *sqlx.DB, fs stuffbin.FileSystem, se
 		}
 		for _, is := range missing {
 			delete(data.Messages, is.ID)
-			opt.SkippedNotInPylon = append(opt.SkippedNotInPylon,
-				fmt.Sprintf("#%d %s (%s)", is.Number, clip(is.Title, 60), is.ID))
+			opt.SkippedNotInPylon = append(opt.SkippedNotInPylon, pylonimport.SkippedIssueSummary(is))
 		}
 		data.Issues = present
 		log.Printf("pylon: importing %d issues after live verification (%d skipped as absent)", len(data.Issues), len(missing))
