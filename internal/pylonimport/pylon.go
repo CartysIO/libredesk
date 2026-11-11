@@ -23,7 +23,18 @@ import (
 	"time"
 )
 
-const apiBase = "https://api.usepylon.com"
+// getHTTPError is returned by Fetcher.get for non-retryable HTTP error responses.
+type getHTTPError struct {
+	Path   string
+	Status int
+	Body   string
+}
+
+func (e *getHTTPError) Error() string {
+	return fmt.Sprintf("GET %s: HTTP %d: %.300s", e.Path, e.Status, e.Body)
+}
+
+const defaultAPIBase = "https://api.usepylon.com"
 
 // Ref is a reference to another Pylon object.
 type Ref struct {
@@ -136,8 +147,19 @@ type Fetcher struct {
 	HTTP   *http.Client
 	Logf   func(format string, args ...any)
 	Oldest time.Time
+	// RefreshIssuesList refetches GET /issues and replaces issues.json instead of reading the cache.
+	RefreshIssuesList bool
+	// APIRoot overrides the Pylon API host in tests (e.g. httptest server URL).
+	APIRoot string
 
 	limiter <-chan time.Time
+}
+
+func (f *Fetcher) apiRoot() string {
+	if f.APIRoot != "" {
+		return strings.TrimRight(f.APIRoot, "/")
+	}
+	return defaultAPIBase
 }
 
 // Fetch returns users, accounts, contacts, issues and messages, from the cache when present.
@@ -223,6 +245,9 @@ func issueFetchWindows(oldest, end time.Time) []issueFetchWindow {
 // fetchIssues lists issues in windows of 360 days, newest first, back to Oldest.
 func (f *Fetcher) fetchIssues(ctx context.Context, out *[]Issue) error {
 	path := filepath.Join(f.Dir, "issues.json")
+	if f.RefreshIssuesList {
+		_ = os.Remove(path)
+	}
 	if b, err := os.ReadFile(path); err == nil {
 		if err := json.Unmarshal(b, out); err != nil {
 			return err
@@ -310,7 +335,7 @@ func (f *Fetcher) get(ctx context.Context, path string, q url.Values, out any) e
 	if err != nil {
 		return err
 	}
-	u := apiBase + path
+	u := f.apiRoot() + path
 	if len(q) > 0 {
 		u += "?" + q.Encode()
 	}
@@ -351,10 +376,54 @@ func (f *Fetcher) get(ctx context.Context, path string, q url.Values, out any) e
 			continue
 		}
 		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("GET %s: HTTP %d: %.300s", path, resp.StatusCode, body)
+			return &getHTTPError{Path: path, Status: resp.StatusCode, Body: string(body)}
 		}
 		return json.Unmarshal(body, out)
 	}
+}
+
+// IssuePresent reports whether GET /issues/{id} succeeds. A deleted or unknown issue returns (false, nil).
+func (f *Fetcher) IssuePresent(ctx context.Context, issueID string) (bool, error) {
+	var resp struct {
+		Data Issue `json:"data"`
+	}
+	path := "/issues/" + url.PathEscape(issueID)
+	if err := f.get(ctx, path, nil, &resp); err != nil {
+		var he *getHTTPError
+		if errors.As(err, &he) && he.Status == http.StatusNotFound {
+			return false, nil
+		}
+		return false, err
+	}
+	return resp.Data.ID != "", nil
+}
+
+// FilterPresentIssues keeps only issues that still exist in Pylon. missing lists dropped issues (same order as input).
+func (f *Fetcher) FilterPresentIssues(ctx context.Context, issues []Issue) (present, missing []Issue, err error) {
+	if f.Logf == nil {
+		f.Logf = func(string, ...any) {}
+	}
+	if f.limiter == nil {
+		f.limiter = time.Tick(550 * time.Millisecond)
+	}
+	for n, is := range issues {
+		ok, err := f.IssuePresent(ctx, is.ID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("issue #%d (%s): %w", is.Number, is.ID, err)
+		}
+		if ok {
+			present = append(present, is)
+		} else {
+			missing = append(missing, is)
+		}
+		if (n+1)%100 == 0 {
+			f.Logf("pylon: verified %d of %d issues (%d absent)", n+1, len(issues), len(missing))
+		}
+	}
+	if len(missing) > 0 {
+		f.Logf("pylon: %d of %d cached issues are not in Pylon anymore and will be skipped", len(missing), len(issues))
+	}
+	return present, missing, nil
 }
 
 // FileKey is the cache name of a Pylon file URL: the hash of the URL without its signature.

@@ -1,6 +1,7 @@
 package pylonimport
 
 import (
+	"fmt"
 	"html"
 	"regexp"
 	"slices"
@@ -202,6 +203,11 @@ func InlineFileURLs(body string, fileURLs []string) map[string]string {
 		}
 	}
 	return out
+}
+
+// SkippedIssueSummary labels an issue omitted because it is absent from Pylon.
+func SkippedIssueSummary(is Issue) string {
+	return fmt.Sprintf("#%d %s (%s)", is.Number, clip(is.Title, 60), is.ID)
 }
 
 func clip(s string, n int) string {

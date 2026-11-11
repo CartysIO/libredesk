@@ -27,8 +27,9 @@ func runPylonImport(ctx context.Context, db *sqlx.DB, fs stuffbin.FileSystem, se
 		AgentAliases:   map[string]string{},
 		MediaStore:     ko.MustString("upload.provider"),
 
-		AllowMissingFiles: ko.Bool("pylon-allow-missing-files"),
-		Reconcile:         ko.Bool("pylon-reconcile"),
+		AllowMissingFiles:   ko.Bool("pylon-allow-missing-files"),
+		Reconcile:           ko.Bool("pylon-reconcile"),
+		VerifyIssuesInPylon: ko.Bool("pylon-verify-live"),
 	}
 	if s := ko.String("since"); s != "" {
 		t, err := time.Parse("2006-01-02", s)
@@ -46,7 +47,8 @@ func runPylonImport(ctx context.Context, db *sqlx.DB, fs stuffbin.FileSystem, se
 	}
 
 	fetcher := &pylonimport.Fetcher{
-		Dir: ko.String("pylon-cache"),
+		Dir:               ko.String("pylon-cache"),
+		RefreshIssuesList: ko.Bool("pylon-refresh-issues"),
 		Token: func() (string, error) {
 			if t := strings.TrimSpace(os.Getenv("PYLON_API_KEY")); t != "" {
 				return t, nil
@@ -67,6 +69,22 @@ func runPylonImport(ctx context.Context, db *sqlx.DB, fs stuffbin.FileSystem, se
 		log.Fatalf("reading Pylon: %v", err)
 	}
 	log.Printf("pylon: %d users, %d accounts, %d contacts, %d issues (%s)", len(data.Users), len(data.Accounts), len(data.Contacts), len(data.Issues), time.Since(started).Round(time.Second))
+
+	if opt.VerifyIssuesInPylon {
+		if strings.TrimSpace(os.Getenv("PYLON_API_KEY")) == "" {
+			log.Fatalf("pylon import: --pylon-verify-live needs PYLON_API_KEY to confirm each issue still exists in Pylon (or pass --pylon-verify-live=false to use the cache as-is)")
+		}
+		present, missing, err := fetcher.FilterPresentIssues(ctx, data.Issues)
+		if err != nil {
+			log.Fatalf("verifying issues in Pylon: %v", err)
+		}
+		for _, is := range missing {
+			delete(data.Messages, is.ID)
+			opt.SkippedNotInPylon = append(opt.SkippedNotInPylon, pylonimport.SkippedIssueSummary(is))
+		}
+		data.Issues = present
+		log.Printf("pylon: importing %d issues after live verification (%d skipped as absent)", len(data.Issues), len(missing))
+	}
 
 	if _, err := db.Exec(`SET lock_timeout = '60s'; SET idle_in_transaction_session_timeout = '5min'; SET statement_timeout = '30min'`); err != nil {
 		log.Fatalf("pylon import: database session: %v", err)

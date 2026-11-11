@@ -68,6 +68,10 @@ type Options struct {
 	AllowMissingFiles bool
 	// Reconcile re-runs merge absorption and live message backdating for issues already imported (use after upgrading import logic).
 	Reconcile bool
+	// VerifyIssuesInPylon requires each issue to exist in Pylon (GET /issues/{id}) before import.
+	VerifyIssuesInPylon bool
+	// SkippedNotInPylon lists issues dropped by live verification (numbers and titles for the report).
+	SkippedNotInPylon []string
 }
 
 // Importer writes Pylon data into a Libredesk database. It writes rows directly with SQL, in one transaction per
@@ -137,11 +141,17 @@ type Report struct {
 	Samples               []string
 	FailedConversations   []string
 	TimeTriggerRulesFound int
+	SkippedNotInPylon     int
+	SkippedNotInPylonList []string
 }
 
 // Run imports d. In a dry run it reads the database and prints what it would write, and writes nothing.
 func (im *Importer) Run(ctx context.Context, d Data) (*Report, error) {
-	im.rep = &Report{DryRun: im.Opt.DryRun}
+	im.rep = &Report{
+		DryRun:                im.Opt.DryRun,
+		SkippedNotInPylon:     len(im.Opt.SkippedNotInPylon),
+		SkippedNotInPylonList: slices.Clone(im.Opt.SkippedNotInPylon),
+	}
 	if im.Out == nil {
 		im.Out = io.Discard
 	}
@@ -1588,7 +1598,8 @@ func (r *Report) Print(w io.Writer) {
 	fmt.Fprintf(w, "Organizations: %d (%d new)\n", r.Organizations, r.OrganizationsNew)
 	fmt.Fprintf(w, "Contacts: %d (%d new), new memberships: %d\n", r.Contacts, r.ContactsNew, r.Memberships)
 	fmt.Fprintf(w, "New disabled agents: %d\n", r.AgentsNew)
-	fmt.Fprintf(w, "Pylon issues: %d; already imported: %d; not selected (--since/--limit): %d\n", r.Issues, r.AlreadyImported, r.NotSelected)
+	fmt.Fprintf(w, "Pylon issues: %d; already imported: %d; not selected (--since/--limit): %d; absent in Pylon (skipped): %d\n",
+		r.Issues, r.AlreadyImported, r.NotSelected, r.SkippedNotInPylon)
 	fmt.Fprintf(w, "Conversations created: %d; merged into existing duplicates: %d; failed: %d\n", r.Conversations, r.Merged, len(r.FailedConversations))
 	fmt.Fprintf(w, "Messages: %d (%d public, %d internal notes); skipped as already present: %d\n", r.Messages, r.PublicMessages, r.Notes, r.SkippedMessages)
 	fmt.Fprintf(w, "Files: %d (%d inline images); missing from the cache: %d\n", r.Attachments, r.InlineImages, r.MissingFiles)
@@ -1609,6 +1620,7 @@ func (r *Report) Print(w io.Writer) {
 		fmt.Fprintf(w, "Live messages backdated: %d\n", r.ReconciledMessages)
 	}
 	section("Reference renumbers", r.Renumbers)
+	section("Absent in Pylon", r.SkippedNotInPylonList)
 	section("Failed", r.FailedConversations)
 	section("Samples", r.Samples)
 }
