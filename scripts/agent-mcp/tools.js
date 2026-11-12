@@ -6,41 +6,42 @@ import {
   presentConversationList,
   presentMessageHit,
   presentMessages,
-  presentNote,
   presentSearchHit,
   presentSentMessage
 } from "./present.js"
 
 const statusSchema = z.enum(STATUSES).describe("Conversation status. One of: " + STATUSES.join(", "))
 
+const paginatedInputSchema = {
+  page: z.number().int().min(1).optional(),
+  page_size: z.number().int().min(1).max(50).optional()
+}
+
+function conversationPageTool(name, description, listFn) {
+  return {
+    name,
+    description,
+    inputSchema: paginatedInputSchema,
+    async run({ page, page_size }) {
+      return presentConversationList(await listFn({ page, pageSize: page_size }))
+    }
+  }
+}
+
 // buildTools returns the tools exposed to external agents (Grok, Cursor, and so on).
 // Customer-visible replies need messages:write on the API key's role.
 export function buildTools(client) {
   return [
-    {
-      name: "list_unassigned",
-      description:
-        "List conversations with no agent assignee, newest activity first. A good inbox triage queue for an autonomous agent.",
-      inputSchema: {
-        page: z.number().int().min(1).optional(),
-        page_size: z.number().int().min(1).max(50).optional()
-      },
-      async run({ page, page_size }) {
-        return presentConversationList(await client.listUnassigned({ page, pageSize: page_size }))
-      }
-    },
-    {
-      name: "list_assigned_to_me",
-      description:
-        "List conversations assigned to the API key's agent, newest activity first. Use this to work through the bot's own queue.",
-      inputSchema: {
-        page: z.number().int().min(1).optional(),
-        page_size: z.number().int().min(1).max(50).optional()
-      },
-      async run({ page, page_size }) {
-        return presentConversationList(await client.listAssignedToMe({ page, pageSize: page_size }))
-      }
-    },
+    conversationPageTool(
+      "list_unassigned",
+      "List conversations with no agent assignee, newest activity first. A good inbox triage queue for an autonomous agent.",
+      (opts) => client.listUnassigned(opts)
+    ),
+    conversationPageTool(
+      "list_assigned_to_me",
+      "List conversations assigned to the API key's agent, newest activity first. Use this to work through the bot's own queue.",
+      (opts) => client.listAssignedToMe(opts)
+    ),
     {
       name: "list_conversations",
       description:
@@ -122,7 +123,7 @@ export function buildTools(client) {
     {
       name: "send_reply",
       description:
-        "Send a customer-visible reply on a conversation. Email and chat channels deliver it to the contact. Requires messages:write. By default the conversation status may move to On customer unless keep_status is true.",
+        "Send a customer-visible reply on a conversation. Email and chat channels deliver it to the contact. Requires messages:write. Unless keep_status is true, the desk may move the thread to On customer — autonomous bots should usually pass keep_status: true.",
       inputSchema: {
         uuid: z.string().min(1).describe("Conversation uuid"),
         message: z.string().min(1).describe("Reply text (plain text; converted to HTML)"),
@@ -144,7 +145,7 @@ export function buildTools(client) {
         message: z.string().min(1).describe("Note text")
       },
       async run({ uuid, message }) {
-        return presentNote(await client.addNote(uuid, message))
+        return presentSentMessage(await client.addNote(uuid, message))
       }
     },
     {

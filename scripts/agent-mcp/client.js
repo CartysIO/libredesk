@@ -53,20 +53,24 @@ export function createClient({ baseURL, apiKey, apiSecret, fetchImpl = globalThi
     return payload.data
   }
 
+  function conversationListQuery(page, pageSize, extra = {}) {
+    return { page, page_size: pageSize, order: "desc", order_by: "last_message_at", ...extra }
+  }
+
   return {
     listConversations({ status, page = 1, pageSize = 20 } = {}) {
-      const query = { page, page_size: pageSize, order: "desc", order_by: "last_message_at" }
+      const query = conversationListQuery(page, pageSize)
       if (status) query.filters = statusFilter(status)
       return request("GET", "/api/v1/conversations/all", { query })
     },
     listUnassigned({ page = 1, pageSize = 20 } = {}) {
       return request("GET", "/api/v1/conversations/unassigned", {
-        query: { page, page_size: pageSize, order: "desc", order_by: "last_message_at" }
+        query: conversationListQuery(page, pageSize)
       })
     },
     listAssignedToMe({ page = 1, pageSize = 20 } = {}) {
       return request("GET", "/api/v1/conversations/assigned", {
-        query: { page, page_size: pageSize, order: "desc", order_by: "last_message_at" }
+        query: conversationListQuery(page, pageSize)
       })
     },
     getConversation(uuid) {

@@ -4,16 +4,7 @@ Stdio MCP server for external agents: read the desk, search, manage conversation
 
 ## Tools
 
-| Tool | Purpose |
-|------|---------|
-| `list_unassigned` | Triage queue |
-| `list_assigned_to_me` | Bot's own assignee queue |
-| `list_conversations` | All conversations (optional status filter) |
-| `get_conversation`, `get_messages` | Thread detail |
-| `search`, `search_contacts` | Find by text |
-| `send_reply` | Customer-visible message (`messages:write`) |
-| `add_note` | Internal note (`messages:write_private`) |
-| `set_status`, `assign`, `unassign`, `set_priority`, `update_tags` | Conversation management |
+MCP tool names match the [external agent REST guide](../../docs/agents/external-agent.md#endpoints-used-by-scriptsagent-mcp) (methods, paths, and bodies live there only).
 
 ## Secrets
 
@@ -22,7 +13,7 @@ Doppler project `libredesk`, config `stg`:
 - `LIBREDESK_AGENT_API_KEY`
 - `LIBREDESK_AGENT_API_SECRET`
 
-Optional `LIBREDESK_AGENT_URL`. When it is unset the server uses staging, `https://libredesk-staging-6deb.up.railway.app`. For production, set the URL and start with `LIBREDESK_AGENT_DOPPLER_CONFIG=prd`.
+Optional `LIBREDESK_AGENT_URL`. When it is unset the server uses staging, `https://libredesk-staging-6deb.up.railway.app`. Use staging keys in Doppler by default; only point at production when you accept the risk of customer-visible `send_reply`.
 
 Cursor starts it through `.cursor/mcp.json`, which runs `cursor.sh`. That script loads only those two secrets.
 

@@ -105,10 +105,6 @@ export function presentMessageHit(item) {
   }
 }
 
-export function presentNote(message) {
-  return presentSentMessage(message)
-}
-
 export function presentSentMessage(message) {
   return {
     uuid: message.uuid,

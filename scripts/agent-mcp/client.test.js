@@ -45,6 +45,47 @@ test("surfaces the desk error message", async () => {
   await assert.rejects(client.getConversation("abc"), /403 Permission denied/)
 })
 
+test("listUnassigned uses the unassigned inbox path", async () => {
+  const { fetchImpl, calls } = fakeFetch(async () => ({
+    status: 200,
+    body: { status: "success", data: { results: [], total: 0, page: 1, per_page: 20, total_pages: 0 } }
+  }))
+  const client = createClient({ baseURL: "https://desk.example", apiKey: "k", apiSecret: "s", fetchImpl })
+  await client.listUnassigned({ page: 1, pageSize: 10 })
+  assert.equal(calls[0].url, "https://desk.example/api/v1/conversations/unassigned?page=1&page_size=10&order=desc&order_by=last_message_at")
+})
+
+test("listAssignedToMe uses the assigned inbox path", async () => {
+  const { fetchImpl, calls } = fakeFetch(async () => ({
+    status: 200,
+    body: { status: "success", data: { results: [], total: 0, page: 1, per_page: 20, total_pages: 0 } }
+  }))
+  const client = createClient({ baseURL: "https://desk.example", apiKey: "k", apiSecret: "s", fetchImpl })
+  await client.listAssignedToMe()
+  assert.match(calls[0].url, /\/api\/v1\/conversations\/assigned/)
+})
+
+test("unassign removes the user assignee", async () => {
+  const { fetchImpl, calls } = fakeFetch(async () => ({
+    status: 200,
+    body: { status: "success", data: true }
+  }))
+  const client = createClient({ baseURL: "https://desk.example", apiKey: "k", apiSecret: "s", fetchImpl })
+  await client.unassign("conv-1")
+  assert.equal(calls[0].init.method, "PUT")
+  assert.equal(calls[0].url, "https://desk.example/api/v1/conversations/conv-1/assignee/user/remove")
+})
+
+test("setPriority sends the priority label", async () => {
+  const { fetchImpl, calls } = fakeFetch(async () => ({
+    status: 200,
+    body: { status: "success", data: true }
+  }))
+  const client = createClient({ baseURL: "https://desk.example", apiKey: "k", apiSecret: "s", fetchImpl })
+  await client.setPriority("abc", "High")
+  assert.deepEqual(JSON.parse(calls[0].init.body), { priority: "High" })
+})
+
 test("listConversations filters by a known status", async () => {
   const { fetchImpl, calls } = fakeFetch(async () => ({
     status: 200,
