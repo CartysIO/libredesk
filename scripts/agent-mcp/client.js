@@ -53,11 +53,25 @@ export function createClient({ baseURL, apiKey, apiSecret, fetchImpl = globalThi
     return payload.data
   }
 
+  function conversationListQuery(page, pageSize, extra = {}) {
+    return { page, page_size: pageSize, order: "desc", order_by: "last_message_at", ...extra }
+  }
+
   return {
     listConversations({ status, page = 1, pageSize = 20 } = {}) {
-      const query = { page, page_size: pageSize, order: "desc", order_by: "last_message_at" }
+      const query = conversationListQuery(page, pageSize)
       if (status) query.filters = statusFilter(status)
       return request("GET", "/api/v1/conversations/all", { query })
+    },
+    listUnassigned({ page = 1, pageSize = 20 } = {}) {
+      return request("GET", "/api/v1/conversations/unassigned", {
+        query: conversationListQuery(page, pageSize)
+      })
+    },
+    listAssignedToMe({ page = 1, pageSize = 20 } = {}) {
+      return request("GET", "/api/v1/conversations/assigned", {
+        query: conversationListQuery(page, pageSize)
+      })
     },
     getConversation(uuid) {
       return request("GET", `/api/v1/conversations/${encodeURIComponent(uuid)}`)
@@ -76,10 +90,21 @@ export function createClient({ baseURL, apiKey, apiSecret, fetchImpl = globalThi
     searchContacts(query) {
       return request("GET", "/api/v1/contacts/search", { query: { query } })
     },
-    addNote(uuid, message) {
+    sendAgentMessage(uuid, message, { private: isPrivate = false, keepStatus = false } = {}) {
       return request("POST", `/api/v1/conversations/${encodeURIComponent(uuid)}/messages`, {
-        body: { message: plainTextToHTML(message), private: true, sender_type: "agent" }
+        body: {
+          message: plainTextToHTML(message),
+          private: isPrivate,
+          sender_type: "agent",
+          ...(keepStatus ? { keep_status: true } : {})
+        }
       })
+    },
+    addNote(uuid, message) {
+      return this.sendAgentMessage(uuid, message, { private: true })
+    },
+    sendReply(uuid, message, { keepStatus = false } = {}) {
+      return this.sendAgentMessage(uuid, message, { private: false, keepStatus })
     },
     setStatus(uuid, status, snoozedUntil) {
       return request("PUT", `/api/v1/conversations/${encodeURIComponent(uuid)}/status`, {
@@ -93,6 +118,19 @@ export function createClient({ baseURL, apiKey, apiSecret, fetchImpl = globalThi
     },
     listAgents(query) {
       return request("GET", "/api/v1/agents/compact", { query: { q: query, enabled: "true", type: "agent" } })
+    },
+    setPriority(uuid, priority) {
+      return request("PUT", `/api/v1/conversations/${encodeURIComponent(uuid)}/priority`, {
+        body: { priority }
+      })
+    },
+    updateTags(uuid, tags, action = "add_tags") {
+      return request("POST", `/api/v1/conversations/${encodeURIComponent(uuid)}/tags`, {
+        body: { tags, action }
+      })
+    },
+    unassign(uuid) {
+      return request("PUT", `/api/v1/conversations/${encodeURIComponent(uuid)}/assignee/user/remove`, { body: {} })
     }
   }
 }

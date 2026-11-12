@@ -105,8 +105,13 @@ export function presentMessageHit(item) {
   }
 }
 
-export function presentNote(message) {
-  return { uuid: message.uuid, private: Boolean(message.private), created_at: message.created_at }
+export function presentSentMessage(message) {
+  return {
+    uuid: message.uuid,
+    private: Boolean(message.private),
+    status: message.status ?? "",
+    created_at: message.created_at
+  }
 }
 
 function personName(contact) {
