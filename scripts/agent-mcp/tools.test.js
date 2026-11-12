@@ -46,6 +46,24 @@ test("set_status requires a duration when snoozing", async () => {
   assert.equal(called, false)
 })
 
+test("send_reply queues a customer-visible message", async () => {
+  const client = {
+    async sendReply(uuid, message, opts) {
+      assert.equal(uuid, "conv-1")
+      assert.equal(message, "Hi there")
+      assert.equal(opts.keepStatus, true)
+      return { uuid: "msg-1", private: false, status: "pending" }
+    }
+  }
+  const result = await tool("send_reply", client).run({
+    uuid: "conv-1",
+    message: "Hi there",
+    keep_status: true
+  })
+  assert.equal(result.uuid, "msg-1")
+  assert.equal(result.private, false)
+})
+
 test("set_status passes the duration through", async () => {
   const client = {
     async setStatus(uuid, status, snoozeFor) {

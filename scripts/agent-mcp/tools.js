@@ -7,15 +7,40 @@ import {
   presentMessageHit,
   presentMessages,
   presentNote,
-  presentSearchHit
+  presentSearchHit,
+  presentSentMessage
 } from "./present.js"
 
 const statusSchema = z.enum(STATUSES).describe("Conversation status. One of: " + STATUSES.join(", "))
 
-// buildTools returns the tools exposed to agents. None of them can email a customer:
-// add_note writes a private note, and the API key's role is what enforces the rest.
+// buildTools returns the tools exposed to external agents (Grok, Cursor, and so on).
+// Customer-visible replies need messages:write on the API key's role.
 export function buildTools(client) {
   return [
+    {
+      name: "list_unassigned",
+      description:
+        "List conversations with no agent assignee, newest activity first. A good inbox triage queue for an autonomous agent.",
+      inputSchema: {
+        page: z.number().int().min(1).optional(),
+        page_size: z.number().int().min(1).max(50).optional()
+      },
+      async run({ page, page_size }) {
+        return presentConversationList(await client.listUnassigned({ page, pageSize: page_size }))
+      }
+    },
+    {
+      name: "list_assigned_to_me",
+      description:
+        "List conversations assigned to the API key's agent, newest activity first. Use this to work through the bot's own queue.",
+      inputSchema: {
+        page: z.number().int().min(1).optional(),
+        page_size: z.number().int().min(1).max(50).optional()
+      },
+      async run({ page, page_size }) {
+        return presentConversationList(await client.listAssignedToMe({ page, pageSize: page_size }))
+      }
+    },
     {
       name: "list_conversations",
       description:
@@ -95,9 +120,25 @@ export function buildTools(client) {
       }
     },
     {
+      name: "send_reply",
+      description:
+        "Send a customer-visible reply on a conversation. Email and chat channels deliver it to the contact. Requires messages:write. By default the conversation status may move to On customer unless keep_status is true.",
+      inputSchema: {
+        uuid: z.string().min(1).describe("Conversation uuid"),
+        message: z.string().min(1).describe("Reply text (plain text; converted to HTML)"),
+        keep_status: z
+          .boolean()
+          .optional()
+          .describe("When true, do not change status to On customer when sending")
+      },
+      async run({ uuid, message, keep_status }) {
+        return presentSentMessage(await client.sendReply(uuid, message, { keepStatus: Boolean(keep_status) }))
+      }
+    },
+    {
       name: "add_note",
       description:
-        "Add a private note to a conversation. The customer does not see it and it is not emailed. This cannot send a reply.",
+        "Add a private internal note. The customer does not see it and it is not emailed. Requires messages:write_private.",
       inputSchema: {
         uuid: z.string().min(1).describe("Conversation uuid"),
         message: z.string().min(1).describe("Note text")
@@ -137,6 +178,46 @@ export function buildTools(client) {
         const assigneeID = await resolveAssignee(client, agent_id, email)
         await client.assign(uuid, assigneeID)
         return { uuid, agent_id: assigneeID }
+      }
+    },
+    {
+      name: "unassign",
+      description: "Remove the user assignee from a conversation, leaving it in the unassigned queue.",
+      inputSchema: {
+        uuid: z.string().min(1).describe("Conversation uuid")
+      },
+      async run({ uuid }) {
+        await client.unassign(uuid)
+        return { uuid, assignee_id: null }
+      }
+    },
+    {
+      name: "set_priority",
+      description:
+        "Set conversation priority by name (for example Low, Medium, High — use the same labels as in Admin → Priorities).",
+      inputSchema: {
+        uuid: z.string().min(1).describe("Conversation uuid"),
+        priority: z.string().min(1).describe("Priority label")
+      },
+      async run({ uuid, priority }) {
+        await client.setPriority(uuid, priority)
+        return { uuid, priority }
+      }
+    },
+    {
+      name: "update_tags",
+      description: "Add, remove, or replace conversation tags by name.",
+      inputSchema: {
+        uuid: z.string().min(1).describe("Conversation uuid"),
+        tags: z.array(z.string().min(1)).min(1).describe("Tag names"),
+        action: z
+          .enum(["add_tags", "remove_tags", "set_tags"])
+          .optional()
+          .describe("Defaults to add_tags")
+      },
+      async run({ uuid, tags, action = "add_tags" }) {
+        await client.updateTags(uuid, tags, action)
+        return { uuid, tags, action }
       }
     }
   ]

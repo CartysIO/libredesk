@@ -75,6 +75,33 @@ test("addNote posts a private agent note as escaped HTML", async () => {
   })
 })
 
+test("sendReply posts a public agent message", async () => {
+  const { fetchImpl, calls } = fakeFetch(async () => ({
+    status: 200,
+    body: { status: "success", data: { uuid: "m2", private: false, status: "pending" } }
+  }))
+  const client = createClient({ baseURL: "https://desk.example", apiKey: "k", apiSecret: "s", fetchImpl })
+  await client.sendReply("conv", "Thanks", { keepStatus: true })
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    message: "<p>Thanks</p>",
+    private: false,
+    sender_type: "agent",
+    keep_status: true
+  })
+})
+
+test("updateTags sends action and tag names", async () => {
+  const { fetchImpl, calls } = fakeFetch(async () => ({
+    status: 200,
+    body: { status: "success", data: true }
+  }))
+  const client = createClient({ baseURL: "https://desk.example", apiKey: "k", apiSecret: "s", fetchImpl })
+  await client.updateTags("conv", ["grok"], "set_tags")
+  assert.equal(calls[0].init.method, "POST")
+  assert.equal(calls[0].url, "https://desk.example/api/v1/conversations/conv/tags")
+  assert.deepEqual(JSON.parse(calls[0].init.body), { tags: ["grok"], action: "set_tags" })
+})
+
 test("statusFilter rejects an unknown status", () => {
   assert.throws(() => statusFilter("pending"), /status must be one of/)
 })
