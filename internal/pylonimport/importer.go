@@ -56,8 +56,12 @@ type Options struct {
 	Limit int
 	// Since skips issues created before it.
 	Since time.Time
-	// InboxID is the email inbox the conversations go into, 0 to use the only email inbox.
+	// InboxID is the email inbox for email/form issues, 0 to use the only email inbox.
 	InboxID int
+	// ChatInboxID is the livechat inbox for chat_widget issues, 0 to use the only livechat inbox.
+	ChatInboxID int
+	// SLAPolicyID is the SLA policy simulated on every imported conversation (0 = first row in sla_policies).
+	SLAPolicyID int
 	// ReferenceFloor is the lowest reference number new conversations get after the import.
 	ReferenceFloor int
 	// AgentAliases maps a Pylon user email to a Libredesk agent email.
@@ -87,8 +91,10 @@ type Importer struct {
 	Opt      Options
 	Out      io.Writer
 
-	statusIDs    map[string]int
-	inboxID      int
+	statusIDs       map[string]int
+	statusCategory  map[string]string
+	emailInboxID    int
+	chatInboxID     int
 	agentByEmail map[string]int
 	agentByPylon map[string]int
 	// Agents this import created, by display name: one person with two Pylon users gets one agent.
@@ -405,8 +411,10 @@ func (im *Importer) load(d Data) error {
 		return fmt.Errorf("statuses: %w", err)
 	}
 	im.statusIDs = map[string]int{}
+	im.statusCategory = map[string]string{}
 	for _, s := range statuses {
 		im.statusIDs[s.Name] = s.ID
+		im.statusCategory[s.Name] = s.Category
 	}
 	for _, n := range []string{StatusOpen, StatusOnYou, StatusOnCustomer, StatusSnoozed, StatusResolved} {
 		if im.statusIDs[n] == 0 {
@@ -415,7 +423,7 @@ func (im *Importer) load(d Data) error {
 	}
 
 	if im.Opt.InboxID > 0 {
-		if err := im.DB.Get(&im.inboxID, `SELECT id FROM inboxes WHERE id = $1 AND channel = 'email' AND deleted_at IS NULL`, im.Opt.InboxID); err != nil {
+		if err := im.DB.Get(&im.emailInboxID, `SELECT id FROM inboxes WHERE id = $1 AND channel = 'email' AND deleted_at IS NULL`, im.Opt.InboxID); err != nil {
 			return fmt.Errorf("email inbox %d not found: %w", im.Opt.InboxID, err)
 		}
 	} else {
@@ -426,7 +434,38 @@ func (im *Importer) load(d Data) error {
 		if len(ids) != 1 {
 			return fmt.Errorf("found %d email inboxes: pass --pylon-inbox <id>", len(ids))
 		}
-		im.inboxID = ids[0]
+		im.emailInboxID = ids[0]
+	}
+	if im.Opt.ChatInboxID > 0 {
+		if err := im.DB.Get(&im.chatInboxID, `SELECT id FROM inboxes WHERE id = $1 AND channel = 'livechat' AND deleted_at IS NULL`, im.Opt.ChatInboxID); err != nil {
+			return fmt.Errorf("chat inbox %d not found: %w", im.Opt.ChatInboxID, err)
+		}
+	} else {
+		var ids []int
+		if err := im.DB.Select(&ids, `SELECT id FROM inboxes WHERE channel = 'livechat' AND deleted_at IS NULL ORDER BY id`); err != nil {
+			return err
+		}
+		switch len(ids) {
+		case 0:
+			im.chatInboxID = im.emailInboxID
+			if im.Out != nil {
+				fmt.Fprintf(im.Out, "pylon import: no livechat inbox; chat_widget issues use email inbox %d\n", im.emailInboxID)
+			}
+		case 1:
+			im.chatInboxID = ids[0]
+		default:
+			return fmt.Errorf("found %d livechat inboxes: pass --pylon-chat-inbox <id>", len(ids))
+		}
+	}
+	if im.Opt.SLAPolicyID < 0 {
+		return fmt.Errorf("pylon-sla-policy-id must be >= 0")
+	}
+	if im.Opt.SLAPolicyID == 0 {
+		var slaID int
+		if err := im.DB.Get(&slaID, `SELECT id FROM sla_policies ORDER BY id LIMIT 1`); err != nil {
+			return fmt.Errorf("sla policies: %w", err)
+		}
+		im.Opt.SLAPolicyID = slaID
 	}
 
 	var agents []struct {
@@ -1004,6 +1043,15 @@ func (im *Importer) contactFor(tx getter, c Contact) (int, error) {
 }
 
 // requester is the Pylon contact a conversation belongs to: the issue requester, else the first contact author.
+func (im *Importer) inboxForSource(source string) int {
+	switch strings.ToLower(strings.TrimSpace(source)) {
+	case "chat_widget":
+		return im.chatInboxID
+	default:
+		return im.emailInboxID
+	}
+}
+
 func (im *Importer) requester(is Issue, msgs []Message) Contact {
 	if is.Requester != nil {
 		if c, ok := im.contacts[is.Requester.ID]; ok {
@@ -1144,11 +1192,7 @@ func (im *Importer) importIssue(is Issue, msgs []Message, target *ExistingConver
 			resolvedAt = &is.CreatedAt
 		}
 	}
-	attrs := map[string]string{}
-	if qt := QuestionType(is.CustomFields); qt != "" {
-		attrs["question_type"] = qt
-	}
-	attrsJSON, _ := json.Marshal(attrs)
+	attrsJSON, _ := json.Marshal(MergeIssueCustomAttributes(nil, is.CustomFields))
 	lastAt := is.CreatedAt
 	if n := len(msgs); n > 0 && msgs[n-1].Timestamp.After(lastAt) {
 		lastAt = msgs[n-1].Timestamp
@@ -1156,8 +1200,11 @@ func (im *Importer) importIssue(is Issue, msgs []Message, target *ExistingConver
 
 	var convID int
 	if target == nil {
-		meta, _ := json.Marshal(map[string]any{MetaIssueID: is.ID, MetaImportedAt: time.Now().UTC().Format(time.RFC3339),
-			"pylon_number": is.Number, "pylon_link": is.Link, "pylon_source": is.Source})
+		metaMap := conversationMeta(is)
+		metaMap[MetaIssueID] = is.ID
+		metaMap[MetaImportedAt] = time.Now().UTC().Format(time.RFC3339)
+		meta, _ := json.Marshal(metaMap)
+		inboxID := im.inboxForSource(is.Source)
 		subject := strings.TrimSpace(is.Title)
 		if err := tx.Get(&convID, `INSERT INTO conversations
 			(created_at, updated_at, reference_number, contact_id, assigned_user_id, organization_id, inbox_id, status_id,
@@ -1165,25 +1212,29 @@ func (im *Importer) importIssue(is Issue, msgs []Message, target *ExistingConver
 			VALUES ($1, $2, $3, $4, $5, COALESCE($6, (SELECT organization_id FROM users WHERE id = $4)), $7, $8,
 			 NULLIF($9, ''), $10, $11, $2, $12, $12)
 			RETURNING id`,
-			is.CreatedAt, lastAt, strconv.Itoa(is.Number), contactID, assignee, orgID, im.inboxID, im.statusIDs[status],
+			is.CreatedAt, lastAt, strconv.Itoa(is.Number), contactID, assignee, orgID, inboxID, im.statusIDs[status],
 			subject, meta, attrsJSON, resolvedAt); err != nil {
 			return fmt.Errorf("conversation: %w", err)
 		}
 	} else {
 		convID = target.ID
-		meta, _ := json.Marshal(map[string]any{MetaMergedIssueID: is.ID, "pylon_number": is.Number, "pylon_link": is.Link, "pylon_source": is.Source})
+		metaMap := conversationMeta(is)
+		metaMap[MetaMergedIssueID] = is.ID
+		meta, _ := json.Marshal(metaMap)
 		// On merge, always copy Pylon's status and resolution timestamps. Libredesk may move status later on new activity.
 		// Assignee still follows Pylon only when Pylon's latest message is newer than the conversation's last_message_at.
+		inboxID := im.inboxForSource(is.Source)
 		if _, err := tx.Exec(`UPDATE conversations SET
 				meta = meta || $2::jsonb,
 				custom_attributes = custom_attributes || $3::jsonb,
 				organization_id = COALESCE(organization_id, $6),
+				inbox_id = $9,
 				status_id = $4,
 				assigned_user_id = CASE WHEN $8 > COALESCE(last_message_at, 'epoch') THEN COALESCE($5, assigned_user_id) ELSE assigned_user_id END,
 				resolved_at = $7,
 				last_resolved_at = $7,
 				snoozed_until = NULL
-			WHERE id = $1`, convID, meta, attrsJSON, im.statusIDs[status], assignee, orgID, resolvedAt, lastAt); err != nil {
+			WHERE id = $1`, convID, meta, attrsJSON, im.statusIDs[status], assignee, orgID, resolvedAt, lastAt, inboxID); err != nil {
 			return fmt.Errorf("merging into #%s: %w", target.ReferenceNumber, err)
 		}
 	}
@@ -1241,6 +1292,23 @@ func (im *Importer) importIssue(is Issue, msgs []Message, target *ExistingConver
 		}
 	}
 	if err := conversation.RefreshConversationSummaryFromMessages(tx, convID); err != nil {
+		return err
+	}
+	statusCat := im.statusCategory[status]
+	if statusCat == "" {
+		statusCat = "open"
+	}
+	if err := im.applyPylonTimestamps(tx, convID, is, statusCat); err != nil {
+		return err
+	}
+	agentID := 0
+	if assignee.Valid {
+		agentID = int(assignee.Int64)
+	}
+	if err := im.insertPylonStatusActivities(tx, convID, agentID, is); err != nil {
+		return err
+	}
+	if err := im.simulateImportedSLA(tx, convID, is, is.CreatedAt, statusCat); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {

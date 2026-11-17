@@ -99,6 +99,12 @@ type Issue struct {
 	FirstResponseTime *time.Time             `json:"first_response_time"`
 	ResolutionTime    *time.Time             `json:"resolution_time"`
 	LatestMessageTime *time.Time             `json:"latest_message_time"`
+	UpdatedAt         time.Time              `json:"updated_at"`
+	NumberOfTouches   int                    `json:"number_of_touches"`
+	FirstResponseSeconds      *int           `json:"first_response_seconds"`
+	ResolutionSeconds         *int           `json:"resolution_seconds"`
+	TimeInStatusSeconds       map[string]int `json:"time_in_status_seconds"`
+	FirstResponseBreachTime   *time.Time     `json:"first_response_breach_time"`
 }
 
 // MessageAuthor is who wrote a message: a Pylon user, a contact, or neither (an integration such as Linear).

@@ -19,6 +19,8 @@ import (
 	"github.com/zerodha/logf"
 )
 
+func ptrTime(t time.Time) *time.Time { return &t }
+
 func pngBytes(t *testing.T) []byte {
 	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
 	img.Set(1, 1, color.RGBA{R: 255, A: 255})
@@ -104,9 +106,11 @@ func TestImportEndToEnd(t *testing.T) {
 			{ID: "pc2", Name: "New Person", Email: "new@example.com", Account: &Ref{ID: "pa2"}},
 		},
 		Issues: []Issue{
-			{ID: "i100", Number: 100, Title: "Old ticket", State: "closed", Account: &Ref{ID: "pa2"}, Requester: &Ref{ID: "pc2"},
+			{ID: "i100", Number: 100, Title: "Old ticket", State: "closed", Source: "email", Account: &Ref{ID: "pa2"}, Requester: &Ref{ID: "pc2"},
 				Assignee: &Ref{ID: "u-jaleel"}, Tags: []string{"PR-12", "loop-triaged"}, CreatedAt: t0.AddDate(-1, 0, 0),
-				CustomFields: map[string]CustomField{"question_type": {Values: []string{"bug", "user_error"}}}},
+				FirstResponseTime: ptrTime(t0.AddDate(-1, 0, 0).Add(30 * time.Minute)),
+				ResolutionTime:    ptrTime(t0.AddDate(-1, 0, 0).Add(time.Hour)),
+				CustomFields:      map[string]CustomField{"question_type": {Values: []string{"bug", "user_error"}}}},
 			{ID: "i3855", Number: 3855, Title: "cancel account", State: "waiting_on_customer", Account: &Ref{ID: "pa1"}, Requester: &Ref{ID: "pc1"},
 				Assignee: &Ref{ID: "u-eran"}, CreatedAt: t0},
 			{ID: "i3856", Number: 3856, Title: "Screenshot", State: "on_hold", Account: &Ref{ID: "pa1"}, Requester: &Ref{ID: "pc1"},
@@ -200,10 +204,10 @@ func TestImportEndToEnd(t *testing.T) {
 	if qt := str(t, db, `SELECT custom_attributes->>'question_type' FROM conversations WHERE id = $1`, conv); qt != "bug, user_error" {
 		t.Errorf("question_type = %s", qt)
 	}
-	if got := str(t, db, `SELECT string_agg(type || ':' || sender_type || ':' || private, ',' ORDER BY created_at) FROM conversation_messages WHERE conversation_id = $1`, conv); got != "incoming:contact:false,outgoing:agent:false,outgoing:agent:true,outgoing:agent:true" {
+	if got := str(t, db, `SELECT string_agg(type || ':' || sender_type || ':' || private, ',' ORDER BY created_at, id) FROM conversation_messages WHERE conversation_id = $1 AND type != 'activity'`, conv); got != "incoming:contact:false,outgoing:agent:false,outgoing:agent:true,outgoing:agent:true" {
 		t.Errorf("messages = %s", got)
 	}
-	if got := str(t, db, `SELECT string_agg(COALESCE(source_id, '-'), ',' ORDER BY created_at) FROM conversation_messages WHERE conversation_id = $1`, conv); got != "m1@mail,m2@service.usepylon.com,-,-" {
+	if got := str(t, db, `SELECT string_agg(COALESCE(source_id, '-'), ',' ORDER BY created_at, id) FROM conversation_messages WHERE conversation_id = $1 AND type != 'activity'`, conv); got != "m1@mail,m2@service.usepylon.com,-,-" {
 		t.Errorf("source ids = %s", got)
 	}
 	if got := str(t, db, `SELECT u.first_name || ' ' || u.last_name FROM conversation_messages m JOIN users u ON u.id = m.sender_id WHERE m.meta->>'`+MetaMessageID+`' = 'm4'`); got != "Linear (Pylon bot)" {
@@ -211,6 +215,12 @@ func TestImportEndToEnd(t *testing.T) {
 	}
 	if count(t, db, `SELECT COUNT(*) FROM conversations WHERE id = $1 AND first_reply_at IS NOT NULL AND resolved_at IS NOT NULL AND last_message = 'linked PR'`, conv) != 1 {
 		t.Error("summary columns not set")
+	}
+	if count(t, db, `SELECT COUNT(*) FROM applied_slas WHERE conversation_id = $1 AND status = 'met'`, conv) != 1 {
+		t.Error("import must simulate applied_slas")
+	}
+	if src := str(t, db, `SELECT meta->>'pylon_source' FROM conversations WHERE id = $1`, conv); src != "email" {
+		t.Errorf("pylon_source = %q", src)
 	}
 	if count(t, db, `SELECT COUNT(*) FROM conversation_last_seen WHERE conversation_id = $1 AND user_id = $2`, conv, eran) != 1 {
 		t.Error("history must count as read for enabled agents")
@@ -225,7 +235,7 @@ func TestImportEndToEnd(t *testing.T) {
 	}
 
 	// The merge: the duplicate inbound email is not copied again; the agent reply is.
-	if got := str(t, db, `SELECT string_agg(content, '|' ORDER BY created_at, id) FROM conversation_messages WHERE conversation_id = $1`, c105); got != "i need help canceling|Can we help?" {
+	if got := str(t, db, `SELECT string_agg(content, '|' ORDER BY created_at, id) FROM conversation_messages WHERE conversation_id = $1 AND type != 'activity'`, c105); got != "i need help canceling|Can we help?" {
 		t.Errorf("merged messages = %s", got)
 	}
 	if s := str(t, db, `SELECT s.name FROM conversations c JOIN conversation_statuses s ON s.id = c.status_id WHERE c.id = $1`, c105); s != StatusOnCustomer {

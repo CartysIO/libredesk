@@ -605,7 +605,7 @@ by_source AS (
                 FROM
                     (
                         SELECT
-                            i.channel AS source,
+                            COALESCE(NULLIF(TRIM(c.meta->>'pylon_source'), ''), i.channel::text) AS source,
                             COUNT(*) AS count
                         FROM
                             conversations c
@@ -762,7 +762,7 @@ mean_touches_by_source AS (
                 FROM
                     (
                         SELECT
-                            i.channel AS source,
+                            COALESCE(NULLIF(TRIM(c.meta->>'pylon_source'), ''), i.channel::text) AS source,
                             ROUND(
                                 AVG(
                                     COALESCE(touch_counts.touches, 0)
