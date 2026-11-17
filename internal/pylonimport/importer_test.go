@@ -19,6 +19,8 @@ import (
 	"github.com/zerodha/logf"
 )
 
+func ptrTime(t time.Time) *time.Time { return &t }
+
 func pngBytes(t *testing.T) []byte {
 	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
 	img.Set(1, 1, color.RGBA{R: 255, A: 255})
@@ -62,8 +64,9 @@ func TestImportEndToEnd(t *testing.T) {
 	}
 
 	t0 := time.Date(2026, 10, 19, 15, 0, 0, 0, time.UTC)
-	var inbox, eran, cust, other int
+	var inbox, chatInbox, eran, cust, other int
 	db.Get(&inbox, `INSERT INTO inboxes (name, channel, enabled) VALUES ('Support', 'email', FALSE) RETURNING id`)
+	db.Get(&chatInbox, `INSERT INTO inboxes (name, channel, enabled) VALUES ('Chat', 'livechat', FALSE) RETURNING id`)
 	db.Get(&eran, `INSERT INTO users (type, email, first_name) VALUES ('agent', 'eran@clyr.io', 'Eran') RETURNING id`)
 	db.Get(&cust, `INSERT INTO users (type, email, first_name) VALUES ('contact', 'vayco@example.com', 'Vayco') RETURNING id`)
 	db.Get(&other, `INSERT INTO users (type, email, first_name) VALUES ('contact', 'other@example.com', 'Other') RETURNING id`)
@@ -104,9 +107,11 @@ func TestImportEndToEnd(t *testing.T) {
 			{ID: "pc2", Name: "New Person", Email: "new@example.com", Account: &Ref{ID: "pa2"}},
 		},
 		Issues: []Issue{
-			{ID: "i100", Number: 100, Title: "Old ticket", State: "closed", Account: &Ref{ID: "pa2"}, Requester: &Ref{ID: "pc2"},
+			{ID: "i100", Number: 100, Title: "Old ticket", State: "closed", Source: "email", Account: &Ref{ID: "pa2"}, Requester: &Ref{ID: "pc2"},
 				Assignee: &Ref{ID: "u-jaleel"}, Tags: []string{"PR-12", "loop-triaged"}, CreatedAt: t0.AddDate(-1, 0, 0),
-				CustomFields: map[string]CustomField{"question_type": {Values: []string{"bug", "user_error"}}}},
+				FirstResponseTime: ptrTime(t0.AddDate(-1, 0, 0).Add(30 * time.Minute)),
+				ResolutionTime:    ptrTime(t0.AddDate(-1, 0, 0).Add(time.Hour)),
+				CustomFields:      map[string]CustomField{"question_type": {Values: []string{"bug", "user_error"}}}},
 			{ID: "i3855", Number: 3855, Title: "cancel account", State: "waiting_on_customer", Account: &Ref{ID: "pa1"}, Requester: &Ref{ID: "pc1"},
 				Assignee: &Ref{ID: "u-eran"}, CreatedAt: t0},
 			{ID: "i3856", Number: 3856, Title: "Screenshot", State: "on_hold", Account: &Ref{ID: "pa1"}, Requester: &Ref{ID: "pc1"},
@@ -140,7 +145,7 @@ func TestImportEndToEnd(t *testing.T) {
 	}
 
 	run := func(dry bool) *Report {
-		im := &Importer{DB: db, Media: mm, Opt: Options{DryRun: dry, ReferenceFloor: 4000, MediaStore: "fs"},
+		im := &Importer{DB: db, Media: mm, Opt: Options{DryRun: dry, ReferenceFloor: 4000, MediaStore: "fs", ChatInboxID: chatInbox},
 			Files: func(u string) ([]byte, error) {
 				if b, ok := files[FileKey(u)]; ok {
 					return b, nil
@@ -211,6 +216,12 @@ func TestImportEndToEnd(t *testing.T) {
 	}
 	if count(t, db, `SELECT COUNT(*) FROM conversations WHERE id = $1 AND first_reply_at IS NOT NULL AND resolved_at IS NOT NULL AND last_message = 'linked PR'`, conv) != 1 {
 		t.Error("summary columns not set")
+	}
+	if count(t, db, `SELECT COUNT(*) FROM applied_slas WHERE conversation_id = $1 AND status = 'met'`, conv) != 1 {
+		t.Error("import must simulate applied_slas")
+	}
+	if src := str(t, db, `SELECT meta->>'pylon_source' FROM conversations WHERE id = $1`, conv); src != "email" {
+		t.Errorf("pylon_source = %q", src)
 	}
 	if count(t, db, `SELECT COUNT(*) FROM conversation_last_seen WHERE conversation_id = $1 AND user_id = $2`, conv, eran) != 1 {
 		t.Error("history must count as read for enabled agents")
@@ -287,8 +298,9 @@ func TestImportAbsorbsEmailThreadFragments(t *testing.T) {
 	}
 
 	t0 := time.Date(2026, 11, 10, 15, 0, 0, 0, time.UTC)
-	var inbox, cust int
+	var inbox, chatInbox, cust int
 	db.Get(&inbox, `INSERT INTO inboxes (name, channel, enabled) VALUES ('Support', 'email', FALSE) RETURNING id`)
+	db.Get(&chatInbox, `INSERT INTO inboxes (name, channel, enabled) VALUES ('Chat', 'livechat', FALSE) RETURNING id`)
 	db.Get(&cust, `INSERT INTO users (type, email, first_name) VALUES ('contact', 'emily@example.com', 'Emily') RETURNING id`)
 	var c112, c113 int
 	db.Get(&c112, `INSERT INTO conversations (reference_number, contact_id, inbox_id, status_id, subject, created_at, last_message_at)
@@ -318,7 +330,7 @@ func TestImportAbsorbsEmailThreadFragments(t *testing.T) {
 			},
 		},
 	}
-	im := &Importer{DB: db, Media: mm, Opt: Options{ReferenceFloor: 4000, MediaStore: "fs", AgentAliases: map[string]string{}}}
+	im := &Importer{DB: db, Media: mm, Opt: Options{ReferenceFloor: 4000, MediaStore: "fs", ChatInboxID: chatInbox, AgentAliases: map[string]string{}}}
 	rep, err := im.Run(context.Background(), d)
 	if err != nil {
 		t.Fatal(err)

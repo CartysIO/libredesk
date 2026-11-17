@@ -23,6 +23,8 @@ func runPylonImport(ctx context.Context, db *sqlx.DB, fs stuffbin.FileSystem, se
 		DryRun:         ko.Bool("dry-run"),
 		Limit:          ko.Int("limit"),
 		InboxID:        ko.Int("pylon-inbox"),
+		ChatInboxID:    ko.Int("pylon-chat-inbox"),
+		SLAPolicyID:    ko.Int("pylon-sla-policy-id"),
 		ReferenceFloor: ko.Int("pylon-reference-floor"),
 		AgentAliases:   map[string]string{},
 		MediaStore:     ko.MustString("upload.provider"),
