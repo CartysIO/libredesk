@@ -15,6 +15,7 @@ type slaPolicyRow struct {
 }
 
 // simulateImportedSLA inserts a settled applied_slas row so reports and overview match native conversations.
+// Deadlines use simple ParseDuration on the policy; business-hours alignment with sla.GetDeadlines is follow-up work.
 func (im *Importer) simulateImportedSLA(tx *sqlx.Tx, convID int, is Issue, createdAt time.Time, statusCategory string) error {
 	if im.Opt.SLAPolicyID <= 0 {
 		return nil

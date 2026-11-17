@@ -17,7 +17,8 @@ import (
 
 // runPylonImport copies the Pylon history into this database (--pylon-import). It reads Pylon with the token in
 // PYLON_API_KEY, caches everything under --pylon-cache, and writes rows with SQL only, so imported data sends no
-// email and fires no automation, SLA, webhook, Slack or notification event.
+// email and fires no automation, webhook, Slack or notification event. It still inserts applied_slas rows and
+// status activities so issue analytics match native conversations.
 func runPylonImport(ctx context.Context, db *sqlx.DB, fs stuffbin.FileSystem, settings *setting.Manager) {
 	opt := pylonimport.Options{
 		DryRun:         ko.Bool("dry-run"),

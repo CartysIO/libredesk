@@ -60,7 +60,7 @@ type Options struct {
 	InboxID int
 	// ChatInboxID is the livechat inbox for chat_widget issues, 0 to use the only livechat inbox.
 	ChatInboxID int
-	// SLAPolicyID is the SLA policy simulated on every imported conversation (0 = skip).
+	// SLAPolicyID is the SLA policy simulated on every imported conversation (0 = first row in sla_policies).
 	SLAPolicyID int
 	// ReferenceFloor is the lowest reference number new conversations get after the import.
 	ReferenceFloor int
@@ -445,13 +445,17 @@ func (im *Importer) load(d Data) error {
 		if err := im.DB.Select(&ids, `SELECT id FROM inboxes WHERE channel = 'livechat' AND deleted_at IS NULL ORDER BY id`); err != nil {
 			return err
 		}
-		if len(ids) == 0 {
-			return fmt.Errorf("no livechat inbox: pass --pylon-chat-inbox <id> for chat_widget issues")
-		}
-		if len(ids) != 1 {
+		switch len(ids) {
+		case 0:
+			im.chatInboxID = im.emailInboxID
+			if im.Out != nil {
+				fmt.Fprintf(im.Out, "pylon import: no livechat inbox; chat_widget issues use email inbox %d\n", im.emailInboxID)
+			}
+		case 1:
+			im.chatInboxID = ids[0]
+		default:
 			return fmt.Errorf("found %d livechat inboxes: pass --pylon-chat-inbox <id>", len(ids))
 		}
-		im.chatInboxID = ids[0]
 	}
 	if im.Opt.SLAPolicyID < 0 {
 		return fmt.Errorf("pylon-sla-policy-id must be >= 0")

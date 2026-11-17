@@ -64,9 +64,8 @@ func TestImportEndToEnd(t *testing.T) {
 	}
 
 	t0 := time.Date(2026, 10, 19, 15, 0, 0, 0, time.UTC)
-	var inbox, chatInbox, eran, cust, other int
+	var inbox, eran, cust, other int
 	db.Get(&inbox, `INSERT INTO inboxes (name, channel, enabled) VALUES ('Support', 'email', FALSE) RETURNING id`)
-	db.Get(&chatInbox, `INSERT INTO inboxes (name, channel, enabled) VALUES ('Chat', 'livechat', FALSE) RETURNING id`)
 	db.Get(&eran, `INSERT INTO users (type, email, first_name) VALUES ('agent', 'eran@clyr.io', 'Eran') RETURNING id`)
 	db.Get(&cust, `INSERT INTO users (type, email, first_name) VALUES ('contact', 'vayco@example.com', 'Vayco') RETURNING id`)
 	db.Get(&other, `INSERT INTO users (type, email, first_name) VALUES ('contact', 'other@example.com', 'Other') RETURNING id`)
@@ -145,7 +144,7 @@ func TestImportEndToEnd(t *testing.T) {
 	}
 
 	run := func(dry bool) *Report {
-		im := &Importer{DB: db, Media: mm, Opt: Options{DryRun: dry, ReferenceFloor: 4000, MediaStore: "fs", ChatInboxID: chatInbox},
+		im := &Importer{DB: db, Media: mm, Opt: Options{DryRun: dry, ReferenceFloor: 4000, MediaStore: "fs"},
 			Files: func(u string) ([]byte, error) {
 				if b, ok := files[FileKey(u)]; ok {
 					return b, nil
@@ -298,9 +297,8 @@ func TestImportAbsorbsEmailThreadFragments(t *testing.T) {
 	}
 
 	t0 := time.Date(2026, 11, 10, 15, 0, 0, 0, time.UTC)
-	var inbox, chatInbox, cust int
+	var inbox, cust int
 	db.Get(&inbox, `INSERT INTO inboxes (name, channel, enabled) VALUES ('Support', 'email', FALSE) RETURNING id`)
-	db.Get(&chatInbox, `INSERT INTO inboxes (name, channel, enabled) VALUES ('Chat', 'livechat', FALSE) RETURNING id`)
 	db.Get(&cust, `INSERT INTO users (type, email, first_name) VALUES ('contact', 'emily@example.com', 'Emily') RETURNING id`)
 	var c112, c113 int
 	db.Get(&c112, `INSERT INTO conversations (reference_number, contact_id, inbox_id, status_id, subject, created_at, last_message_at)
@@ -330,7 +328,7 @@ func TestImportAbsorbsEmailThreadFragments(t *testing.T) {
 			},
 		},
 	}
-	im := &Importer{DB: db, Media: mm, Opt: Options{ReferenceFloor: 4000, MediaStore: "fs", ChatInboxID: chatInbox, AgentAliases: map[string]string{}}}
+	im := &Importer{DB: db, Media: mm, Opt: Options{ReferenceFloor: 4000, MediaStore: "fs", AgentAliases: map[string]string{}}}
 	rep, err := im.Run(context.Background(), d)
 	if err != nil {
 		t.Fatal(err)
