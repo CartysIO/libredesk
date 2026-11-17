@@ -204,10 +204,10 @@ func TestImportEndToEnd(t *testing.T) {
 	if qt := str(t, db, `SELECT custom_attributes->>'question_type' FROM conversations WHERE id = $1`, conv); qt != "bug, user_error" {
 		t.Errorf("question_type = %s", qt)
 	}
-	if got := str(t, db, `SELECT string_agg(type || ':' || sender_type || ':' || private, ',' ORDER BY created_at) FROM conversation_messages WHERE conversation_id = $1`, conv); got != "incoming:contact:false,outgoing:agent:false,outgoing:agent:true,outgoing:agent:true" {
+	if got := str(t, db, `SELECT string_agg(type || ':' || sender_type || ':' || private, ',' ORDER BY created_at, id) FROM conversation_messages WHERE conversation_id = $1 AND type != 'activity'`, conv); got != "incoming:contact:false,outgoing:agent:false,outgoing:agent:true,outgoing:agent:true" {
 		t.Errorf("messages = %s", got)
 	}
-	if got := str(t, db, `SELECT string_agg(COALESCE(source_id, '-'), ',' ORDER BY created_at) FROM conversation_messages WHERE conversation_id = $1`, conv); got != "m1@mail,m2@service.usepylon.com,-,-" {
+	if got := str(t, db, `SELECT string_agg(COALESCE(source_id, '-'), ',' ORDER BY created_at, id) FROM conversation_messages WHERE conversation_id = $1 AND type != 'activity'`, conv); got != "m1@mail,m2@service.usepylon.com,-,-" {
 		t.Errorf("source ids = %s", got)
 	}
 	if got := str(t, db, `SELECT u.first_name || ' ' || u.last_name FROM conversation_messages m JOIN users u ON u.id = m.sender_id WHERE m.meta->>'`+MetaMessageID+`' = 'm4'`); got != "Linear (Pylon bot)" {
@@ -235,7 +235,7 @@ func TestImportEndToEnd(t *testing.T) {
 	}
 
 	// The merge: the duplicate inbound email is not copied again; the agent reply is.
-	if got := str(t, db, `SELECT string_agg(content, '|' ORDER BY created_at, id) FROM conversation_messages WHERE conversation_id = $1`, c105); got != "i need help canceling|Can we help?" {
+	if got := str(t, db, `SELECT string_agg(content, '|' ORDER BY created_at, id) FROM conversation_messages WHERE conversation_id = $1 AND type != 'activity'`, c105); got != "i need help canceling|Can we help?" {
 		t.Errorf("merged messages = %s", got)
 	}
 	if s := str(t, db, `SELECT s.name FROM conversations c JOIN conversation_statuses s ON s.id = c.status_id WHERE c.id = $1`, c105); s != StatusOnCustomer {
