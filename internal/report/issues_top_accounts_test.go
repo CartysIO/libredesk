@@ -21,7 +21,7 @@ func TestIssuesTopAccountsSortOrderExpr(t *testing.T) {
 	if err != nil || expr != "open ASC" {
 		t.Fatalf("open asc = %q, %v", expr, err)
 	}
-	if _, err := IssuesTopAccountsSort{By: "nope", Dir: "desc"}.orderExpr(); err == nil {
+	if _, err := (IssuesTopAccountsSort{By: "nope", Dir: "desc"}).orderExpr(); err == nil {
 		t.Fatal("expected error for invalid sort column")
 	}
 }
