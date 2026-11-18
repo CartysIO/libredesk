@@ -1,6 +1,8 @@
 package pylonimport
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/abhinavxd/libredesk/internal/testutil"
@@ -39,6 +41,44 @@ func TestLoadMultipleLivechatPicksEnabledFirst(t *testing.T) {
 	}
 }
 
+func TestLoadMultipleLivechatAllDisabledPicksLowestID(t *testing.T) {
+	db := testutil.NewDB(t, "pylon_load_inbox_multi_disabled")
+	db.Exec(`INSERT INTO inboxes (name, channel, enabled) VALUES ('E', 'email', FALSE)`)
+	var lowID, highID int
+	db.Get(&lowID, `INSERT INTO inboxes (name, channel, enabled) VALUES ('A', 'livechat', FALSE) RETURNING id`)
+	db.Get(&highID, `INSERT INTO inboxes (name, channel, enabled) VALUES ('B', 'livechat', FALSE) RETURNING id`)
+	im := &Importer{DB: db, Opt: Options{DryRun: true}}
+	if err := im.load(Data{}); err != nil {
+		t.Fatal(err)
+	}
+	if im.chatInboxID != lowID {
+		t.Fatalf("chatInboxID=%d want lowest id %d (other=%d)", im.chatInboxID, lowID, highID)
+	}
+}
+
+func TestLoadMultipleLivechatEmitsChoiceMessage(t *testing.T) {
+	db := testutil.NewDB(t, "pylon_load_inbox_multi_msg")
+	db.Exec(`INSERT INTO inboxes (name, channel, enabled) VALUES ('E', 'email', FALSE)`)
+	var firstID, secondID int
+	db.Get(&firstID, `INSERT INTO inboxes (name, channel, enabled) VALUES ('One', 'livechat', TRUE) RETURNING id`)
+	db.Get(&secondID, `INSERT INTO inboxes (name, channel, enabled) VALUES ('Two', 'livechat', TRUE) RETURNING id`)
+	var out bytes.Buffer
+	im := &Importer{DB: db, Out: &out, Opt: Options{DryRun: true}}
+	if err := im.load(Data{}); err != nil {
+		t.Fatal(err)
+	}
+	if firstID > secondID {
+		firstID, secondID = secondID, firstID
+	}
+	if im.chatInboxID != firstID {
+		t.Fatalf("chatInboxID=%d want lower enabled id %d", im.chatInboxID, firstID)
+	}
+	got := out.String()
+	if !strings.Contains(got, "found 2 livechat inboxes") || !strings.Contains(got, "using inbox") {
+		t.Fatalf("stdout notice missing context: %q", got)
+	}
+}
+
 func TestLoadMultipleLivechatRespectsExplicitID(t *testing.T) {
 	db := testutil.NewDB(t, "pylon_load_inbox_multi_explicit")
 	db.Exec(`INSERT INTO inboxes (name, channel, enabled) VALUES ('E', 'email', FALSE)`)
@@ -52,5 +92,7 @@ func TestLoadMultipleLivechatRespectsExplicitID(t *testing.T) {
 	if im.chatInboxID != disabledID {
 		t.Fatalf("chatInboxID=%d want explicit %d", im.chatInboxID, disabledID)
 	}
-	_ = enabledID
+	if im.chatInboxID == enabledID {
+		t.Fatalf("explicit pick must not use enabled inbox %d", enabledID)
+	}
 }
