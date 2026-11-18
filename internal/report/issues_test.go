@@ -17,11 +17,14 @@ func TestGetIssuesTopAccountsQueryParams(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(m.q.GetIssuesTopAccounts, "ILIKE '%' || $3 || '%'") {
+	if !strings.Contains(m.q.GetIssuesTopAccounts, "ILIKE '%%' || $3 || '%%'") {
 		t.Fatalf("ILIKE should use $3 for search: %s", m.q.GetIssuesTopAccounts[strings.Index(m.q.GetIssuesTopAccounts, "ILIKE"):])
 	}
 	if !strings.Contains(m.q.GetIssuesTopAccounts, "$3 = ''") {
 		t.Fatal("account search empty check should use $3")
+	}
+	if !strings.Contains(m.q.GetIssuesTopAccounts, "AS result") {
+		t.Fatalf("query looks truncated: ...%s", m.q.GetIssuesTopAccounts[len(m.q.GetIssuesTopAccounts)-80:])
 	}
 }
 
@@ -56,7 +59,7 @@ func TestGetIssuesReportScalars(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	raw, err := m.GetIssuesReport(IssuesRangeInput{Days: 7, AppTimezone: "UTC"}, "")
+	raw, err := m.GetIssuesReport(IssuesRangeInput{Days: 7, AppTimezone: "UTC"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,10 +71,6 @@ func TestGetIssuesReportScalars(t *testing.T) {
 			IssuesSolved    int `json:"issues_solved"`
 			IssuesUnsolved  int `json:"issues_unsolved"`
 		} `json:"scalars"`
-		TopAccounts []struct {
-			AccountName string `json:"account_name"`
-			Total       int    `json:"total"`
-		} `json:"top_accounts"`
 	}
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		t.Fatal(err)
@@ -82,8 +81,20 @@ func TestGetIssuesReportScalars(t *testing.T) {
 	if payload.Scalars.IssuesCreated != 2 || payload.Scalars.IssuesUnsolved != 1 || payload.Scalars.IssuesSolved != 1 {
 		t.Fatalf("range counts = %+v", payload.Scalars)
 	}
-	if len(payload.TopAccounts) != 1 || payload.TopAccounts[0].Total != 2 {
-		t.Fatalf("top accounts = %+v", payload.TopAccounts)
+
+	topRaw, err := m.GetIssuesTopAccounts(IssuesRangeInput{Days: 7, AppTimezone: "UTC"}, "", IssuesTopAccountsSort{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var topAccounts []struct {
+		AccountName string `json:"account_name"`
+		Total       int    `json:"total"`
+	}
+	if err := json.Unmarshal(topRaw, &topAccounts); err != nil {
+		t.Fatal(err)
+	}
+	if len(topAccounts) != 1 || topAccounts[0].Total != 2 {
+		t.Fatalf("top accounts = %+v", topAccounts)
 	}
 }
 
@@ -121,23 +132,21 @@ func TestIssuesTopAccountsOpenClosedByResolvedAt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	raw, err := m.GetIssuesReport(IssuesRangeInput{Days: 7, AppTimezone: "UTC"}, "")
+	raw, err := m.GetIssuesTopAccounts(IssuesRangeInput{Days: 7, AppTimezone: "UTC"}, "", IssuesTopAccountsSort{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	var payload struct {
-		TopAccounts []struct {
-			Open   int `json:"open"`
-			Closed int `json:"closed"`
-		} `json:"top_accounts"`
+	var topAccounts []struct {
+		Open   int `json:"open"`
+		Closed int `json:"closed"`
 	}
-	if err := json.Unmarshal(raw, &payload); err != nil {
+	if err := json.Unmarshal(raw, &topAccounts); err != nil {
 		t.Fatal(err)
 	}
-	if len(payload.TopAccounts) != 1 {
-		t.Fatalf("top accounts len = %d", len(payload.TopAccounts))
+	if len(topAccounts) != 1 {
+		t.Fatalf("top accounts len = %d", len(topAccounts))
 	}
-	row := payload.TopAccounts[0]
+	row := topAccounts[0]
 	if row.Open != 1 || row.Closed != 1 {
 		t.Fatalf("open/closed = %+v, want open=1 closed=1", row)
 	}

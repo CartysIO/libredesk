@@ -84,12 +84,11 @@ func handleOverviewTagDistribution(r *fastglue.Request) error {
 	return r.SendEnvelope(tags)
 }
 
-// handleIssuesReport returns bundled Pylon-style issue analytics.
+// handleIssuesReport returns bundled Pylon-style issue analytics (scalars and charts).
 func handleIssuesReport(r *fastglue.Request) error {
 	var (
 		app     = r.Context.(*App)
 		days, _ = strconv.Atoi(string(r.RequestCtx.QueryArgs().Peek("days")))
-		search  = string(r.RequestCtx.QueryArgs().Peek("account_search"))
 		start   = string(r.RequestCtx.QueryArgs().Peek("start_date"))
 		end     = string(r.RequestCtx.QueryArgs().Peek("end_date"))
 	)
@@ -98,7 +97,34 @@ func handleIssuesReport(r *fastglue.Request) error {
 		StartDate:   start,
 		EndDate:     end,
 		AppTimezone: app.setting.GetAppTimezone(),
-	}, search)
+	})
+	if err != nil {
+		return sendErrorEnvelope(r, err)
+	}
+	return r.SendEnvelope(payload)
+}
+
+// handleIssuesTopAccounts returns the sortable top-accounts table (single lightweight query).
+func handleIssuesTopAccounts(r *fastglue.Request) error {
+	var (
+		app     = r.Context.(*App)
+		days, _ = strconv.Atoi(string(r.RequestCtx.QueryArgs().Peek("days")))
+		search  = string(r.RequestCtx.QueryArgs().Peek("account_search"))
+		start   = string(r.RequestCtx.QueryArgs().Peek("start_date"))
+		end     = string(r.RequestCtx.QueryArgs().Peek("end_date"))
+		sortBy  = string(r.RequestCtx.QueryArgs().Peek("sort_by"))
+		sortDir = string(r.RequestCtx.QueryArgs().Peek("sort_dir"))
+	)
+	payload, err := app.report.GetIssuesTopAccounts(
+		report.IssuesRangeInput{
+			Days:        days,
+			StartDate:   start,
+			EndDate:     end,
+			AppTimezone: app.setting.GetAppTimezone(),
+		},
+		search,
+		report.IssuesTopAccountsSort{By: sortBy, Dir: sortDir},
+	)
 	if err != nil {
 		return sendErrorEnvelope(r, err)
 	}

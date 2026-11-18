@@ -158,21 +158,38 @@
           />
         </div>
 
-        <div class="box w-full p-5">
+        <div
+          class="box w-full p-5 transition-opacity duration-300"
+          :class="{ 'opacity-50': accountsLoading }"
+        >
           <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
             <p class="ui-heading">{{ $t('report.issues.topAccounts') }}</p>
-            <Input
-              v-model="accountSearch"
-              class="max-w-xs"
-              :placeholder="$t('report.issues.searchAccounts')"
-            />
+            <div class="flex flex-wrap items-center gap-2">
+              <IssuesReportDateRange
+                v-model:start="accountsStart"
+                v-model:end="accountsEnd"
+                :disabled="accountsLoading"
+              />
+              <Input
+                v-model="accountSearch"
+                class="max-w-xs"
+                :placeholder="$t('report.issues.searchAccounts')"
+                :disabled="accountsLoading"
+              />
+            </div>
           </div>
+          <Spinner v-if="accountsLoading && !topAccounts.length" class="mx-auto my-6" />
           <IssuesAccountsTable
-            v-if="topAccounts.length"
+            v-else-if="topAccounts.length"
             :rows="topAccounts"
             :columns="accountColumns"
+            :sort-by="accountsSortBy"
+            :sort-dir="accountsSortDir"
+            @update:sort="onAccountsSort"
           />
-          <p v-else class="text-sm text-muted-foreground">{{ $t('report.issues.noAccounts') }}</p>
+          <p v-else-if="!accountsLoading" class="text-sm text-muted-foreground">
+            {{ $t('report.issues.noAccounts') }}
+          </p>
         </div>
       </div>
     </div>
@@ -208,6 +225,7 @@ import api from '@main/api'
 const emitter = useEmitter()
 const { t } = useI18n()
 const isLoading = ref(false)
+const accountsLoading = ref(false)
 const lastUpdate = ref(new Date())
 const rangeOptions = [7, 30, 90, 120]
 const range = ref(120)
@@ -215,6 +233,11 @@ const isCustom = ref(false)
 const customStart = ref('')
 const customEnd = ref('')
 const accountSearch = ref('')
+const accountsStart = ref('')
+const accountsEnd = ref('')
+const accountsSortBy = ref('total')
+const accountsSortDir = ref('desc')
+const ACCOUNTS_DEFAULT_DAYS = 120
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000
 const MAX_POLL_DURATION_MS = 60 * 60 * 1000
 const autoRefreshPaused = ref(false)
@@ -440,6 +463,47 @@ const showError = (error) => {
 }
 
 let loadSeq = 0
+let accountsLoadSeq = 0
+
+const appendIssuesRangeParams = (params, { start, end, days }) => {
+  if (start && end) {
+    params.start_date = start
+    params.end_date = end
+  } else if (days != null) {
+    params.days = days
+  }
+  return params
+}
+
+const buildReportParams = () =>
+  appendIssuesRangeParams(
+    {},
+    {
+      start: isCustom.value ? customStart.value : '',
+      end: isCustom.value ? customEnd.value : '',
+      days: isCustom.value ? null : range.value
+    }
+  )
+
+const buildTopAccountsParams = () =>
+  appendIssuesRangeParams(
+    {
+      account_search: accountSearch.value.trim(),
+      sort_by: accountsSortBy.value,
+      sort_dir: accountsSortDir.value
+    },
+    {
+      start: accountsStart.value,
+      end: accountsEnd.value,
+      days: accountsStart.value && accountsEnd.value ? null : ACCOUNTS_DEFAULT_DAYS
+    }
+  )
+
+const mapTopAccountRows = (rows) =>
+  (rows || []).map((row) => ({
+    ...row,
+    account_name: row.account_name || t('report.issues.noAccount')
+  }))
 
 const loadReport = async ({ silent = false } = {}) => {
   const seq = ++loadSeq
@@ -447,21 +511,10 @@ const loadReport = async ({ silent = false } = {}) => {
     isLoading.value = true
   }
   try {
-    const params = { account_search: accountSearch.value.trim() }
-    if (isCustom.value && customStart.value && customEnd.value) {
-      params.start_date = customStart.value
-      params.end_date = customEnd.value
-    } else {
-      params.days = range.value
-    }
-    const { data } = await api.getIssuesReport(params)
+    const { data } = await api.getIssuesReport(buildReportParams())
     if (seq !== loadSeq) return
     scalars.value = data.data.scalars || {}
     charts.value = data.data.charts || {}
-    topAccounts.value = (data.data.top_accounts || []).map((row) => ({
-      ...row,
-      account_name: row.account_name || t('report.issues.noAccount')
-    }))
     lastUpdate.value = new Date()
   } catch (error) {
     if (seq !== loadSeq) return
@@ -472,6 +525,28 @@ const loadReport = async ({ silent = false } = {}) => {
     }
   }
 }
+
+const loadTopAccounts = async ({ silent = false } = {}) => {
+  const seq = ++accountsLoadSeq
+  if (!silent) {
+    accountsLoading.value = true
+  }
+  try {
+    const { data } = await api.getIssuesTopAccounts(buildTopAccountsParams())
+    if (seq !== accountsLoadSeq) return
+    topAccounts.value = mapTopAccountRows(data.data)
+  } catch (error) {
+    if (seq !== accountsLoadSeq) return
+    showError(error)
+  } finally {
+    if (seq === accountsLoadSeq) {
+      accountsLoading.value = false
+    }
+  }
+}
+
+const refreshAll = ({ silent = false } = {}) =>
+  Promise.all([loadReport({ silent }), loadTopAccounts({ silent })])
 
 const selectRange = (option) => {
   isCustom.value = false
@@ -486,6 +561,21 @@ const seedCustomRangeFromPreset = () => {
   const start = subDays(end, range.value)
   customEnd.value = format(end, 'yyyy-MM-dd')
   customStart.value = format(start, 'yyyy-MM-dd')
+}
+
+const seedAccountsRange = () => {
+  const end = new Date()
+  const start = subDays(end, ACCOUNTS_DEFAULT_DAYS)
+  accountsEnd.value = format(end, 'yyyy-MM-dd')
+  accountsStart.value = format(start, 'yyyy-MM-dd')
+}
+
+const onAccountsSort = ({ by, dir }) => {
+  if (accountsSortBy.value === by && accountsSortDir.value === dir) return
+  accountsSortBy.value = by
+  accountsSortDir.value = dir
+  markActive()
+  loadTopAccounts({ silent: true })
 }
 
 const enableCustom = () => {
@@ -510,7 +600,7 @@ const scheduledRefresh = () => {
     autoRefreshPaused.value = true
     return
   }
-  loadReport()
+  refreshAll({ silent: true })
 }
 
 const visibility = useDocumentVisibility()
@@ -524,13 +614,15 @@ const markActive = () => {
 
 const manualRefresh = () => {
   markActive()
-  loadReport()
+  refreshAll()
 }
 
 watch(visibility, (v) => {
   if (v === 'visible') {
     markActive()
-    if (Date.now() - lastUpdate.value.getTime() >= REFRESH_INTERVAL_MS) loadReport()
+    if (Date.now() - lastUpdate.value.getTime() >= REFRESH_INTERVAL_MS) {
+      refreshAll({ silent: true })
+    }
   } else {
     pause()
   }
@@ -539,7 +631,7 @@ watch(visibility, (v) => {
 watchDebounced(
   accountSearch,
   () => {
-    loadReport({ silent: true })
+    loadTopAccounts({ silent: true })
   },
   { debounce: 400 }
 )
@@ -554,5 +646,19 @@ watchDebounced(
   { debounce: 350 }
 )
 
-onMounted(loadReport)
+watchDebounced(
+  [accountsStart, accountsEnd],
+  () => {
+    if (accountsStart.value && accountsEnd.value && accountsStart.value <= accountsEnd.value) {
+      markActive()
+      loadTopAccounts({ silent: true })
+    }
+  },
+  { debounce: 350 }
+)
+
+onMounted(() => {
+  seedAccountsRange()
+  refreshAll()
+})
 </script>
