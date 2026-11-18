@@ -4,7 +4,7 @@ This document lists **Pylon-style workforce widgets that v1 does not ship**, why
 
 **Shipped in v1:** [`/reports/workforce`](../../frontend/apps/main/src/views/reports/WorkforceView.vue) — API [`GET /api/v1/reports/workforce`](../../cmd/report.go) — SQL [`get-workforce-scalars` / `get-workforce-charts`](../../internal/report/queries.sql).
 
-**Universe (v1):** One row per conversation = **latest** `applied_slas` row whose `created_at` falls in the selected range. Durations use **`conversation.created_at`** as the start timestamp and **calendar elapsed time** (wall clock), same spirit as Overview SLA averages. Medians include conversations that only have breach timestamps (same end event as histogram buckets). **`active_breached_count`** is global (latest pending applied SLA on a non-resolved conversation with FR or resolution breach), not filtered by the report date range.
+**Universe (v1):** One row per conversation = **latest** `applied_slas` in range. Range and weekly buckets use **`pylon_created_at`** (import meta) when present, else `conversations.created_at`. See [`pylon-workforce-parity.md`](pylon-workforce-parity.md). **`active_breached_count`** is global (latest pending applied SLA on a non-resolved conversation with FR or resolution breach), not filtered by the report date range.
 
 ---
 
@@ -12,7 +12,7 @@ This document lists **Pylon-style workforce widgets that v1 does not ship**, why
 
 | Pylon-style metric | In v1? | Blocker |
 | --- | --- | --- |
-| Median / bucket **first response** and **resolution** (labeled “business hours”) | Partial | Overview SLA averages, Issues/Workforce SLA medians & buckets, and SLA Breaches durations prefer `*_working_sec` when set (Pylon); native tickets still fall back to calendar time until a business-hours helper exists |
+| Median / bucket **first response** and **resolution** (Pylon import parity) | Partial | **Resolution:** `resolution_working_sec` / `pylon_resolution_seconds` (SQL `workforce_resolution_duration_sec`). **First response:** calendar with ~4h auto-ack excluded (`workforce_first_response_duration_sec`); not strict Pylon FR parity. Native tickets use calendar resolution when no Pylon meta |
 | **Handle time** (median active work on a ticket, business hours) | No | No agent active-time or focus-time storage |
 | **Out of office / Away** tables (time away, away while breaching, etc.) | No | Only live `users.availability_status`; no history |
 | Assignee charts **at time of event** | Partial | Uses current `conversations.assigned_user_id`, not historical owner |
@@ -27,7 +27,7 @@ This document lists **Pylon-style workforce widgets that v1 does not ship**, why
 
 **Pylon:** Labels such as “Issue Time to First Response **in Business Hours**” and the same for resolution and bucket charts.
 
-**v1 behavior:** All Workforce duration metrics use `met_at - conversation.created_at` (or breach timestamp when met is missing) in **ordinary elapsed seconds**. The UI states this explicitly (`report.workforce.calendarTimeNote`).
+**v1 behavior (Pylon parity):** See [`pylon-workforce-parity.md`](pylon-workforce-parity.md). **Resolution:** `COALESCE(resolution_working_sec, meta.pylon_resolution_seconds)` with week on `pylon_created_at`; Pylon-import rows without API seconds are omitted from resolution medians. **First response:** calendar elapsed, excluding the ~4h auto-ack band (3.5–4.5h). Native tickets still use calendar resolution when no Pylon meta.
 
 **What we already have**
 

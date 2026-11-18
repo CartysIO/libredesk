@@ -36,10 +36,11 @@ func MapPylonStatusKey(key string) string {
 // conversationMeta builds conversations.meta for a new or merged Pylon issue.
 func conversationMeta(is Issue) map[string]any {
 	m := map[string]any{
-		"pylon_number":  is.Number,
-		"pylon_link":    is.Link,
-		"pylon_source":  is.Source,
-		"pylon_touches": is.NumberOfTouches,
+		"pylon_number":     is.Number,
+		"pylon_link":       is.Link,
+		"pylon_source":     is.Source,
+		"pylon_touches":    is.NumberOfTouches,
+		"pylon_created_at": is.CreatedAt.UTC().Format(time.RFC3339),
 	}
 	if len(is.TimeInStatusSeconds) > 0 {
 		m["pylon_time_in_status_seconds"] = is.TimeInStatusSeconds

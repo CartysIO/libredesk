@@ -70,7 +70,8 @@ WITH latest_applied AS (
         a.resolution_breached_at,
         a.first_response_working_sec,
         a.resolution_working_sec,
-        c.created_at AS conv_created_at
+        c.created_at AS conv_created_at,
+        c.meta
     FROM
         applied_slas a
         INNER JOIN conversations c ON c.id = a.conversation_id
@@ -104,20 +105,16 @@ first_and_resolution AS (
         ) AS resolution_breached_count,
         COALESCE(
             AVG(
-                COALESCE(
-                    first_response_working_sec::double precision,
-                    EXTRACT(
-                        EPOCH
-                        FROM
-                            (
-                                COALESCE(first_response_met_at, first_response_breached_at) - conv_created_at
-                            )
-                    )
+                EXTRACT(
+                    EPOCH
+                    FROM
+                        (
+                            COALESCE(first_response_met_at, first_response_breached_at) - conv_created_at
+                        )
                 )
             ) FILTER (
                 WHERE
-                    first_response_working_sec IS NOT NULL
-                    OR COALESCE(first_response_met_at, first_response_breached_at) IS NOT NULL
+                    COALESCE(first_response_met_at, first_response_breached_at) IS NOT NULL
             ),
             0
         ) AS avg_first_response_time_sec,
@@ -125,6 +122,7 @@ first_and_resolution AS (
             AVG(
                 COALESCE(
                     resolution_working_sec::double precision,
+                    pylon_resolution_seconds(meta),
                     EXTRACT(
                         EPOCH
                         FROM
@@ -136,6 +134,7 @@ first_and_resolution AS (
             ) FILTER (
                 WHERE
                     resolution_working_sec IS NOT NULL
+                    OR pylon_resolution_seconds(meta) IS NOT NULL
                     OR COALESCE(resolution_met_at, resolution_breached_at) IS NOT NULL
             ),
             0
@@ -686,7 +685,7 @@ median_sla_by_week AS (
                     (
                         SELECT
                             TO_CHAR(
-                                DATE_TRUNC('week', la.created_at AT TIME ZONE $1),
+                                DATE_TRUNC('week', la.workforce_anchor_at AT TIME ZONE $1),
                                 'YYYY-MM-DD'
                             ) AS week,
                             COALESCE(
@@ -709,36 +708,26 @@ median_sla_by_week AS (
                             (
                                 SELECT DISTINCT ON (a.conversation_id)
                                     a.conversation_id,
-                                    a.created_at,
-                                    CASE
-                                        WHEN a.first_response_working_sec IS NOT NULL THEN a.first_response_working_sec::double precision
-                                        WHEN COALESCE(a.first_response_met_at, a.first_response_breached_at) IS NOT NULL THEN EXTRACT(
-                                            EPOCH
-                                            FROM
-                                                (
-                                                    COALESCE(a.first_response_met_at, a.first_response_breached_at) - c.created_at
-                                                )
-                                        )
-                                        ELSE NULL
-                                    END AS first_response_duration_sec,
-                                    CASE
-                                        WHEN a.resolution_working_sec IS NOT NULL THEN a.resolution_working_sec::double precision
-                                        WHEN COALESCE(a.resolution_met_at, a.resolution_breached_at) IS NOT NULL THEN EXTRACT(
-                                            EPOCH
-                                            FROM
-                                                (
-                                                    COALESCE(a.resolution_met_at, a.resolution_breached_at) - c.created_at
-                                                )
-                                        )
-                                        ELSE NULL
-                                    END AS resolution_duration_sec
+                                    pylon_workforce_anchor_at(c.meta, c.created_at) AS workforce_anchor_at,
+                                    workforce_first_response_duration_sec(
+                                        c.created_at,
+                                        a.first_response_met_at,
+                                        a.first_response_breached_at
+                                    ) AS first_response_duration_sec,
+                                    workforce_resolution_duration_sec(
+                                        c.meta,
+                                        c.created_at,
+                                        a.resolution_working_sec,
+                                        a.resolution_met_at,
+                                        a.resolution_breached_at
+                                    ) AS resolution_duration_sec
                                 FROM
                                     applied_slas a
                                     INNER JOIN conversations c ON c.id = a.conversation_id,
                                     range_bounds rb
                                 WHERE
-                                    a.created_at >= rb.starts_at
-                                    AND a.created_at < rb.ends_at
+                                    pylon_workforce_anchor_at(c.meta, c.created_at) >= rb.starts_at
+                                    AND pylon_workforce_anchor_at(c.meta, c.created_at) < rb.ends_at
                                 ORDER BY
                                     a.conversation_id,
                                     a.created_at DESC,
@@ -1136,6 +1125,7 @@ SELECT
     ) AS result;
 
 -- name: get-workforce-scalars
+-- Pylon SLA parity: docs/reports/pylon-workforce-parity.md; SQL functions pylon_workforce_* / workforce_*_duration_sec.
 WITH range_bounds AS (
     SELECT
         $1::timestamptz AS starts_at,
@@ -1157,35 +1147,25 @@ latest_sla AS (
         a.resolution_working_sec,
         c.created_at AS conv_created_at,
         c.resolved_at,
-        CASE
-            WHEN a.first_response_working_sec IS NOT NULL THEN a.first_response_working_sec::double precision
-            WHEN COALESCE(a.first_response_met_at, a.first_response_breached_at) IS NOT NULL THEN EXTRACT(
-                EPOCH
-                FROM
-                    (
-                        COALESCE(a.first_response_met_at, a.first_response_breached_at) - c.created_at
-                    )
-            )
-            ELSE NULL
-        END AS first_response_duration_sec,
-        CASE
-            WHEN a.resolution_working_sec IS NOT NULL THEN a.resolution_working_sec::double precision
-            WHEN COALESCE(a.resolution_met_at, a.resolution_breached_at) IS NOT NULL THEN EXTRACT(
-                EPOCH
-                FROM
-                    (
-                        COALESCE(a.resolution_met_at, a.resolution_breached_at) - c.created_at
-                    )
-            )
-            ELSE NULL
-        END AS resolution_duration_sec
+        workforce_first_response_duration_sec(
+            c.created_at,
+            a.first_response_met_at,
+            a.first_response_breached_at
+        ) AS first_response_duration_sec,
+        workforce_resolution_duration_sec(
+            c.meta,
+            c.created_at,
+            a.resolution_working_sec,
+            a.resolution_met_at,
+            a.resolution_breached_at
+        ) AS resolution_duration_sec
     FROM
         applied_slas a
         INNER JOIN conversations c ON c.id = a.conversation_id,
         range_bounds rb
     WHERE
-        a.created_at >= rb.starts_at
-        AND a.created_at < rb.ends_at
+        pylon_workforce_anchor_at(c.meta, c.created_at) >= rb.starts_at
+        AND pylon_workforce_anchor_at(c.meta, c.created_at) < rb.ends_at
     ORDER BY
         a.conversation_id,
         a.created_at DESC,
@@ -1382,36 +1362,27 @@ latest_sla AS (
         c.resolved_at,
         c.assigned_user_id,
         cs.category AS conv_status_category,
-        CASE
-            WHEN a.first_response_working_sec IS NOT NULL THEN a.first_response_working_sec::double precision
-            WHEN COALESCE(a.first_response_met_at, a.first_response_breached_at) IS NOT NULL THEN EXTRACT(
-                EPOCH
-                FROM
-                    (
-                        COALESCE(a.first_response_met_at, a.first_response_breached_at) - c.created_at
-                    )
-            )
-            ELSE NULL
-        END AS first_response_duration_sec,
-        CASE
-            WHEN a.resolution_working_sec IS NOT NULL THEN a.resolution_working_sec::double precision
-            WHEN COALESCE(a.resolution_met_at, a.resolution_breached_at) IS NOT NULL THEN EXTRACT(
-                EPOCH
-                FROM
-                    (
-                        COALESCE(a.resolution_met_at, a.resolution_breached_at) - c.created_at
-                    )
-            )
-            ELSE NULL
-        END AS resolution_duration_sec
+        pylon_workforce_anchor_at(c.meta, c.created_at) AS workforce_anchor_at,
+        workforce_first_response_duration_sec(
+            c.created_at,
+            a.first_response_met_at,
+            a.first_response_breached_at
+        ) AS first_response_duration_sec,
+        workforce_resolution_duration_sec(
+            c.meta,
+            c.created_at,
+            a.resolution_working_sec,
+            a.resolution_met_at,
+            a.resolution_breached_at
+        ) AS resolution_duration_sec
     FROM
         applied_slas a
         INNER JOIN conversations c ON c.id = a.conversation_id
         INNER JOIN conversation_statuses cs ON cs.id = c.status_id,
         range_bounds rb
     WHERE
-        a.created_at >= rb.starts_at
-        AND a.created_at < rb.ends_at
+        pylon_workforce_anchor_at(c.meta, c.created_at) >= rb.starts_at
+        AND pylon_workforce_anchor_at(c.meta, c.created_at) < rb.ends_at
     ORDER BY
         a.conversation_id,
         a.created_at DESC,
@@ -1535,7 +1506,7 @@ median_sla_by_week AS (
                     (
                         SELECT
                             TO_CHAR(
-                                DATE_TRUNC('week', la.created_at AT TIME ZONE $1),
+                                DATE_TRUNC('week', la.workforce_anchor_at AT TIME ZONE $1),
                                 'YYYY-MM-DD'
                             ) AS week,
                             COALESCE(
@@ -1573,7 +1544,7 @@ achieved_vs_breached_by_week AS (
                     (
                         SELECT
                             TO_CHAR(
-                                DATE_TRUNC('week', la.created_at AT TIME ZONE $1),
+                                DATE_TRUNC('week', la.workforce_anchor_at AT TIME ZONE $1),
                                 'YYYY-MM-DD'
                             ) AS week,
                             COUNT(*) FILTER (
@@ -1831,8 +1802,8 @@ latest_sla AS (
         INNER JOIN conversations c ON c.id = a.conversation_id
         CROSS JOIN range_bounds rb
     WHERE
-        c.created_at >= rb.starts_at
-        AND c.created_at < rb.ends_at
+        pylon_workforce_anchor_at(c.meta, c.created_at) >= rb.starts_at
+        AND pylon_workforce_anchor_at(c.meta, c.created_at) < rb.ends_at
     ORDER BY
         a.conversation_id,
         a.created_at DESC,
@@ -1850,28 +1821,17 @@ breached AS (
         ) AS created_at_display,
         c.organization_id,
         COALESCE(o.name, '') AS organization_name,
-        COALESCE(
-            la.first_response_working_sec::double precision,
-            EXTRACT(
-                EPOCH
-                FROM
-                    (
-                        COALESCE(
-                            la.first_response_met_at,
-                            la.first_response_breached_at
-                        ) - c.created_at
-                    )
-            )
+        workforce_first_response_duration_sec(
+            c.created_at,
+            la.first_response_met_at,
+            la.first_response_breached_at
         ) AS first_response_sec,
-        COALESCE(
-            la.resolution_working_sec::double precision,
-            EXTRACT(
-                EPOCH
-                FROM
-                    (
-                        COALESCE(la.resolution_met_at, la.resolution_breached_at) - c.created_at
-                    )
-            )
+        workforce_resolution_duration_sec(
+            c.meta,
+            c.created_at,
+            la.resolution_working_sec,
+            la.resolution_met_at,
+            la.resolution_breached_at
         ) AS resolution_sec,
         nr.max_next_response_sec
     FROM

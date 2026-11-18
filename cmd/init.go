@@ -167,6 +167,14 @@ func initFlags() {
 	f.Bool("pylon-refresh-issues", false, "with --pylon-import: refetch the issue list from the Pylon API instead of issues.json cache")
 	f.StringSlice("pylon-agent-alias", []string{"omer.menashe@gmail.com=omer@clyr.io"}, "with --pylon-import: pylon-user-email=libredesk-agent-email")
 
+	// Clyr fork: compare Pylon cache medians to UI targets (cmd/pylon_sla_reconcile.go).
+	f.Bool("pylon-sla-reconcile", false, "analyze Pylon issues.json SLA medians for one Workforce week and exit")
+	f.String("pylon-reconcile-week", "", "with --pylon-sla-reconcile: week label YYYY-MM-DD (DATE_TRUNC week start)")
+	f.String("pylon-reconcile-timezone", "America/New_York", "with --pylon-sla-reconcile: IANA timezone for week buckets")
+	f.String("pylon-reconcile-fr-target", "", "with --pylon-sla-reconcile: optional Pylon UI FR target (seconds or 19h15m)")
+	f.String("pylon-reconcile-res-target", "", "with --pylon-sla-reconcile: optional Pylon UI resolution target")
+	f.Bool("pylon-reconcile-discover", false, "with --pylon-sla-reconcile: run full hypothesis grid search")
+
 	// Clyr fork: wipe all conversations before re-running --pylon-import (cmd/pylon_wipe.go).
 	f.Bool("pylon-wipe", false, "delete every conversation and related Libredesk data and exit (does not touch users or organizations)")
 	f.Bool("confirm", false, "with --pylon-wipe: execute the wipe (default is dry-run counts only)")

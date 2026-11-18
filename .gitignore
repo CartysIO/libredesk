@@ -11,3 +11,4 @@ dist/
 static/widget.min.js
 
 .playwright-mcp/
+.scratch/
