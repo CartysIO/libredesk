@@ -12,8 +12,27 @@ func IsValidTimezone(tz string) bool {
 	if tz == "" || tz == "Local" {
 		return false
 	}
+	if !isIANATimezoneSpelling(tz) {
+		return false
+	}
 	_, err := time.LoadLocation(tz)
 	return err == nil
+}
+
+// isIANATimezoneSpelling requires each path segment to start with an uppercase letter, matching
+// IANA zone naming and Postgres AT TIME ZONE (Go 1.27+ may load case-insensitive aliases).
+func isIANATimezoneSpelling(tz string) bool {
+	parts := strings.Split(tz, "/")
+	for _, part := range parts {
+		if part == "" {
+			return false
+		}
+		c := part[0]
+		if c < 'A' || c > 'Z' {
+			return false
+		}
+	}
+	return true
 }
 
 // NormalizeTimezone returns tz if valid, otherwise UTC.
