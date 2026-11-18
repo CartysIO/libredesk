@@ -78,6 +78,12 @@ const routes = [
             name: 'workforce',
             component: () => import('@main/views/reports/WorkforceView.vue'),
             meta: { titleKey: 'globals.terms.workforce' }
+          },
+          {
+            path: 'sla-breaches',
+            name: 'sla-breaches',
+            component: () => import('@main/views/reports/SlaBreachesView.vue'),
+            meta: { titleKey: 'globals.terms.slaBreaches' }
           }
         ]
       },

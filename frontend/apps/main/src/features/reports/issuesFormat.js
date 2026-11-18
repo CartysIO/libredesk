@@ -1,4 +1,5 @@
 import { format, parseISO, isValid } from 'date-fns'
+import { enUS } from 'date-fns/locale'
 
 export function formatReportDate(value) {
   if (value == null || value === '') return ''
@@ -16,6 +17,17 @@ export function formatReportDateTime(value) {
     const d = value instanceof Date ? value : new Date(value)
     if (!isValid(d)) return ''
     return format(d, 'MM/dd/yyyy, h:mm a')
+  } catch {
+    return ''
+  }
+}
+
+/** Readable report datetime (e.g. Nov 17, 2026, 8:50 AM). */
+export function formatReportDateTimeReadable(value, locale = enUS) {
+  try {
+    const d = value instanceof Date ? value : new Date(value)
+    if (!isValid(d)) return ''
+    return format(d, 'MMM d, yyyy, h:mm a', { locale })
   } catch {
     return ''
   }

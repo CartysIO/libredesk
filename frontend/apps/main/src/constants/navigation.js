@@ -16,6 +16,12 @@ export const reportsNavItems = [
     href: '/reports/workforce',
     permission: 'reports:manage',
     icon: 'Users'
+  },
+  {
+    titleKey: 'globals.terms.slaBreaches',
+    href: '/reports/sla-breaches',
+    permission: 'reports:manage',
+    icon: 'Timer'
   }
 ]
 

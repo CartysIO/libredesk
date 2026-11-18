@@ -259,6 +259,7 @@ func initHandlers(g *fastglue.Fastglue, hub *ws.Hub) {
 	g.GET("/api/v1/reports/issues/top-accounts", perm(handleIssuesTopAccounts, "reports:manage"))
 	g.GET("/api/v1/reports/issues", perm(handleIssuesReport, "reports:manage"))
 	g.GET("/api/v1/reports/workforce", perm(handleWorkforceReport, "reports:manage"))
+	g.GET("/api/v1/reports/sla-breaches", perm(handleSlaBreachesReport, "reports:manage"))
 
 	// Templates.
 	g.GET("/api/v1/templates", perm(handleGetTemplates, "templates:manage"))

@@ -3,7 +3,8 @@ import {
   formatReportDate,
   formatCompactDuration,
   formatResolutionDaysHours,
-  formatReportHour24
+  formatReportHour24,
+  formatReportDateTimeReadable
 } from './issuesFormat.js'
 
 describe('issuesFormat', () => {
@@ -22,5 +23,9 @@ describe('issuesFormat', () => {
   it('formats hours in twelve hour clock', () => {
     expect(formatReportHour24(0)).toMatch(/12:00 AM/i)
     expect(formatReportHour24(15)).toMatch(/3:00 PM/i)
+  })
+
+  it('formats readable report datetimes', () => {
+    expect(formatReportDateTimeReadable('2026-11-17T14:50:00.000Z')).toMatch(/Nov 17, 2026/)
   })
 })
