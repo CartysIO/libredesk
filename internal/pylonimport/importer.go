@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"slices"
@@ -58,7 +59,8 @@ type Options struct {
 	Since time.Time
 	// InboxID is the email inbox for email/form issues, 0 to use the only email inbox.
 	InboxID int
-	// ChatInboxID is the livechat inbox for chat_widget issues, 0 to use the only livechat inbox.
+	// ChatInboxID is the livechat inbox for chat_widget issues; 0 auto-picks the only livechat inbox,
+	// or the first enabled one (else lowest id) when several exist.
 	ChatInboxID int
 	// SLAPolicyID is the SLA policy simulated on every imported conversation (0 = first row in sla_policies).
 	SLAPolicyID int
@@ -442,7 +444,7 @@ func (im *Importer) load(d Data) error {
 		}
 	} else {
 		var ids []int
-		if err := im.DB.Select(&ids, `SELECT id FROM inboxes WHERE channel = 'livechat' AND deleted_at IS NULL ORDER BY id`); err != nil {
+		if err := im.DB.Select(&ids, `SELECT id FROM inboxes WHERE channel = 'livechat' AND deleted_at IS NULL ORDER BY enabled DESC, id`); err != nil {
 			return err
 		}
 		switch len(ids) {
@@ -454,7 +456,12 @@ func (im *Importer) load(d Data) error {
 		case 1:
 			im.chatInboxID = ids[0]
 		default:
-			return fmt.Errorf("found %d livechat inboxes: pass --pylon-chat-inbox <id>", len(ids))
+			im.chatInboxID = ids[0]
+			msg := fmt.Sprintf("pylon import: found %d livechat inboxes; using inbox %d for chat_widget (first enabled, else lowest id; override with --pylon-chat-inbox)", len(ids), im.chatInboxID)
+			log.Printf("WARNING: %s", msg)
+			if im.Out != nil {
+				fmt.Fprintln(im.Out, msg)
+			}
 		}
 	}
 	if im.Opt.SLAPolicyID < 0 {
