@@ -12,6 +12,11 @@
       </div>
     </div>
 
+    <InboxAllDateRangeFilter
+      v-if="isAllInbox"
+      class="shrink-0 border-b border-border/60 px-4 py-2"
+    />
+
     <div
       ref="scroller"
       class="flex-1 min-h-0 overflow-x-auto overflow-y-hidden"
@@ -91,6 +96,7 @@ import RemoveConversationDialog from '@main/features/conversation/RemoveConversa
 import BoardColumn from './BoardColumn.vue'
 import BoardDrawer from './BoardDrawer.vue'
 import ConversationViewToggle from './ConversationViewToggle.vue'
+import InboxAllDateRangeFilter from '@/features/conversation/list/InboxAllDateRangeFilter.vue'
 
 const REFRESH_INTERVAL_MS = 120000
 
@@ -111,6 +117,8 @@ const title = computed(() => {
   const key = route.meta?.titleKey
   return key ? t(key, route.meta?.titleCount || 1) : ''
 })
+
+const isAllInbox = computed(() => route.params.type === CONVERSATION_LIST_TYPE.ALL)
 
 // Same list context the list view derives from the route.
 const listContext = computed(() => {

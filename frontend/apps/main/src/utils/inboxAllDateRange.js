@@ -1,13 +1,13 @@
 import { subDays, format } from 'date-fns'
+import { DEFAULT_DATE_RANGE_DAYS } from '@/constants/dateRangePresets'
 
-export const INBOX_ALL_RANGE_OPTIONS = [7, 30, 90, 120]
-export const INBOX_ALL_DEFAULT_RANGE_DAYS = 90
+export { DEFAULT_DATE_RANGE_DAYS as INBOX_ALL_DEFAULT_RANGE_DAYS }
 
 export function resolveInboxAllDateBounds ({ presetDays, isCustom, customStart, customEnd }) {
   if (isCustom && customStart && customEnd) {
     return { start: customStart, end: customEnd }
   }
-  const days = presetDays || INBOX_ALL_DEFAULT_RANGE_DAYS
+  const days = presetDays || DEFAULT_DATE_RANGE_DAYS
   const end = new Date()
   const start = subDays(end, days)
   return {
@@ -25,7 +25,17 @@ export function createdAtBetweenFilter (start, end) {
   }
 }
 
+/** Reads range fields from the reactive store bucket (refs are unwrapped via property access). */
+export function readInboxAllDateRangeState (rangeState) {
+  return {
+    presetDays: rangeState.presetDays,
+    isCustom: rangeState.isCustom,
+    customStart: rangeState.customStart,
+    customEnd: rangeState.customEnd
+  }
+}
+
 export function inboxAllCreatedAtListFilter (rangeState) {
-  const { start, end } = resolveInboxAllDateBounds(rangeState)
+  const { start, end } = resolveInboxAllDateBounds(readInboxAllDateRangeState(rangeState))
   return createdAtBetweenFilter(start, end)
 }

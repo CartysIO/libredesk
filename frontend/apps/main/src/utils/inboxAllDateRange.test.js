@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest'
+import { reactive, ref } from 'vue'
 import {
   createdAtBetweenFilter,
   resolveInboxAllDateBounds,
@@ -52,5 +53,17 @@ describe('inboxAllCreatedAtListFilter', () => {
       operator: 'between',
       value: '2025-12-15,2026-03-15'
     })
+  })
+
+  it('reads preset days from reactive ref storage', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-15T12:00:00Z'))
+    const rangeState = reactive({
+      presetDays: ref(7),
+      isCustom: ref(false),
+      customStart: ref(''),
+      customEnd: ref('')
+    })
+    expect(inboxAllCreatedAtListFilter(rangeState).value).toBe('2026-03-08,2026-03-15')
   })
 })

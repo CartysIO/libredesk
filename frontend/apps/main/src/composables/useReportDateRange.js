@@ -1,13 +1,14 @@
 import { ref } from 'vue'
 import { subDays, format } from 'date-fns'
 import { watchDebounced } from '@vueuse/core'
+import { DATE_RANGE_PRESET_OPTIONS, DEFAULT_DATE_RANGE_DAYS } from '@/constants/dateRangePresets'
 
-export const REPORT_RANGE_OPTIONS = [7, 30, 90, 120]
+export const REPORT_RANGE_OPTIONS = DATE_RANGE_PRESET_OPTIONS
 
 /**
  * Shared preset/custom date range state for report views.
  */
-export function useReportDateRange({ defaultDays = 90, onRangeApply }) {
+export function useReportDateRange({ defaultDays = DEFAULT_DATE_RANGE_DAYS, onRangeApply }) {
   const range = ref(defaultDays)
   const isCustom = ref(false)
   const customStart = ref('')

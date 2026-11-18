@@ -32,82 +32,16 @@
 </template>
 
 <script setup>
-import { computed, watch } from 'vue'
-import { watchDebounced } from '@vueuse/core'
-import { subDays, format } from 'date-fns'
 import { Button } from '@shared-ui/components/ui/button'
 import DateFilterValue from '@/components/filter/DateFilterValue.vue'
-import { INBOX_ALL_RANGE_OPTIONS } from '@/utils/inboxAllDateRange'
-import { useConversationStore } from '@/stores/conversation'
+import { useInboxAllDateRange } from '@/composables/useInboxAllDateRange'
 
-const conversationStore = useConversationStore()
-
-const rangeOptions = INBOX_ALL_RANGE_OPTIONS
-const presetDays = computed({
-  get: () => conversationStore.allInboxDateRange.presetDays,
-  set: (v) => { conversationStore.allInboxDateRange.presetDays = v }
-})
-const isCustom = computed({
-  get: () => conversationStore.allInboxDateRange.isCustom,
-  set: (v) => { conversationStore.allInboxDateRange.isCustom = v }
-})
-
-const customRange = computed({
-  get: () => {
-    const { customStart, customEnd } = conversationStore.allInboxDateRange
-    if (!customStart && !customEnd) return ''
-    return customStart && customEnd ? `${customStart},${customEnd}` : ''
-  },
-  set: (v) => {
-    const [start = '', end = ''] = (v || '').split(',')
-    conversationStore.allInboxDateRange.customStart = start.trim()
-    conversationStore.allInboxDateRange.customEnd = end.trim()
-  }
-})
-
-const seedCustomFromPreset = () => {
-  const end = new Date()
-  const start = subDays(end, presetDays.value)
-  conversationStore.allInboxDateRange.customEnd = format(end, 'yyyy-MM-dd')
-  conversationStore.allInboxDateRange.customStart = format(start, 'yyyy-MM-dd')
-}
-
-const selectPreset = (option) => {
-  isCustom.value = false
-  if (option === presetDays.value) return
-  presetDays.value = option
-  conversationStore.applyAllInboxDateRange()
-}
-
-const enableCustom = () => {
-  isCustom.value = true
-  if (!conversationStore.allInboxDateRange.customStart || !conversationStore.allInboxDateRange.customEnd) {
-    seedCustomFromPreset()
-  }
-}
-
-watchDebounced(
-  () => [
-    conversationStore.allInboxDateRange.customStart,
-    conversationStore.allInboxDateRange.customEnd,
-    conversationStore.allInboxDateRange.isCustom
-  ],
-  () => {
-    if (!isCustom.value) return
-    const { customStart, customEnd } = conversationStore.allInboxDateRange
-    if (customStart && customEnd && customStart <= customEnd) {
-      conversationStore.applyAllInboxDateRange()
-    }
-  },
-  { debounce: 350 }
-)
-
-watch(
-  () => [conversationStore.allInboxDateRange.customStart, conversationStore.allInboxDateRange.customEnd],
-  ([s, e]) => {
-    if (s && e && s > e) {
-      conversationStore.allInboxDateRange.customEnd = s
-    }
-  }
-)
+const {
+  rangeOptions,
+  presetDays,
+  isCustom,
+  customRange,
+  selectPreset,
+  enableCustom
+} = useInboxAllDateRange()
 </script>
