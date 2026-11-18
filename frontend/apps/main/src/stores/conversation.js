@@ -19,6 +19,10 @@ import { useUserStore } from '@/stores/user'
 import { useUsersStore } from '@/stores/users'
 import { useNotificationStore } from '@/stores/notification'
 import { delayedLoading } from '@/utils/delayed-loading'
+import {
+  INBOX_ALL_DEFAULT_RANGE_DAYS,
+  inboxAllCreatedAtListFilter
+} from '@/utils/inboxAllDateRange'
 import api from '@main/api'
 
 export const useConversationStore = defineStore('conversation', () => {
@@ -223,6 +227,12 @@ export const useConversationStore = defineStore('conversation', () => {
 
   const persistedListStatus = useStorage('conversationListStatus', CONVERSATION_ACTIVE_STATUS)
   const persistedListSortField = useStorage('conversationListSortField', 'newest')
+  const allInboxDateRange = reactive({
+    presetDays: useStorage('inboxAllListDatePreset', INBOX_ALL_DEFAULT_RANGE_DAYS),
+    isCustom: useStorage('inboxAllListDateCustom', false),
+    customStart: useStorage('inboxAllListDateStart', ''),
+    customEnd: useStorage('inboxAllListDateEnd', '')
+  })
   if (!sortFieldMap[persistedListSortField.value]) {
     persistedListSortField.value = 'newest'
   }
@@ -307,6 +317,20 @@ export const useConversationStore = defineStore('conversation', () => {
     if (conversations.sortField === field) return
     conversations.sortField = field
     persistedListSortField.value = field
+    resetConversations()
+    reFetchConversationsList()
+  }
+
+  function appendAllInboxDateFilters (filters, listType = conversations.listType) {
+    if (listType !== CONVERSATION_LIST_TYPE.ALL) return filters
+    const withoutCreated = filters.filter(
+      (f) => !(f.model === 'conversations' && f.field === 'created_at' && f.operator === 'between')
+    )
+    return [...withoutCreated, inboxAllCreatedAtListFilter(allInboxDateRange)]
+  }
+
+  function applyAllInboxDateRange () {
+    if (conversations.listType !== CONVERSATION_LIST_TYPE.ALL) return
     resetConversations()
     reFetchConversationsList()
   }
@@ -692,6 +716,7 @@ export const useConversationStore = defineStore('conversation', () => {
       filters = filters.filter(f => f.model !== 'conversation_statuses')
       filters.push(listStatusFilter(conversations.status))
     }
+    filters = appendAllInboxDateFilters(filters)
     conversations.listFilters = filters
     const guard = showLoader ? delayedLoading(conversations, 'loading') : null
     conversations.fetching = true
@@ -1394,6 +1419,9 @@ export const useConversationStore = defineStore('conversation', () => {
     getListSortField,
     sortFieldI18nKeys,
     getListStatus,
+    allInboxDateRange,
+    applyAllInboxDateRange,
+    appendAllInboxDateFilters,
     statuses,
     priorities,
     priorityOptions,

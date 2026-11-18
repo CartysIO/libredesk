@@ -55,7 +55,11 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
       page_size: BOARD_PAGE_SIZE,
       ...conversationStore.getListSortParams()
     }
-    const withFilters = { ...params, filters: JSON.stringify(boardStatusFilter(status)) }
+    let filters = boardStatusFilter(status)
+    if (context.listType === CONVERSATION_LIST_TYPE.ALL) {
+      filters = conversationStore.appendAllInboxDateFilters(filters, CONVERSATION_LIST_TYPE.ALL)
+    }
+    const withFilters = { ...params, filters: JSON.stringify(filters) }
     switch (context.listType) {
       case CONVERSATION_LIST_TYPE.ASSIGNED:
         return api.getAssignedConversations(withFilters)
