@@ -26,11 +26,11 @@ func V2_9_0_RC10_CLYR3(db *sqlx.DB, fs stuffbin.FileSystem, ko *koanf.Koanf) err
 				a2.id,
 				COALESCE(
 					NULLIF(c.meta->>'pylon_first_response_seconds', '')::int,
-					NULLIF(c.meta->'pylon'->>'first_response_seconds', '')::int
+					NULLIF(c.meta#>>'{pylon,first_response_seconds}', '')::int
 				) AS fr_sec,
 				COALESCE(
 					NULLIF(c.meta->>'pylon_resolution_seconds', '')::int,
-					NULLIF(c.meta->'pylon'->>'resolution_seconds', '')::int
+					NULLIF(c.meta#>>'{pylon,resolution_seconds}', '')::int
 				) AS res_sec
 			FROM applied_slas a2
 			INNER JOIN conversations c ON c.id = a2.conversation_id
@@ -38,15 +38,15 @@ func V2_9_0_RC10_CLYR3(db *sqlx.DB, fs stuffbin.FileSystem, ko *koanf.Koanf) err
 				(
 					a2.first_response_working_sec IS NULL
 					AND (
-						c.meta ? 'pylon_first_response_seconds'
-						OR (c.meta ? 'pylon' AND c.meta->'pylon' ? 'first_response_seconds')
+						jsonb_path_exists(c.meta, '$.pylon_first_response_seconds')
+						OR jsonb_path_exists(c.meta, '$.pylon.first_response_seconds')
 					)
 				)
 				OR (
 					a2.resolution_working_sec IS NULL
 					AND (
-						c.meta ? 'pylon_resolution_seconds'
-						OR (c.meta ? 'pylon' AND c.meta->'pylon' ? 'resolution_seconds')
+						jsonb_path_exists(c.meta, '$.pylon_resolution_seconds')
+						OR jsonb_path_exists(c.meta, '$.pylon.resolution_seconds')
 					)
 				)
 		) sub
