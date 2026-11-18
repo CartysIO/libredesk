@@ -1080,16 +1080,16 @@ account_stats AS (
         AND c.created_at < rb.ends_at
         AND (
             $3 = ''
-            OR COALESCE(o.name, '') ILIKE '%' || $3 || '%'
+            OR COALESCE(o.name, '') ILIKE '%%' || $3 || '%%'
         )
     GROUP BY
         o.id,
         o.name
     ORDER BY
-        total DESC,
+        %s,
         account_name
     LIMIT
-        100
+        10
 )
 SELECT
     COALESCE(

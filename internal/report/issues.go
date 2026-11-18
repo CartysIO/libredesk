@@ -4,20 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"strings"
 
 	"github.com/abhinavxd/libredesk/internal/envelope"
 	"github.com/abhinavxd/libredesk/internal/stringutil"
 )
 
-// GetIssuesReport returns Pylon-style issue analytics for the selected day range.
-func (m *Manager) GetIssuesReport(in IssuesRangeInput, accountSearch string) (json.RawMessage, error) {
+// GetIssuesReport returns Pylon-style issue analytics (scalars and charts) for the selected day range.
+func (m *Manager) GetIssuesReport(in IssuesRangeInput) (json.RawMessage, error) {
 	bounds, err := ResolveIssuesRangeBounds(in)
 	if err != nil {
 		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
 	tz := stringutil.NormalizeTimezone(in.AppTimezone)
-	accountSearch = strings.TrimSpace(accountSearch)
 
 	tx, err := m.db.BeginTxx(context.Background(), &sql.TxOptions{ReadOnly: true})
 	if err != nil {
@@ -27,12 +25,10 @@ func (m *Manager) GetIssuesReport(in IssuesRangeInput, accountSearch string) (js
 	defer tx.Rollback()
 
 	var (
-		scalars      json.RawMessage
-		charts       json.RawMessage
-		topAccounts  json.RawMessage
-		scalarObj    map[string]any
-		chartObj     map[string]any
-		accountsList []any
+		scalars   json.RawMessage
+		charts    json.RawMessage
+		scalarObj map[string]any
+		chartObj  map[string]any
 	)
 
 	if err := tx.Get(&scalars, m.q.GetIssuesScalars, bounds.StartsAt, bounds.EndsAt); err != nil {
@@ -53,24 +49,14 @@ func (m *Manager) GetIssuesReport(in IssuesRangeInput, accountSearch string) (js
 		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
 
-	if err := tx.Get(&topAccounts, m.q.GetIssuesTopAccounts, bounds.StartsAt, bounds.EndsAt, accountSearch); err != nil {
-		m.lo.Error("error fetching issues top accounts", "error", err)
-		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
-	}
-	if err := json.Unmarshal(topAccounts, &accountsList); err != nil {
-		m.lo.Error("error unmarshaling issues top accounts", "error", err)
-		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
-	}
-
 	if err := tx.Commit(); err != nil {
 		m.lo.Error("error committing db txn", "error", err)
 		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
 
 	out, err := json.Marshal(map[string]any{
-		"scalars":      scalarObj,
-		"charts":       chartObj,
-		"top_accounts": accountsList,
+		"scalars": scalarObj,
+		"charts":  chartObj,
 	})
 	if err != nil {
 		m.lo.Error("error marshaling issues report", "error", err)
