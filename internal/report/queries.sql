@@ -1120,6 +1120,8 @@ latest_sla AS (
         a.resolution_met_at,
         a.first_response_breached_at,
         a.resolution_breached_at,
+        a.first_response_working_sec,
+        a.resolution_working_sec,
         c.created_at AS conv_created_at,
         c.resolved_at
     FROM
@@ -1161,18 +1163,22 @@ SELECT
                 SELECT
                     percentile_cont(0.5) WITHIN GROUP (
                         ORDER BY
-                            EXTRACT(
-                                EPOCH
-                                FROM
-                                    (
-                                        COALESCE(la.first_response_met_at, la.first_response_breached_at) - la.conv_created_at
-                                    )
+                            COALESCE(
+                                la.first_response_working_sec::double precision,
+                                EXTRACT(
+                                    EPOCH
+                                    FROM
+                                        (
+                                            COALESCE(la.first_response_met_at, la.first_response_breached_at) - la.conv_created_at
+                                        )
+                                )
                             )
                     )
                 FROM
                     latest_sla la
                 WHERE
-                    COALESCE(la.first_response_met_at, la.first_response_breached_at) IS NOT NULL
+                    la.first_response_working_sec IS NOT NULL
+                    OR COALESCE(la.first_response_met_at, la.first_response_breached_at) IS NOT NULL
             ),
             0
         ),
@@ -1182,18 +1188,22 @@ SELECT
                 SELECT
                     percentile_cont(0.5) WITHIN GROUP (
                         ORDER BY
-                            EXTRACT(
-                                EPOCH
-                                FROM
-                                    (
-                                        COALESCE(la.resolution_met_at, la.resolution_breached_at) - la.conv_created_at
-                                    )
+                            COALESCE(
+                                la.resolution_working_sec::double precision,
+                                EXTRACT(
+                                    EPOCH
+                                    FROM
+                                        (
+                                            COALESCE(la.resolution_met_at, la.resolution_breached_at) - la.conv_created_at
+                                        )
+                                )
                             )
                     )
                 FROM
                     latest_sla la
                 WHERE
-                    COALESCE(la.resolution_met_at, la.resolution_breached_at) IS NOT NULL
+                    la.resolution_working_sec IS NOT NULL
+                    OR COALESCE(la.resolution_met_at, la.resolution_breached_at) IS NOT NULL
             ),
             0
         ),
@@ -1333,6 +1343,8 @@ latest_sla AS (
         a.resolution_met_at,
         a.first_response_breached_at,
         a.resolution_breached_at,
+        a.first_response_working_sec,
+        a.resolution_working_sec,
         c.created_at AS conv_created_at,
         c.resolved_at,
         c.assigned_user_id,
@@ -1377,17 +1389,21 @@ fr_durations AS (
     FROM
         (
             SELECT
-                EXTRACT(
-                    EPOCH
-                    FROM
-                        (
-                            COALESCE(la.first_response_met_at, la.first_response_breached_at) - la.conv_created_at
-                        )
+                COALESCE(
+                    la.first_response_working_sec::double precision,
+                    EXTRACT(
+                        EPOCH
+                        FROM
+                            (
+                                COALESCE(la.first_response_met_at, la.first_response_breached_at) - la.conv_created_at
+                            )
+                    )
                 ) AS sec
             FROM
                 latest_sla la
             WHERE
-                COALESCE(la.first_response_met_at, la.first_response_breached_at) IS NOT NULL
+                la.first_response_working_sec IS NOT NULL
+                OR COALESCE(la.first_response_met_at, la.first_response_breached_at) IS NOT NULL
         ) d
     WHERE
         sec >= 0
@@ -1405,17 +1421,21 @@ res_durations AS (
     FROM
         (
             SELECT
-                EXTRACT(
-                    EPOCH
-                    FROM
-                        (
-                            COALESCE(la.resolution_met_at, la.resolution_breached_at) - la.conv_created_at
-                        )
+                COALESCE(
+                    la.resolution_working_sec::double precision,
+                    EXTRACT(
+                        EPOCH
+                        FROM
+                            (
+                                COALESCE(la.resolution_met_at, la.resolution_breached_at) - la.conv_created_at
+                            )
+                    )
                 ) AS sec
             FROM
                 latest_sla la
             WHERE
-                COALESCE(la.resolution_met_at, la.resolution_breached_at) IS NOT NULL
+                la.resolution_working_sec IS NOT NULL
+                OR COALESCE(la.resolution_met_at, la.resolution_breached_at) IS NOT NULL
         ) d
     WHERE
         sec >= 0
@@ -1486,32 +1506,40 @@ median_sla_by_week AS (
                             COALESCE(
                                 percentile_cont(0.5) WITHIN GROUP (
                                     ORDER BY
-                                        EXTRACT(
-                                            EPOCH
-                                            FROM
-                                                (
-                                                    COALESCE(la.first_response_met_at, la.first_response_breached_at) - la.conv_created_at
-                                                )
+                                        COALESCE(
+                                            la.first_response_working_sec::double precision,
+                                            EXTRACT(
+                                                EPOCH
+                                                FROM
+                                                    (
+                                                        COALESCE(la.first_response_met_at, la.first_response_breached_at) - la.conv_created_at
+                                                    )
+                                            )
                                         )
                                 ) FILTER (
                                     WHERE
-                                        COALESCE(la.first_response_met_at, la.first_response_breached_at) IS NOT NULL
+                                        la.first_response_working_sec IS NOT NULL
+                                        OR COALESCE(la.first_response_met_at, la.first_response_breached_at) IS NOT NULL
                                 ),
                                 0
                             ) AS median_first_response_sec,
                             COALESCE(
                                 percentile_cont(0.5) WITHIN GROUP (
                                     ORDER BY
-                                        EXTRACT(
-                                            EPOCH
-                                            FROM
-                                                (
-                                                    COALESCE(la.resolution_met_at, la.resolution_breached_at) - la.conv_created_at
-                                                )
+                                        COALESCE(
+                                            la.resolution_working_sec::double precision,
+                                            EXTRACT(
+                                                EPOCH
+                                                FROM
+                                                    (
+                                                        COALESCE(la.resolution_met_at, la.resolution_breached_at) - la.conv_created_at
+                                                    )
+                                            )
                                         )
                                 ) FILTER (
                                     WHERE
-                                        COALESCE(la.resolution_met_at, la.resolution_breached_at) IS NOT NULL
+                                        la.resolution_working_sec IS NOT NULL
+                                        OR COALESCE(la.resolution_met_at, la.resolution_breached_at) IS NOT NULL
                                 ),
                                 0
                             ) AS median_resolution_sec
@@ -1646,32 +1674,40 @@ assignee_stats AS (
         COALESCE(
             percentile_cont(0.5) WITHIN GROUP (
                 ORDER BY
-                    EXTRACT(
-                        EPOCH
-                        FROM
-                            (
-                                COALESCE(la.first_response_met_at, la.first_response_breached_at) - la.conv_created_at
-                            )
+                    COALESCE(
+                        la.first_response_working_sec::double precision,
+                        EXTRACT(
+                            EPOCH
+                            FROM
+                                (
+                                    COALESCE(la.first_response_met_at, la.first_response_breached_at) - la.conv_created_at
+                                )
+                        )
                     )
             ) FILTER (
                 WHERE
-                    COALESCE(la.first_response_met_at, la.first_response_breached_at) IS NOT NULL
+                    la.first_response_working_sec IS NOT NULL
+                    OR COALESCE(la.first_response_met_at, la.first_response_breached_at) IS NOT NULL
             ),
             0
         ) AS median_first_response_sec,
         COALESCE(
             percentile_cont(0.5) WITHIN GROUP (
                 ORDER BY
-                    EXTRACT(
-                        EPOCH
-                        FROM
-                            (
-                                COALESCE(la.resolution_met_at, la.resolution_breached_at) - la.conv_created_at
-                            )
+                    COALESCE(
+                        la.resolution_working_sec::double precision,
+                        EXTRACT(
+                            EPOCH
+                            FROM
+                                (
+                                    COALESCE(la.resolution_met_at, la.resolution_breached_at) - la.conv_created_at
+                                )
+                        )
                     )
             ) FILTER (
                 WHERE
-                    COALESCE(la.resolution_met_at, la.resolution_breached_at) IS NOT NULL
+                    la.resolution_working_sec IS NOT NULL
+                    OR COALESCE(la.resolution_met_at, la.resolution_breached_at) IS NOT NULL
             ),
             0
         ) AS median_resolution_sec,

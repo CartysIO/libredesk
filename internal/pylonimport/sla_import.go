@@ -53,18 +53,27 @@ func (im *Importer) simulateImportedSLA(tx *sqlx.Tx, convID int, is Issue, creat
 	}
 
 	var (
-		frMet, frBreach     sql.NullTime
-		resMet, resBreach   sql.NullTime
+		frMet, frBreach      sql.NullTime
+		resMet, resBreach    sql.NullTime
 		firstReply, resolved *time.Time
 	)
 	if is.FirstResponseTime != nil {
 		firstReply = is.FirstResponseTime
+	}
+	if firstReply == nil && is.FirstResponseBreachTime != nil {
+		firstReply = is.FirstResponseBreachTime
 	}
 	if statusCategory == "resolved" && is.ResolutionTime != nil {
 		resolved = is.ResolutionTime
 	}
 	stampOutcome(firstReply, frDeadline, &frMet, &frBreach)
 	stampOutcome(resolved, resDeadline, &resMet, &resBreach)
+
+	frWorking := pylonWorkingSec(is.FirstResponseSeconds)
+	var resWorking sql.NullInt32
+	if statusCategory == "resolved" {
+		resWorking = pylonWorkingSec(is.ResolutionSeconds)
+	}
 
 	status := appliedSLAStatus(frMet, frBreach, resMet, resBreach, statusCategory)
 
@@ -74,9 +83,11 @@ func (im *Importer) simulateImportedSLA(tx *sqlx.Tx, convID int, is Issue, creat
 			resolution_met_at = $4,
 			resolution_breached_at = $5,
 			status = $6::applied_sla_status,
+			first_response_working_sec = $8,
+			resolution_working_sec = $9,
 			updated_at = $1
 		WHERE id = $7`,
-		createdAt, frMet, frBreach, resMet, resBreach, status, appliedID,
+		createdAt, frMet, frBreach, resMet, resBreach, status, appliedID, frWorking, resWorking,
 	); err != nil {
 		return err
 	}
@@ -147,4 +158,11 @@ func nullTimePtr(t time.Time) interface{} {
 		return nil
 	}
 	return t
+}
+
+func pylonWorkingSec(seconds *int) sql.NullInt32 {
+	if seconds == nil || *seconds < 0 {
+		return sql.NullInt32{}
+	}
+	return sql.NullInt32{Int32: int32(*seconds), Valid: true}
 }

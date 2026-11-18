@@ -29,11 +29,14 @@ func TestSimulateImportedSLAMet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	frSec, resSec := 1800, 7200
 	is := Issue{
-		CreatedAt:         t0,
-		FirstResponseTime: &fr,
-		ResolutionTime:    &res,
-		State:             "closed",
+		CreatedAt:            t0,
+		FirstResponseTime:    &fr,
+		ResolutionTime:       &res,
+		FirstResponseSeconds: &frSec,
+		ResolutionSeconds:    &resSec,
+		State:                "closed",
 	}
 	if err := im.simulateImportedSLA(tx, convID, is, t0, "resolved"); err != nil {
 		t.Fatal(err)
@@ -45,5 +48,16 @@ func TestSimulateImportedSLAMet(t *testing.T) {
 	db.Get(&n, `SELECT COUNT(*) FROM applied_slas WHERE conversation_id = $1 AND status = 'met'`, convID)
 	if n != 1 {
 		t.Fatalf("applied_slas = %d", n)
+	}
+	var gotFR, gotRes *int
+	if err := db.QueryRow(`SELECT first_response_working_sec, resolution_working_sec FROM applied_slas WHERE conversation_id = $1`, convID).
+		Scan(&gotFR, &gotRes); err != nil {
+		t.Fatal(err)
+	}
+	if gotFR == nil || *gotFR != frSec {
+		t.Fatalf("first_response_working_sec = %v, want %d", gotFR, frSec)
+	}
+	if gotRes == nil || *gotRes != resSec {
+		t.Fatalf("resolution_working_sec = %v, want %d", gotRes, resSec)
 	}
 }

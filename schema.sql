@@ -712,7 +712,10 @@ CREATE TABLE applied_slas (
 	first_response_breached_at TIMESTAMPTZ NULL,
 	resolution_breached_at TIMESTAMPTZ NULL,
 	first_response_met_at TIMESTAMPTZ NULL,
-	resolution_met_at TIMESTAMPTZ NULL
+	resolution_met_at TIMESTAMPTZ NULL,
+	-- Pylon import and future business-hours reporting: working-second durations (prefer over calendar met_at - created_at when set).
+	first_response_working_sec INT NULL,
+	resolution_working_sec INT NULL
 );
 CREATE INDEX index_applied_slas_on_conversation_id ON applied_slas(conversation_id);
 CREATE INDEX index_applied_slas_on_status ON applied_slas(status);
