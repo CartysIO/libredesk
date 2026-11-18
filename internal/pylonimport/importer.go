@@ -454,7 +454,12 @@ func (im *Importer) load(d Data) error {
 		case 1:
 			im.chatInboxID = ids[0]
 		default:
-			return fmt.Errorf("found %d livechat inboxes: pass --pylon-chat-inbox <id>", len(ids))
+			if err := im.DB.Get(&im.chatInboxID, `SELECT id FROM inboxes WHERE channel = 'livechat' AND deleted_at IS NULL ORDER BY enabled DESC, id LIMIT 1`); err != nil {
+				return err
+			}
+			if im.Out != nil {
+				fmt.Fprintf(im.Out, "pylon import: found %d livechat inboxes; using inbox %d for chat_widget (first enabled, else lowest id; override with --pylon-chat-inbox)\n", len(ids), im.chatInboxID)
+			}
 		}
 	}
 	if im.Opt.SLAPolicyID < 0 {

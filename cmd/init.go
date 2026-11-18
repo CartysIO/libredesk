@@ -158,7 +158,7 @@ func initFlags() {
 	f.Int("limit", 0, "with --pylon-import: import at most this many conversations (0 = all)")
 	f.String("since", "", "with --pylon-import: only issues created on or after this date (YYYY-MM-DD); also limits Pylon API issue listing unless issues.json is already cached")
 	f.Int("pylon-inbox", 0, "with --pylon-import: email inbox id for email and form issues (default: the only email inbox)")
-	f.Int("pylon-chat-inbox", 0, "with --pylon-import: livechat inbox id for chat_widget issues (default: the only livechat inbox)")
+	f.Int("pylon-chat-inbox", 0, "with --pylon-import: livechat inbox id for chat_widget issues (default: the only livechat inbox, or the first enabled when several exist)")
 	f.Int("pylon-sla-policy-id", 0, "with --pylon-import: SLA policy id to simulate on imported conversations (0 = default first policy)")
 	f.Int("pylon-reference-floor", 4000, "with --pylon-import: new conversations get reference numbers from here up (at least the highest Pylon number + 1)")
 	f.Bool("pylon-allow-missing-files", false, "with --pylon-import: import even when some files cannot be downloaded (their URLs stay in message meta)")
