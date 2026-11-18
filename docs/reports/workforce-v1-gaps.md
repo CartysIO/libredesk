@@ -12,7 +12,7 @@ This document lists **Pylon-style workforce widgets that v1 does not ship**, why
 
 | Pylon-style metric | In v1? | Blocker |
 | --- | --- | --- |
-| Median / bucket **first response** and **resolution** (labeled “business hours”) | Partial | Pylon imports use `first_response_working_sec` / `resolution_working_sec` on `applied_slas`; native tickets still use calendar `met_at − created_at` until a business-hours helper exists |
+| Median / bucket **first response** and **resolution** (labeled “business hours”) | Partial | Overview SLA averages, Issues/Workforce SLA medians & buckets, and SLA Breaches durations prefer `*_working_sec` when set (Pylon); native tickets still fall back to calendar time until a business-hours helper exists |
 | **Handle time** (median active work on a ticket, business hours) | No | No agent active-time or focus-time storage |
 | **Out of office / Away** tables (time away, away while breaching, etc.) | No | Only live `users.availability_status`; no history |
 | Assignee charts **at time of event** | Partial | Uses current `conversations.assigned_user_id`, not historical owner |

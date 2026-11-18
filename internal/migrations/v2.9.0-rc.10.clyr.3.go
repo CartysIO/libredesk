@@ -18,34 +18,16 @@ func V2_9_0_RC10_CLYR3(db *sqlx.DB, fs stuffbin.FileSystem, ko *koanf.Koanf) err
 	}
 	_, err = db.Exec(`
 		UPDATE applied_slas a
-		SET first_response_working_sec = sub.fr_sec
+		SET
+			first_response_working_sec = COALESCE(a.first_response_working_sec, sub.fr_sec),
+			resolution_working_sec = COALESCE(a.resolution_working_sec, sub.res_sec)
 		FROM (
 			SELECT
 				a2.id,
 				COALESCE(
 					NULLIF(c.meta->>'pylon_first_response_seconds', '')::int,
 					NULLIF(c.meta->'pylon'->>'first_response_seconds', '')::int
-				) AS fr_sec
-			FROM applied_slas a2
-			INNER JOIN conversations c ON c.id = a2.conversation_id
-			WHERE
-				a2.first_response_working_sec IS NULL
-				AND (
-					c.meta ? 'pylon_first_response_seconds'
-					OR (c.meta ? 'pylon' AND c.meta->'pylon' ? 'first_response_seconds')
-				)
-		) sub
-		WHERE a.id = sub.id AND sub.fr_sec IS NOT NULL;
-	`)
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(`
-		UPDATE applied_slas a
-		SET resolution_working_sec = sub.res_sec
-		FROM (
-			SELECT
-				a2.id,
+				) AS fr_sec,
 				COALESCE(
 					NULLIF(c.meta->>'pylon_resolution_seconds', '')::int,
 					NULLIF(c.meta->'pylon'->>'resolution_seconds', '')::int
@@ -53,13 +35,24 @@ func V2_9_0_RC10_CLYR3(db *sqlx.DB, fs stuffbin.FileSystem, ko *koanf.Koanf) err
 			FROM applied_slas a2
 			INNER JOIN conversations c ON c.id = a2.conversation_id
 			WHERE
-				a2.resolution_working_sec IS NULL
-				AND (
-					c.meta ? 'pylon_resolution_seconds'
-					OR (c.meta ? 'pylon' AND c.meta->'pylon' ? 'resolution_seconds')
+				(
+					a2.first_response_working_sec IS NULL
+					AND (
+						c.meta ? 'pylon_first_response_seconds'
+						OR (c.meta ? 'pylon' AND c.meta->'pylon' ? 'first_response_seconds')
+					)
+				)
+				OR (
+					a2.resolution_working_sec IS NULL
+					AND (
+						c.meta ? 'pylon_resolution_seconds'
+						OR (c.meta ? 'pylon' AND c.meta->'pylon' ? 'resolution_seconds')
+					)
 				)
 		) sub
-		WHERE a.id = sub.id AND sub.res_sec IS NOT NULL;
+		WHERE
+			a.id = sub.id
+			AND (sub.fr_sec IS NOT NULL OR sub.res_sec IS NOT NULL);
 	`)
 	return err
 }
