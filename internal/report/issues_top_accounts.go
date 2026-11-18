@@ -10,7 +10,11 @@ import (
 	"github.com/abhinavxd/libredesk/internal/envelope"
 )
 
-const defaultIssuesTopAccountsDays = 120
+const (
+	defaultIssuesTopAccountsDays = 120
+	// issuesTopAccountsLimit must match LIMIT in get-issues-top-accounts (queries.sql).
+	issuesTopAccountsLimit = 10
+)
 
 // IssuesTopAccountsSort is server-side ordering for the issues top-accounts table.
 type IssuesTopAccountsSort struct {
@@ -55,11 +59,11 @@ func (m *Manager) GetIssuesTopAccounts(in IssuesRangeInput, accountSearch string
 	}
 	bounds, err := ResolveIssuesRangeBounds(in)
 	if err != nil {
-		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+		return nil, envelope.NewError(envelope.InputError, err.Error(), nil)
 	}
 	orderExpr, err := sort.orderExpr()
 	if err != nil {
-		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+		return nil, envelope.NewError(envelope.InputError, err.Error(), nil)
 	}
 	topAccountsQuery := fmt.Sprintf(m.q.GetIssuesTopAccounts, orderExpr)
 	accountSearch = strings.TrimSpace(accountSearch)

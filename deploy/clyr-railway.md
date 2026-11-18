@@ -44,4 +44,5 @@ Use `--from-source` so Railway pulls the current digest for tag `clyr`, not the 
 ## Verify
 
 - `GET /api/v1/reports/issues?days=7` → **401** (not **404**) when the backend is current.
+- Issues report charts/scalars: `GET /api/v1/reports/issues`. Top accounts table (sort, date filter, max 10 rows): `GET /api/v1/reports/issues/top-accounts` (`sort_by`, `sort_dir`, `start_date`/`end_date` or `days`, `account_search`). The bundled issues response no longer includes `top_accounts`.
 - Compare deploy digest in Railway with `docker buildx imagetools inspect ghcr.io/cartysio/libredesk:clyr-<sha>` (needs GHCR pull auth).

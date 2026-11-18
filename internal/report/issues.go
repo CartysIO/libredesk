@@ -13,7 +13,7 @@ import (
 func (m *Manager) GetIssuesReport(in IssuesRangeInput) (json.RawMessage, error) {
 	bounds, err := ResolveIssuesRangeBounds(in)
 	if err != nil {
-		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+		return nil, envelope.NewError(envelope.InputError, err.Error(), nil)
 	}
 	tz := stringutil.NormalizeTimezone(in.AppTimezone)
 

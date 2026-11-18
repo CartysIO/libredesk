@@ -49,9 +49,7 @@
           </div>
         </div>
 
-        <div
-          class="desk-report-scalar-grid grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-4 xl:grid-cols-3"
-        >
+        <div class="desk-report-scalar-grid grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
           <div
             v-for="scalar in scalarCards"
             :key="scalar.key"
@@ -467,31 +465,39 @@ const showError = (error) => {
 let loadSeq = 0
 let accountsLoadSeq = 0
 
-const buildReportParams = () => {
-  const params = {}
-  if (isCustom.value && customStart.value && customEnd.value) {
-    params.start_date = customStart.value
-    params.end_date = customEnd.value
-  } else {
-    params.days = range.value
+const appendIssuesRangeParams = (params, { start, end, days }) => {
+  if (start && end) {
+    params.start_date = start
+    params.end_date = end
+  } else if (days != null) {
+    params.days = days
   }
   return params
 }
 
-const buildTopAccountsParams = () => {
-  const params = {
-    account_search: accountSearch.value.trim(),
-    sort_by: accountsSortBy.value,
-    sort_dir: accountsSortDir.value
-  }
-  if (accountsStart.value && accountsEnd.value) {
-    params.start_date = accountsStart.value
-    params.end_date = accountsEnd.value
-  } else {
-    params.days = ACCOUNTS_DEFAULT_DAYS
-  }
-  return params
-}
+const buildReportParams = () =>
+  appendIssuesRangeParams(
+    {},
+    {
+      start: isCustom.value ? customStart.value : '',
+      end: isCustom.value ? customEnd.value : '',
+      days: isCustom.value ? null : range.value
+    }
+  )
+
+const buildTopAccountsParams = () =>
+  appendIssuesRangeParams(
+    {
+      account_search: accountSearch.value.trim(),
+      sort_by: accountsSortBy.value,
+      sort_dir: accountsSortDir.value
+    },
+    {
+      start: accountsStart.value,
+      end: accountsEnd.value,
+      days: accountsStart.value && accountsEnd.value ? null : ACCOUNTS_DEFAULT_DAYS
+    }
+  )
 
 const mapTopAccountRows = (rows) =>
   (rows || []).map((row) => ({
@@ -583,7 +589,7 @@ const applyCustomRange = () => {
   if (!isCustom.value || !customStart.value || !customEnd.value) return
   if (customStart.value > customEnd.value) return
   markActive()
-  refreshAll()
+  loadReport()
 }
 
 let pollingSince = Date.now()

@@ -77,7 +77,11 @@ const ariaSort = (key) => {
   return props.sortDir === 'asc' ? 'ascending' : 'descending'
 }
 
-const rowKey = (row, index) => row.organization_id ?? `${row.account_name}-${index}`
+const rowKey = (row, index) => {
+  const id = row.organization_id
+  if (id != null && id !== '') return `org-${id}`
+  return `no-org-${row.account_name ?? ''}-${index}`
+}
 
 const formatCell = (row, col) => {
   const raw = row[col.key]
