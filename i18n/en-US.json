@@ -1805,7 +1805,7 @@
   "report.workforce.breachRateByDow": "SLA breach rate by day of week",
   "report.workforce.breachRateByHour": "SLA breach rate by hour of day",
   "report.workforce.breached": "Breached",
-  "report.workforce.calendarTimeNote": "Durations use calendar elapsed time (not business hours).",
+  "report.workforce.calendarTimeNote": "Durations use calendar elapsed time unless Pylon import stored business-hours seconds on the SLA (Workforce, Overview, Issues SLA charts, SLA Breaches).",
   "report.workforce.closed": "Closed",
   "report.workforce.dataDelay": "Data can be delayed by up to 15 minutes.",
   "report.workforce.firstResponse": "First response",

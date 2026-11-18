@@ -112,3 +112,120 @@ func TestGetWorkforceReportScalars(t *testing.T) {
 		t.Fatalf("active_breached_count = %d, want >= 1", narrow.Scalars.ActiveBreached)
 	}
 }
+
+func TestGetWorkforceReportPrefersWorkingSeconds(t *testing.T) {
+	db := testutil.NewDB(t, "report_workforce_working_sec")
+	lo := logf.New(logf.Opts{})
+	m, err := New(Opts{DB: db, Lo: &lo, I18n: testutil.NewI18n(t)})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var contactID, inboxID, policyID, convID int
+	db.Get(&contactID, `INSERT INTO users (type, first_name, last_name) VALUES ('contact', 'Test', 'User') RETURNING id`)
+	db.Get(&inboxID, `INSERT INTO inboxes (name, channel) VALUES ('Inbox', 'email') RETURNING id`)
+	db.Get(&policyID, `INSERT INTO sla_policies (name, description, first_response_time, resolution_time, next_response_time)
+		VALUES ('Default', '', 3600, 86400, 3600) RETURNING id`)
+
+	now := time.Now().UTC()
+	created := now.Add(-2 * time.Hour)
+	metFr := created.Add(30 * time.Minute)
+	db.Get(&convID, `INSERT INTO conversations (contact_id, inbox_id, status_id, created_at, resolved_at)
+		VALUES ($1, $2, (SELECT id FROM conversation_statuses WHERE category = 'open' LIMIT 1), $3, NULL) RETURNING id`,
+		contactID, inboxID, created)
+	const pylonFR = 518400
+	_, err = db.Exec(`INSERT INTO applied_slas (
+			conversation_id, sla_policy_id, status, created_at,
+			first_response_deadline_at, first_response_met_at, first_response_working_sec
+		) VALUES ($1, $2, 'pending', $3, $4, $5, $6)`,
+		convID, policyID, created, metFr, metFr, pylonFR)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := m.GetWorkforceReport(IssuesRangeInput{Days: 7, AppTimezone: "UTC"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload struct {
+		Scalars struct {
+			MedianFirstResponseSec float64 `json:"median_first_response_sec"`
+		} `json:"scalars"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Scalars.MedianFirstResponseSec != float64(pylonFR) {
+		t.Fatalf("median_first_response_sec = %v, want %v (Pylon working sec, not ~1800 calendar)",
+			payload.Scalars.MedianFirstResponseSec, float64(pylonFR))
+	}
+}
+
+func TestGetWorkforceReportWorkingSecBucketsAndWeekly(t *testing.T) {
+	db := testutil.NewDB(t, "report_workforce_working_charts")
+	lo := logf.New(logf.Opts{})
+	m, err := New(Opts{DB: db, Lo: &lo, I18n: testutil.NewI18n(t)})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var contactID, inboxID, policyID int
+	db.Get(&contactID, `INSERT INTO users (type, first_name, last_name) VALUES ('contact', 'Test', 'User') RETURNING id`)
+	db.Get(&inboxID, `INSERT INTO inboxes (name, channel) VALUES ('Inbox', 'email') RETURNING id`)
+	db.Get(&policyID, `INSERT INTO sla_policies (name, description, first_response_time, resolution_time, next_response_time)
+		VALUES ('Default', '', 3600, 86400, 3600) RETURNING id`)
+
+	now := time.Now().UTC()
+	created := now.Add(-2 * time.Hour)
+	metFr := created.Add(30 * time.Minute)
+	const pylonFR = 518400 // 3d+ bucket
+	var convID int
+	db.Get(&convID, `INSERT INTO conversations (contact_id, inbox_id, status_id, created_at, resolved_at)
+		VALUES ($1, $2, (SELECT id FROM conversation_statuses WHERE category = 'open' LIMIT 1), $3, NULL) RETURNING id`,
+		contactID, inboxID, created)
+	_, err = db.Exec(`INSERT INTO applied_slas (
+			conversation_id, sla_policy_id, status, created_at,
+			first_response_deadline_at, first_response_met_at, first_response_working_sec
+		) VALUES ($1, $2, 'pending', $3, $4, $5, $6)`,
+		convID, policyID, created, metFr, metFr, pylonFR)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := m.GetWorkforceReport(IssuesRangeInput{Days: 7, AppTimezone: "UTC"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload struct {
+		Charts struct {
+			FirstResponseBuckets []struct {
+				Label string `json:"label"`
+				Count int    `json:"count"`
+			} `json:"first_response_buckets"`
+			MedianSLAByWeek []struct {
+				MedianFirstResponseSec float64 `json:"median_first_response_sec"`
+			} `json:"median_sla_by_week"`
+			AssigneeOverview []struct {
+				MedianFirstResponseSec float64 `json:"median_first_response_sec"`
+			} `json:"assignee_overview"`
+		} `json:"charts"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatal(err)
+	}
+	var bucket3d int
+	for _, b := range payload.Charts.FirstResponseBuckets {
+		if b.Label == "3d+" {
+			bucket3d = b.Count
+		}
+	}
+	if bucket3d != 1 {
+		t.Fatalf("3d+ bucket count = %d, want 1", bucket3d)
+	}
+	if len(payload.Charts.MedianSLAByWeek) == 0 || payload.Charts.MedianSLAByWeek[0].MedianFirstResponseSec != float64(pylonFR) {
+		t.Fatalf("median_sla_by_week = %+v", payload.Charts.MedianSLAByWeek)
+	}
+	if len(payload.Charts.AssigneeOverview) != 1 || payload.Charts.AssigneeOverview[0].MedianFirstResponseSec != float64(pylonFR) {
+		t.Fatalf("assignee_overview = %+v", payload.Charts.AssigneeOverview)
+	}
+}

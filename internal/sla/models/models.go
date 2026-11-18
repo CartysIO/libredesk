@@ -82,6 +82,8 @@ type AppliedSLA struct {
 	ResolutionBreachedAt    null.Time `db:"resolution_breached_at"`
 	FirstResponseMetAt      null.Time `db:"first_response_met_at"`
 	ResolutionMetAt         null.Time `db:"resolution_met_at"`
+	FirstResponseWorkingSec null.Int  `db:"first_response_working_sec"`
+	ResolutionWorkingSec    null.Int  `db:"resolution_working_sec"`
 
 	// Conversation fields.
 	ConversationFirstResponseAt null.Time                   `db:"conversation_first_response_at"`

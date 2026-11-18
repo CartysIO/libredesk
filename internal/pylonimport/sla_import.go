@@ -25,7 +25,7 @@ func (im *Importer) simulateImportedSLA(tx *sqlx.Tx, convID int, is Issue, creat
 		return err
 	}
 	if has {
-		return nil
+		return im.refreshImportedSLADurations(tx, convID, is, statusCategory)
 	}
 	var pol slaPolicyRow
 	if err := tx.Get(&pol, `SELECT first_response_time, resolution_time FROM sla_policies WHERE id = $1`, im.Opt.SLAPolicyID); err != nil {
@@ -53,18 +53,28 @@ func (im *Importer) simulateImportedSLA(tx *sqlx.Tx, convID int, is Issue, creat
 	}
 
 	var (
-		frMet, frBreach     sql.NullTime
-		resMet, resBreach   sql.NullTime
+		frMet, frBreach      sql.NullTime
+		resMet, resBreach    sql.NullTime
 		firstReply, resolved *time.Time
 	)
 	if is.FirstResponseTime != nil {
 		firstReply = is.FirstResponseTime
+	}
+	// Pylon may omit first_response_time but still record when the FR SLA was missed.
+	if firstReply == nil && is.FirstResponseBreachTime != nil {
+		firstReply = is.FirstResponseBreachTime
 	}
 	if statusCategory == "resolved" && is.ResolutionTime != nil {
 		resolved = is.ResolutionTime
 	}
 	stampOutcome(firstReply, frDeadline, &frMet, &frBreach)
 	stampOutcome(resolved, resDeadline, &resMet, &resBreach)
+
+	frWorking := pylonWorkingSec(is.FirstResponseSeconds)
+	var resWorking sql.NullInt32
+	if statusCategory == "resolved" {
+		resWorking = pylonWorkingSec(is.ResolutionSeconds)
+	}
 
 	status := appliedSLAStatus(frMet, frBreach, resMet, resBreach, statusCategory)
 
@@ -74,9 +84,11 @@ func (im *Importer) simulateImportedSLA(tx *sqlx.Tx, convID int, is Issue, creat
 			resolution_met_at = $4,
 			resolution_breached_at = $5,
 			status = $6::applied_sla_status,
+			first_response_working_sec = $8,
+			resolution_working_sec = $9,
 			updated_at = $1
 		WHERE id = $7`,
-		createdAt, frMet, frBreach, resMet, resBreach, status, appliedID,
+		createdAt, frMet, frBreach, resMet, resBreach, status, appliedID, frWorking, resWorking,
 	); err != nil {
 		return err
 	}
@@ -147,4 +159,43 @@ func nullTimePtr(t time.Time) interface{} {
 		return nil
 	}
 	return t
+}
+
+func pylonWorkingSec(seconds *int) sql.NullInt32 {
+	if seconds == nil || *seconds < 0 {
+		return sql.NullInt32{}
+	}
+	return sql.NullInt32{Int32: int32(*seconds), Valid: true}
+}
+
+// refreshImportedSLADurations updates working-second fields on re-import when applied_slas already exists.
+func (im *Importer) refreshImportedSLADurations(tx *sqlx.Tx, convID int, is Issue, statusCategory string) error {
+	frWorking := pylonWorkingSec(is.FirstResponseSeconds)
+	var resWorking sql.NullInt32
+	if statusCategory == "resolved" {
+		resWorking = pylonWorkingSec(is.ResolutionSeconds)
+	}
+	if !frWorking.Valid && !resWorking.Valid {
+		return nil
+	}
+	_, err := tx.Exec(`
+		UPDATE applied_slas SET
+			first_response_working_sec = CASE WHEN $2::int IS NOT NULL THEN $2 ELSE first_response_working_sec END,
+			resolution_working_sec = CASE WHEN $3::int IS NOT NULL THEN $3 ELSE resolution_working_sec END,
+			updated_at = NOW()
+		WHERE id = (
+			SELECT id FROM applied_slas WHERE conversation_id = $1
+			ORDER BY created_at DESC, id DESC
+			LIMIT 1
+		)`,
+		convID, nullInt32Arg(frWorking), nullInt32Arg(resWorking),
+	)
+	return err
+}
+
+func nullInt32Arg(v sql.NullInt32) interface{} {
+	if !v.Valid {
+		return nil
+	}
+	return v.Int32
 }
