@@ -1786,3 +1786,132 @@ SELECT
         'assignee_overview',
         (SELECT data FROM assignee_overview)
     ) AS result;
+
+-- name: get-sla-breaches
+WITH range_bounds AS (
+    SELECT
+        $1::timestamptz AS starts_at,
+        $2::timestamptz AS ends_at
+),
+latest_sla AS (
+    SELECT DISTINCT ON (a.conversation_id)
+        a.id AS applied_sla_id,
+        a.conversation_id,
+        a.first_response_met_at,
+        a.first_response_breached_at,
+        a.resolution_met_at,
+        a.resolution_breached_at
+    FROM
+        applied_slas a
+        INNER JOIN conversations c ON c.id = a.conversation_id
+        CROSS JOIN range_bounds rb
+    WHERE
+        c.created_at >= rb.starts_at
+        AND c.created_at < rb.ends_at
+    ORDER BY
+        a.conversation_id,
+        a.created_at DESC,
+        a.id DESC
+),
+breached AS (
+    SELECT
+        c.uuid AS conversation_uuid,
+        c.reference_number,
+        c.subject,
+        c.created_at AS conversation_created_at,
+        to_char(
+            timezone($6::text, c.created_at),
+            'FMMon FMDD, YYYY, FMHH12:MI AM'
+        ) AS created_at_display,
+        c.organization_id,
+        COALESCE(o.name, '') AS organization_name,
+        EXTRACT(
+            EPOCH
+            FROM
+                (
+                    COALESCE(
+                        la.first_response_met_at,
+                        la.first_response_breached_at
+                    ) - c.created_at
+                )
+        ) AS first_response_sec,
+        EXTRACT(
+            EPOCH
+            FROM
+                (
+                    COALESCE(la.resolution_met_at, la.resolution_breached_at) - c.created_at
+                )
+        ) AS resolution_sec,
+        nr.max_next_response_sec
+    FROM
+        latest_sla la
+        INNER JOIN conversations c ON c.id = la.conversation_id
+        LEFT JOIN organizations o ON o.id = c.organization_id
+        LEFT JOIN LATERAL (
+            SELECT
+                MAX(
+                    EXTRACT(
+                        EPOCH
+                        FROM
+                            (COALESCE(e.met_at, e.breached_at) - c.created_at)
+                    )
+                ) AS max_next_response_sec
+            FROM
+                sla_events e
+            WHERE
+                e.applied_sla_id = la.applied_sla_id
+                AND e.type = 'next_response'
+                AND e.status IN ('met', 'breached')
+        ) nr ON true
+    WHERE
+        la.first_response_breached_at IS NOT NULL
+        OR la.resolution_breached_at IS NOT NULL
+),
+filtered AS (
+    SELECT
+        *
+    FROM
+        breached b
+    WHERE
+        $3 = ''
+        OR b.reference_number ILIKE '%%' || $3 || '%%'
+        OR COALESCE(b.subject, '') ILIKE '%%' || $3 || '%%'
+        OR COALESCE(b.organization_name, '') ILIKE '%%' || $3 || '%%'
+),
+page_rows AS (
+    SELECT
+        conversation_uuid AS uuid,
+        reference_number,
+        subject,
+        conversation_created_at AS created_at,
+        created_at_display,
+        organization_id,
+        organization_name,
+        first_response_sec,
+        resolution_sec,
+        max_next_response_sec
+    FROM
+        filtered
+    ORDER BY
+        %s
+    LIMIT
+        $4
+    OFFSET
+        $5
+)
+SELECT
+    (
+        SELECT
+            COUNT(*)::int
+        FROM
+            filtered
+    ) AS total,
+    COALESCE(
+        (
+            SELECT
+                json_agg(row_to_json(page_rows))
+            FROM
+                page_rows
+        ),
+        '[]'::json
+    ) AS rows;

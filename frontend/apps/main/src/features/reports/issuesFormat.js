@@ -1,4 +1,23 @@
 import { format, parseISO, isValid } from 'date-fns'
+import { enUS, es, fr, ptBR, ja } from 'date-fns/locale'
+
+const REPORT_DATE_LOCALES = {
+  'en-US': enUS,
+  en: enUS,
+  'es-ES': es,
+  es,
+  'fr-FR': fr,
+  fr,
+  'pt-BR': ptBR,
+  pt: ptBR,
+  'ja-JP': ja,
+  ja
+}
+
+export function reportDateFnsLocale(i18nLocale) {
+  if (!i18nLocale) return enUS
+  return REPORT_DATE_LOCALES[i18nLocale] ?? enUS
+}
 
 export function formatReportDate(value) {
   if (value == null || value === '') return ''
@@ -19,6 +38,30 @@ export function formatReportDateTime(value) {
   } catch {
     return ''
   }
+}
+
+/** Readable report datetime (e.g. Nov 17, 2026, 8:50 AM). Prefer `created_at_display` from API when set. */
+export function formatReportDateTimeReadable(value, locale = enUS) {
+  if (value == null || value === '') return ''
+  if (typeof value === 'string' && !value.includes('T') && !/^\d{4}-\d{2}-\d{2}/.test(value)) {
+    return value
+  }
+  try {
+    const d = value instanceof Date ? value : new Date(value)
+    if (!isValid(d)) return ''
+    return format(d, 'MMM d, yyyy, h:mm a', { locale })
+  } catch {
+    return ''
+  }
+}
+
+/** Duration for report tables: null/absent → em dash; zero → 0s. */
+export function formatReportDurationSeconds(seconds) {
+  if (seconds == null || seconds === '') return '—'
+  const total = Math.floor(Number(seconds))
+  if (!Number.isFinite(total) || total < 0) return '—'
+  if (total === 0) return '0s'
+  return formatResolutionDaysHours(total)
 }
 
 export function formatReportHour24(hour) {

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"strconv"
 
+	"github.com/abhinavxd/libredesk/internal/envelope"
 	"github.com/abhinavxd/libredesk/internal/report"
 	"github.com/zerodha/fastglue"
 )
@@ -129,6 +131,66 @@ func handleIssuesTopAccounts(r *fastglue.Request) error {
 		return sendErrorEnvelope(r, err)
 	}
 	return r.SendEnvelope(payload)
+}
+
+// handleSlaBreachesReport returns a paginated table of conversations with first-response or resolution SLA breaches.
+func handleSlaBreachesReport(r *fastglue.Request) error {
+	var (
+		app     = r.Context.(*App)
+		days, _ = strconv.Atoi(string(r.RequestCtx.QueryArgs().Peek("days")))
+		search  = string(r.RequestCtx.QueryArgs().Peek("search"))
+		start   = string(r.RequestCtx.QueryArgs().Peek("start_date"))
+		end     = string(r.RequestCtx.QueryArgs().Peek("end_date"))
+		sortBy  = string(r.RequestCtx.QueryArgs().Peek("sort_by"))
+		sortDir = string(r.RequestCtx.QueryArgs().Peek("sort_dir"))
+	)
+	page, pageSize := reportPagination(r, report.SlaBreachesDefaultPageSize())
+	payload, err := app.report.GetSlaBreaches(
+		report.IssuesRangeInput{
+			Days:        days,
+			StartDate:   start,
+			EndDate:     end,
+			AppTimezone: app.setting.GetAppTimezone(),
+		},
+		search,
+		report.SlaBreachesSort{By: sortBy, Dir: sortDir},
+		page,
+		pageSize,
+	)
+	if err != nil {
+		return sendErrorEnvelope(r, err)
+	}
+	var rows []any
+	if err := json.Unmarshal(payload.Rows, &rows); err != nil {
+		return sendErrorEnvelope(r, err)
+	}
+	total := payload.Total
+	totalPages := 0
+	if pageSize > 0 {
+		totalPages = (total + pageSize - 1) / pageSize
+	}
+	return r.SendEnvelope(envelope.PageResults{
+		Results:    rows,
+		Total:      total,
+		PerPage:    pageSize,
+		TotalPages: totalPages,
+		Page:       page,
+	})
+}
+
+func reportPagination(r *fastglue.Request, defaultPageSize int) (page, pageSize int) {
+	page, _ = strconv.Atoi(string(r.RequestCtx.QueryArgs().Peek("page")))
+	pageSize, _ = strconv.Atoi(string(r.RequestCtx.QueryArgs().Peek("page_size")))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = defaultPageSize
+	}
+	if pageSize > maxPageSize {
+		pageSize = maxPageSize
+	}
+	return page, pageSize
 }
 
 // handleWorkforceReport returns bundled SLA and agent workload analytics.

@@ -40,8 +40,20 @@
       </thead>
       <tbody>
         <tr v-for="(row, i) in rows" :key="rowKey(row, i)" class="border-b border-border/70 last:border-0">
-          <td v-for="col in columns" :key="col.key" class="py-2 pr-4 tabular-nums">
-            {{ formatCell(row, col) }}
+          <td
+            v-for="col in columns"
+            :key="col.key"
+            class="py-2 pr-4"
+            :class="{ 'tabular-nums': col.numeric !== false }"
+          >
+            <router-link
+              v-if="linkColumn && col.key === linkColumn.columnKey"
+              :to="linkColumn.to(row)"
+              class="font-medium text-primary underline-offset-4 can-hover:hover:underline tabular-nums"
+            >
+              {{ linkColumn.prefix ?? '' }}{{ row[col.key] }}
+            </router-link>
+            <span v-else :class="{ 'tabular-nums': col.numeric !== false && !col.plainText }">{{ formatCell(row, col) }}</span>
           </td>
         </tr>
       </tbody>
@@ -57,12 +69,18 @@ const props = defineProps({
   rows: { type: Array, required: true },
   columns: { type: Array, required: true },
   sortBy: { type: String, default: 'total' },
-  sortDir: { type: String, default: 'desc' }
+  sortDir: { type: String, default: 'desc' },
+  /** When set, renders a router-link for this column (e.g. conversation reference). */
+  linkColumn: { type: Object, default: null },
+  /** Sort keys that default to ascending when newly selected. */
+  sortAscKeys: { type: Array, default: () => ['account_name'] },
+  /** Prefer this field for row keys when present (e.g. uuid). */
+  rowIdKey: { type: String, default: '' }
 })
 
 const emit = defineEmits(['update:sort'])
 
-const defaultDirFor = (key) => (key === 'account_name' ? 'asc' : 'desc')
+const defaultDirFor = (key) => (props.sortAscKeys.includes(key) ? 'asc' : 'desc')
 
 const toggleSort = (key) => {
   if (props.sortBy === key) {
@@ -78,6 +96,9 @@ const ariaSort = (key) => {
 }
 
 const rowKey = (row, index) => {
+  if (props.rowIdKey && row[props.rowIdKey] != null && row[props.rowIdKey] !== '') {
+    return String(row[props.rowIdKey])
+  }
   const orgId = row.organization_id
   if (orgId != null && orgId !== '') return `org-${orgId}`
   const assigneeId = row.assigned_user_id
@@ -88,7 +109,8 @@ const rowKey = (row, index) => {
 
 const formatCell = (row, col) => {
   const raw = row[col.key]
-  if (col.format) return col.format(raw)
-  return raw ?? ''
+  if (col.format) return col.format(raw, row)
+  if (raw == null || raw === '') return col.empty ?? '—'
+  return raw
 }
 </script>

@@ -436,6 +436,7 @@ const getOverviewTagDistribution = (params) => http.get('/api/v1/reports/overvie
 const getIssuesReport = (params) => http.get('/api/v1/reports/issues', { params })
 const getIssuesTopAccounts = (params) => http.get('/api/v1/reports/issues/top-accounts', { params })
 const getWorkforceReport = (params) => http.get('/api/v1/reports/workforce', { params })
+const getSlaBreachesReport = (params) => http.get('/api/v1/reports/sla-breaches', { params })
 const getLanguage = (lang) => http.get(`/api/v1/lang/${lang}`)
 const getAvailableLanguages = () => http.get('/api/v1/lang')
 const createInbox = (data) =>
@@ -749,6 +750,7 @@ export default {
   getIssuesReport,
   getIssuesTopAccounts,
   getWorkforceReport,
+  getSlaBreachesReport,
   getConversationMessage,
   getConversationMessages,
   getConversationTranscript,
