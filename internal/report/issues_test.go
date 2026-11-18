@@ -23,6 +23,9 @@ func TestGetIssuesTopAccountsQueryParams(t *testing.T) {
 	if !strings.Contains(m.q.GetIssuesTopAccounts, "$3 = ''") {
 		t.Fatal("account search empty check should use $3")
 	}
+	if !strings.Contains(m.q.GetIssuesTopAccounts, "AS result") {
+		t.Fatalf("query looks truncated: ...%s", m.q.GetIssuesTopAccounts[len(m.q.GetIssuesTopAccounts)-80:])
+	}
 }
 
 func TestGetIssuesReportScalars(t *testing.T) {

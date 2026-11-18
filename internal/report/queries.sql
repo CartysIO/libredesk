@@ -1089,7 +1089,7 @@ account_stats AS (
         %s,
         account_name
     LIMIT
-        10 -- keep in sync with issuesTopAccountsLimit in issues_top_accounts.go
+        10
 )
 SELECT
     COALESCE(
