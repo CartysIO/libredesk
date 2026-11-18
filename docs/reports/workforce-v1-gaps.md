@@ -4,7 +4,7 @@ This document lists **Pylon-style workforce widgets that v1 does not ship**, why
 
 **Shipped in v1:** [`/reports/workforce`](../../frontend/apps/main/src/views/reports/WorkforceView.vue) — API [`GET /api/v1/reports/workforce`](../../cmd/report.go) — SQL [`get-workforce-scalars` / `get-workforce-charts`](../../internal/report/queries.sql).
 
-**Universe (v1):** One row per conversation = **latest** `applied_slas` row whose `created_at` falls in the selected range. Durations use **`conversation.created_at`** as the start timestamp and **calendar elapsed time** (wall clock), same spirit as Overview SLA averages.
+**Universe (v1):** One row per conversation = **latest** `applied_slas` row whose `created_at` falls in the selected range. Durations use **`conversation.created_at`** as the start timestamp and **calendar elapsed time** (wall clock), same spirit as Overview SLA averages. Medians include conversations that only have breach timestamps (same end event as histogram buckets). **`active_breached_count`** is global (latest pending applied SLA on a non-resolved conversation with FR or resolution breach), not filtered by the report date range.
 
 ---
 
@@ -174,9 +174,9 @@ Workforce can later embed a subset if product wants one combined “operations�
 
 ## 10. Breach rate by hour / day of week
 
-**v1 behavior:** Rates are computed over the Workforce **SLA universe**, grouped by **`conversation.created_at`** hour/DOW in app timezone (aligned with Issues “by hour” pattern), not by breach timestamp.
+**v1 behavior (intentional):** Rates use the Workforce **SLA universe** and group by **`conversation.created_at`** hour/DOW in app timezone—the same creation-time bucketing as Issues “by hour,” not the instant of breach. Numerators count rows with `first_response_breached_at` or `resolution_breached_at` (not `applied_slas.status` alone).
 
-**If Pylon uses breach moment instead:** Store or compute breach instant explicitly and add an alternate grouping dimension; no new schema required beyond SLA tables already present.
+**If Pylon uses breach moment instead:** Add a parallel chart keyed on `GREATEST(breach timestamps)` or per-metric breach time; no new schema required beyond SLA tables already present.
 
 ---
 

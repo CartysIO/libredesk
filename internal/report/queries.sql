@@ -1164,13 +1164,15 @@ SELECT
                             EXTRACT(
                                 EPOCH
                                 FROM
-                                    (la.first_response_met_at - la.conv_created_at)
+                                    (
+                                        COALESCE(la.first_response_met_at, la.first_response_breached_at) - la.conv_created_at
+                                    )
                             )
                     )
                 FROM
                     latest_sla la
                 WHERE
-                    la.first_response_met_at IS NOT NULL
+                    COALESCE(la.first_response_met_at, la.first_response_breached_at) IS NOT NULL
             ),
             0
         ),
@@ -1183,13 +1185,15 @@ SELECT
                             EXTRACT(
                                 EPOCH
                                 FROM
-                                    (la.resolution_met_at - la.conv_created_at)
+                                    (
+                                        COALESCE(la.resolution_met_at, la.resolution_breached_at) - la.conv_created_at
+                                    )
                             )
                     )
                 FROM
                     latest_sla la
                 WHERE
-                    la.resolution_met_at IS NOT NULL
+                    COALESCE(la.resolution_met_at, la.resolution_breached_at) IS NOT NULL
             ),
             0
         ),
@@ -1219,7 +1223,6 @@ SELECT
                     WHERE
                         la.first_response_breached_at IS NOT NULL
                         OR la.resolution_breached_at IS NOT NULL
-                        OR la.status IN ('breached', 'partially_met')
                 ) / NULLIF((SELECT COUNT(*) FROM latest_sla), 0),
                 1
             ),
@@ -1230,13 +1233,27 @@ SELECT
             SELECT
                 COUNT(*)::int
             FROM
-                latest_sla la
+                (
+                    SELECT DISTINCT ON (a.conversation_id)
+                        a.status,
+                        a.first_response_breached_at,
+                        a.resolution_breached_at,
+                        s.category AS conv_status_category
+                    FROM
+                        applied_slas a
+                        INNER JOIN conversations c ON c.id = a.conversation_id
+                        INNER JOIN conversation_statuses s ON s.id = c.status_id
+                    ORDER BY
+                        a.conversation_id,
+                        a.created_at DESC,
+                        a.id DESC
+                ) active_sla
             WHERE
-                la.status = 'pending'
-                AND la.resolved_at IS NULL
+                active_sla.status = 'pending'
+                AND active_sla.conv_status_category != 'resolved'
                 AND (
-                    la.first_response_breached_at IS NOT NULL
-                    OR la.resolution_breached_at IS NOT NULL
+                    active_sla.first_response_breached_at IS NOT NULL
+                    OR active_sla.resolution_breached_at IS NOT NULL
                 )
         ),
         'first_response_breach_percent',
@@ -1318,10 +1335,12 @@ latest_sla AS (
         a.resolution_breached_at,
         c.created_at AS conv_created_at,
         c.resolved_at,
-        c.assigned_user_id
+        c.assigned_user_id,
+        cs.category AS conv_status_category
     FROM
         applied_slas a
-        INNER JOIN conversations c ON c.id = a.conversation_id,
+        INNER JOIN conversations c ON c.id = a.conversation_id
+        INNER JOIN conversation_statuses cs ON cs.id = c.status_id,
         range_bounds rb
     WHERE
         a.created_at >= rb.starts_at
@@ -1470,11 +1489,13 @@ median_sla_by_week AS (
                                         EXTRACT(
                                             EPOCH
                                             FROM
-                                                (la.first_response_met_at - la.conv_created_at)
+                                                (
+                                                    COALESCE(la.first_response_met_at, la.first_response_breached_at) - la.conv_created_at
+                                                )
                                         )
                                 ) FILTER (
                                     WHERE
-                                        la.first_response_met_at IS NOT NULL
+                                        COALESCE(la.first_response_met_at, la.first_response_breached_at) IS NOT NULL
                                 ),
                                 0
                             ) AS median_first_response_sec,
@@ -1484,11 +1505,13 @@ median_sla_by_week AS (
                                         EXTRACT(
                                             EPOCH
                                             FROM
-                                                (la.resolution_met_at - la.conv_created_at)
+                                                (
+                                                    COALESCE(la.resolution_met_at, la.resolution_breached_at) - la.conv_created_at
+                                                )
                                         )
                                 ) FILTER (
                                     WHERE
-                                        la.resolution_met_at IS NOT NULL
+                                        COALESCE(la.resolution_met_at, la.resolution_breached_at) IS NOT NULL
                                 ),
                                 0
                             ) AS median_resolution_sec
@@ -1516,17 +1539,13 @@ achieved_vs_breached_by_week AS (
                             ) AS week,
                             COUNT(*) FILTER (
                                 WHERE
-                                    NOT (
-                                        la.first_response_breached_at IS NOT NULL
-                                        OR la.resolution_breached_at IS NOT NULL
-                                        OR la.status IN ('breached', 'partially_met')
-                                    )
+                                    la.first_response_breached_at IS NULL
+                                    AND la.resolution_breached_at IS NULL
                             )::int AS achieved,
                             COUNT(*) FILTER (
                                 WHERE
                                     la.first_response_breached_at IS NOT NULL
                                     OR la.resolution_breached_at IS NOT NULL
-                                    OR la.status IN ('breached', 'partially_met')
                             )::int AS breached
                         FROM
                             latest_sla la
@@ -1557,7 +1576,6 @@ breach_rate_by_hour AS (
                                         WHERE
                                             la.first_response_breached_at IS NOT NULL
                                             OR la.resolution_breached_at IS NOT NULL
-                                            OR la.status IN ('breached', 'partially_met')
                                     )::numeric / NULLIF(COUNT(*), 0),
                                     1
                                 ),
@@ -1593,7 +1611,6 @@ breach_rate_by_dow AS (
                                         WHERE
                                             la.first_response_breached_at IS NOT NULL
                                             OR la.resolution_breached_at IS NOT NULL
-                                            OR la.status IN ('breached', 'partially_met')
                                     )::numeric / NULLIF(COUNT(*), 0),
                                     1
                                 ),
@@ -1619,11 +1636,11 @@ assignee_stats AS (
         ) AS assignee_name,
         COUNT(*) FILTER (
             WHERE
-                la.resolved_at IS NULL
+                la.conv_status_category != 'resolved'
         )::int AS open_count,
         COUNT(*) FILTER (
             WHERE
-                la.resolved_at IS NOT NULL
+                la.conv_status_category = 'resolved'
         )::int AS closed_count,
         COUNT(*)::int AS total,
         COALESCE(
@@ -1632,11 +1649,13 @@ assignee_stats AS (
                     EXTRACT(
                         EPOCH
                         FROM
-                            (la.first_response_met_at - la.conv_created_at)
+                            (
+                                COALESCE(la.first_response_met_at, la.first_response_breached_at) - la.conv_created_at
+                            )
                     )
             ) FILTER (
                 WHERE
-                    la.first_response_met_at IS NOT NULL
+                    COALESCE(la.first_response_met_at, la.first_response_breached_at) IS NOT NULL
             ),
             0
         ) AS median_first_response_sec,
@@ -1646,11 +1665,13 @@ assignee_stats AS (
                     EXTRACT(
                         EPOCH
                         FROM
-                            (la.resolution_met_at - la.conv_created_at)
+                            (
+                                COALESCE(la.resolution_met_at, la.resolution_breached_at) - la.conv_created_at
+                            )
                     )
             ) FILTER (
                 WHERE
-                    la.resolution_met_at IS NOT NULL
+                    COALESCE(la.resolution_met_at, la.resolution_breached_at) IS NOT NULL
             ),
             0
         ) AS median_resolution_sec,
@@ -1660,7 +1681,6 @@ assignee_stats AS (
                     WHERE
                         la.first_response_breached_at IS NOT NULL
                         OR la.resolution_breached_at IS NOT NULL
-                        OR la.status IN ('breached', 'partially_met')
                 )::numeric / NULLIF(COUNT(*), 0),
                 1
             ),

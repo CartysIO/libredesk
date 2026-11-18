@@ -83,7 +83,7 @@
 
         <div class="box w-full p-5">
           <p class="ui-heading mb-4">{{ $t('report.workforce.medianResponseResolution') }}</p>
-          <p v-if="!medianSlaHasData" class="text-sm text-muted-foreground">
+          <p v-if="!medianSlaHasData" class="text-sm text-muted-foreground min-h-[200px]">
             {{ $t('report.workforce.noSlaData') }}
           </p>
           <IssuesLineChart
@@ -174,9 +174,9 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { format, subDays } from 'date-fns'
 import { watchDebounced } from '@vueuse/core'
 import { useDocumentVisibility, useIntervalFn } from '@vueuse/core'
-import { useEmitter } from '@main/composables/useEmitter.js'
-import { EMITTER_EVENTS } from '@main/constants/emitter.js'
-import { handleHTTPError } from '@main/utils/http.js'
+import { useEmitter } from '@main/composables/useEmitter'
+import { EMITTER_EVENTS } from '@main/constants/emitterEvents.js'
+import { handleHTTPError } from '@shared-ui/utils/http.js'
 import {
   formatCompactDuration,
   formatReportDateTime,

@@ -79,4 +79,36 @@ func TestGetWorkforceReportScalars(t *testing.T) {
 	if len(payload.Charts.AssigneeOverview) != 1 || payload.Charts.AssigneeOverview[0].Total != 1 {
 		t.Fatalf("assignee_overview = %+v", payload.Charts.AssigneeOverview)
 	}
+
+	// Active breached count is global: SLA applied outside the report window still counts when still open.
+	oldCreated := now.Add(-90 * 24 * time.Hour)
+	var conv2ID int
+	if err := db.Get(&conv2ID, `INSERT INTO conversations (contact_id, inbox_id, status_id, created_at, resolved_at)
+		VALUES ($1, $2, (SELECT id FROM conversation_statuses WHERE category = 'open' LIMIT 1), $3, NULL) RETURNING id`,
+		contactID, inboxID, oldCreated); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO applied_slas (
+			conversation_id, sla_policy_id, status, created_at,
+			first_response_deadline_at, first_response_breached_at
+		) VALUES ($1, $2, 'pending', $3, $4, $4)`,
+		conv2ID, policyID, oldCreated, oldCreated.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+
+	rawNarrow, err := m.GetWorkforceReport(IssuesRangeInput{Days: 7, AppTimezone: "UTC"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var narrow struct {
+		Scalars struct {
+			ActiveBreached int `json:"active_breached_count"`
+		} `json:"scalars"`
+	}
+	if err := json.Unmarshal(rawNarrow, &narrow); err != nil {
+		t.Fatal(err)
+	}
+	if narrow.Scalars.ActiveBreached < 1 {
+		t.Fatalf("active_breached_count = %d, want >= 1", narrow.Scalars.ActiveBreached)
+	}
 }
