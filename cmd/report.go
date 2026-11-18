@@ -130,3 +130,23 @@ func handleIssuesTopAccounts(r *fastglue.Request) error {
 	}
 	return r.SendEnvelope(payload)
 }
+
+// handleWorkforceReport returns bundled SLA and agent workload analytics.
+func handleWorkforceReport(r *fastglue.Request) error {
+	var (
+		app     = r.Context.(*App)
+		days, _ = strconv.Atoi(string(r.RequestCtx.QueryArgs().Peek("days")))
+		start   = string(r.RequestCtx.QueryArgs().Peek("start_date"))
+		end     = string(r.RequestCtx.QueryArgs().Peek("end_date"))
+	)
+	payload, err := app.report.GetWorkforceReport(report.IssuesRangeInput{
+		Days:        days,
+		StartDate:   start,
+		EndDate:     end,
+		AppTimezone: app.setting.GetAppTimezone(),
+	})
+	if err != nil {
+		return sendErrorEnvelope(r, err)
+	}
+	return r.SendEnvelope(payload)
+}
