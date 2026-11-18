@@ -1101,3 +1101,688 @@ SELECT
         ),
         '[]'::json
     ) AS result;
+
+-- name: get-workforce-scalars
+WITH range_bounds AS (
+    SELECT
+        $1::timestamptz AS starts_at,
+        $2::timestamptz AS ends_at
+),
+latest_sla AS (
+    SELECT DISTINCT ON (a.conversation_id)
+        a.id,
+        a.conversation_id,
+        a.created_at,
+        a.status,
+        a.first_response_deadline_at,
+        a.resolution_deadline_at,
+        a.first_response_met_at,
+        a.resolution_met_at,
+        a.first_response_breached_at,
+        a.resolution_breached_at,
+        c.created_at AS conv_created_at,
+        c.resolved_at
+    FROM
+        applied_slas a
+        INNER JOIN conversations c ON c.id = a.conversation_id,
+        range_bounds rb
+    WHERE
+        a.created_at >= rb.starts_at
+        AND a.created_at < rb.ends_at
+    ORDER BY
+        a.conversation_id,
+        a.created_at DESC,
+        a.id DESC
+),
+next_response AS (
+    SELECT
+        COUNT(*) FILTER (
+            WHERE
+                e.status = 'breached'
+        ) AS breached,
+        COUNT(*) FILTER (
+            WHERE
+                e.status IN ('met', 'breached')
+        ) AS total
+    FROM
+        sla_events e
+        INNER JOIN latest_sla la ON la.id = e.applied_sla_id,
+        range_bounds rb
+    WHERE
+        e.type = 'next_response'
+        AND e.created_at >= rb.starts_at
+        AND e.created_at < rb.ends_at
+)
+SELECT
+    json_build_object(
+        'median_first_response_sec',
+        COALESCE(
+            (
+                SELECT
+                    percentile_cont(0.5) WITHIN GROUP (
+                        ORDER BY
+                            EXTRACT(
+                                EPOCH
+                                FROM
+                                    (
+                                        COALESCE(la.first_response_met_at, la.first_response_breached_at) - la.conv_created_at
+                                    )
+                            )
+                    )
+                FROM
+                    latest_sla la
+                WHERE
+                    COALESCE(la.first_response_met_at, la.first_response_breached_at) IS NOT NULL
+            ),
+            0
+        ),
+        'median_resolution_sec',
+        COALESCE(
+            (
+                SELECT
+                    percentile_cont(0.5) WITHIN GROUP (
+                        ORDER BY
+                            EXTRACT(
+                                EPOCH
+                                FROM
+                                    (
+                                        COALESCE(la.resolution_met_at, la.resolution_breached_at) - la.conv_created_at
+                                    )
+                            )
+                    )
+                FROM
+                    latest_sla la
+                WHERE
+                    COALESCE(la.resolution_met_at, la.resolution_breached_at) IS NOT NULL
+            ),
+            0
+        ),
+        'sla_achievement_rate',
+        COALESCE(
+            ROUND(
+                100.0 * (
+                    SELECT
+                        COUNT(*)::numeric
+                    FROM
+                        latest_sla la
+                    WHERE
+                        la.status = 'met'
+                ) / NULLIF((SELECT COUNT(*) FROM latest_sla), 0),
+                1
+            ),
+            0
+        ),
+        'sla_breached_tickets_percent',
+        COALESCE(
+            ROUND(
+                100.0 * (
+                    SELECT
+                        COUNT(*)::numeric
+                    FROM
+                        latest_sla la
+                    WHERE
+                        la.first_response_breached_at IS NOT NULL
+                        OR la.resolution_breached_at IS NOT NULL
+                ) / NULLIF((SELECT COUNT(*) FROM latest_sla), 0),
+                1
+            ),
+            0
+        ),
+        'active_breached_count',
+        (
+            SELECT
+                COUNT(*)::int
+            FROM
+                (
+                    SELECT DISTINCT ON (a.conversation_id)
+                        a.status,
+                        a.first_response_breached_at,
+                        a.resolution_breached_at,
+                        s.category AS conv_status_category
+                    FROM
+                        applied_slas a
+                        INNER JOIN conversations c ON c.id = a.conversation_id
+                        INNER JOIN conversation_statuses s ON s.id = c.status_id
+                    ORDER BY
+                        a.conversation_id,
+                        a.created_at DESC,
+                        a.id DESC
+                ) active_sla
+            WHERE
+                active_sla.status = 'pending'
+                AND active_sla.conv_status_category != 'resolved'
+                AND (
+                    active_sla.first_response_breached_at IS NOT NULL
+                    OR active_sla.resolution_breached_at IS NOT NULL
+                )
+        ),
+        'first_response_breach_percent',
+        COALESCE(
+            ROUND(
+                100.0 * (
+                    SELECT
+                        COUNT(*)::numeric
+                    FROM
+                        latest_sla la
+                    WHERE
+                        la.first_response_breached_at IS NOT NULL
+                ) / NULLIF(
+                    (
+                        SELECT
+                            COUNT(*)::numeric
+                        FROM
+                            latest_sla la
+                        WHERE
+                            la.first_response_deadline_at IS NOT NULL
+                    ),
+                    0
+                ),
+                1
+            ),
+            0
+        ),
+        'resolution_breach_percent',
+        COALESCE(
+            ROUND(
+                100.0 * (
+                    SELECT
+                        COUNT(*)::numeric
+                    FROM
+                        latest_sla la
+                    WHERE
+                        la.resolution_breached_at IS NOT NULL
+                ) / NULLIF(
+                    (
+                        SELECT
+                            COUNT(*)::numeric
+                        FROM
+                            latest_sla la
+                        WHERE
+                            la.resolution_deadline_at IS NOT NULL
+                    ),
+                    0
+                ),
+                1
+            ),
+            0
+        ),
+        'next_response_breach_percent',
+        COALESCE(
+            ROUND(100.0 * nr.breached::numeric / NULLIF(nr.total, 0), 1),
+            0
+        )
+    )
+FROM
+    next_response nr;
+
+-- name: get-workforce-charts
+WITH range_bounds AS (
+    SELECT
+        $2::timestamptz AS starts_at,
+        $3::timestamptz AS ends_at
+),
+latest_sla AS (
+    SELECT DISTINCT ON (a.conversation_id)
+        a.id,
+        a.conversation_id,
+        a.created_at,
+        a.status,
+        a.first_response_deadline_at,
+        a.resolution_deadline_at,
+        a.first_response_met_at,
+        a.resolution_met_at,
+        a.first_response_breached_at,
+        a.resolution_breached_at,
+        c.created_at AS conv_created_at,
+        c.resolved_at,
+        c.assigned_user_id,
+        cs.category AS conv_status_category
+    FROM
+        applied_slas a
+        INNER JOIN conversations c ON c.id = a.conversation_id
+        INNER JOIN conversation_statuses cs ON cs.id = c.status_id,
+        range_bounds rb
+    WHERE
+        a.created_at >= rb.starts_at
+        AND a.created_at < rb.ends_at
+    ORDER BY
+        a.conversation_id,
+        a.created_at DESC,
+        a.id DESC
+),
+bucket_labels AS (
+    SELECT
+        *
+    FROM
+        (
+            VALUES
+                (1, '<1h'),
+                (2, '1-4h'),
+                (3, '4-8h'),
+                (4, '8-24h'),
+                (5, '1-3d'),
+                (6, '3d+')
+        ) AS t (sort_key, label)
+),
+fr_durations AS (
+    SELECT
+        CASE
+            WHEN sec < 3600 THEN '<1h'
+            WHEN sec < 14400 THEN '1-4h'
+            WHEN sec < 28800 THEN '4-8h'
+            WHEN sec < 86400 THEN '8-24h'
+            WHEN sec < 259200 THEN '1-3d'
+            ELSE '3d+'
+        END AS label
+    FROM
+        (
+            SELECT
+                EXTRACT(
+                    EPOCH
+                    FROM
+                        (
+                            COALESCE(la.first_response_met_at, la.first_response_breached_at) - la.conv_created_at
+                        )
+                ) AS sec
+            FROM
+                latest_sla la
+            WHERE
+                COALESCE(la.first_response_met_at, la.first_response_breached_at) IS NOT NULL
+        ) d
+    WHERE
+        sec >= 0
+),
+res_durations AS (
+    SELECT
+        CASE
+            WHEN sec < 3600 THEN '<1h'
+            WHEN sec < 14400 THEN '1-4h'
+            WHEN sec < 28800 THEN '4-8h'
+            WHEN sec < 86400 THEN '8-24h'
+            WHEN sec < 259200 THEN '1-3d'
+            ELSE '3d+'
+        END AS label
+    FROM
+        (
+            SELECT
+                EXTRACT(
+                    EPOCH
+                    FROM
+                        (
+                            COALESCE(la.resolution_met_at, la.resolution_breached_at) - la.conv_created_at
+                        )
+                ) AS sec
+            FROM
+                latest_sla la
+            WHERE
+                COALESCE(la.resolution_met_at, la.resolution_breached_at) IS NOT NULL
+        ) d
+    WHERE
+        sec >= 0
+),
+first_response_buckets AS (
+    SELECT
+        COALESCE(
+            (
+                SELECT
+                    json_agg(
+                        json_build_object('label', bl.label, 'count', COALESCE(cnt.c, 0))
+                        ORDER BY
+                            bl.sort_key
+                    )
+                FROM
+                    bucket_labels bl
+                    LEFT JOIN (
+                        SELECT
+                            label,
+                            COUNT(*)::int AS c
+                        FROM
+                            fr_durations
+                        GROUP BY
+                            1
+                    ) cnt ON cnt.label = bl.label
+            ),
+            '[]'::json
+        ) AS data
+),
+resolution_buckets AS (
+    SELECT
+        COALESCE(
+            (
+                SELECT
+                    json_agg(
+                        json_build_object('label', bl.label, 'count', COALESCE(cnt.c, 0))
+                        ORDER BY
+                            bl.sort_key
+                    )
+                FROM
+                    bucket_labels bl
+                    LEFT JOIN (
+                        SELECT
+                            label,
+                            COUNT(*)::int AS c
+                        FROM
+                            res_durations
+                        GROUP BY
+                            1
+                    ) cnt ON cnt.label = bl.label
+            ),
+            '[]'::json
+        ) AS data
+),
+median_sla_by_week AS (
+    SELECT
+        COALESCE(
+            (
+                SELECT
+                    json_agg(row_to_json(agg) ORDER BY agg.week)
+                FROM
+                    (
+                        SELECT
+                            TO_CHAR(
+                                DATE_TRUNC('week', la.created_at AT TIME ZONE $1),
+                                'YYYY-MM-DD'
+                            ) AS week,
+                            COALESCE(
+                                percentile_cont(0.5) WITHIN GROUP (
+                                    ORDER BY
+                                        EXTRACT(
+                                            EPOCH
+                                            FROM
+                                                (
+                                                    COALESCE(la.first_response_met_at, la.first_response_breached_at) - la.conv_created_at
+                                                )
+                                        )
+                                ) FILTER (
+                                    WHERE
+                                        COALESCE(la.first_response_met_at, la.first_response_breached_at) IS NOT NULL
+                                ),
+                                0
+                            ) AS median_first_response_sec,
+                            COALESCE(
+                                percentile_cont(0.5) WITHIN GROUP (
+                                    ORDER BY
+                                        EXTRACT(
+                                            EPOCH
+                                            FROM
+                                                (
+                                                    COALESCE(la.resolution_met_at, la.resolution_breached_at) - la.conv_created_at
+                                                )
+                                        )
+                                ) FILTER (
+                                    WHERE
+                                        COALESCE(la.resolution_met_at, la.resolution_breached_at) IS NOT NULL
+                                ),
+                                0
+                            ) AS median_resolution_sec
+                        FROM
+                            latest_sla la
+                        GROUP BY
+                            1
+                    ) agg
+            ),
+            '[]'::json
+        ) AS data
+),
+achieved_vs_breached_by_week AS (
+    SELECT
+        COALESCE(
+            (
+                SELECT
+                    json_agg(row_to_json(agg) ORDER BY agg.week)
+                FROM
+                    (
+                        SELECT
+                            TO_CHAR(
+                                DATE_TRUNC('week', la.created_at AT TIME ZONE $1),
+                                'YYYY-MM-DD'
+                            ) AS week,
+                            COUNT(*) FILTER (
+                                WHERE
+                                    la.first_response_breached_at IS NULL
+                                    AND la.resolution_breached_at IS NULL
+                            )::int AS achieved,
+                            COUNT(*) FILTER (
+                                WHERE
+                                    la.first_response_breached_at IS NOT NULL
+                                    OR la.resolution_breached_at IS NOT NULL
+                            )::int AS breached
+                        FROM
+                            latest_sla la
+                        GROUP BY
+                            1
+                    ) agg
+            ),
+            '[]'::json
+        ) AS data
+),
+breach_rate_by_hour AS (
+    SELECT
+        COALESCE(
+            (
+                SELECT
+                    json_agg(row_to_json(agg) ORDER BY agg.hour)
+                FROM
+                    (
+                        SELECT
+                            EXTRACT(
+                                HOUR
+                                FROM
+                                    la.conv_created_at AT TIME ZONE $1
+                            )::int AS hour,
+                            COALESCE(
+                                ROUND(
+                                    100.0 * COUNT(*) FILTER (
+                                        WHERE
+                                            la.first_response_breached_at IS NOT NULL
+                                            OR la.resolution_breached_at IS NOT NULL
+                                    )::numeric / NULLIF(COUNT(*), 0),
+                                    1
+                                ),
+                                0
+                            ) AS breach_rate
+                        FROM
+                            latest_sla la
+                        GROUP BY
+                            1
+                    ) agg
+            ),
+            '[]'::json
+        ) AS data
+),
+breach_rate_by_dow AS (
+    SELECT
+        COALESCE(
+            (
+                SELECT
+                    json_agg(row_to_json(agg) ORDER BY agg.dow)
+                FROM
+                    (
+                        SELECT
+                            EXTRACT(
+                                ISODOW
+                                FROM
+                                    la.conv_created_at AT TIME ZONE $1
+                            )::int AS dow,
+                            TO_CHAR(la.conv_created_at AT TIME ZONE $1, 'Dy') AS label,
+                            COALESCE(
+                                ROUND(
+                                    100.0 * COUNT(*) FILTER (
+                                        WHERE
+                                            la.first_response_breached_at IS NOT NULL
+                                            OR la.resolution_breached_at IS NOT NULL
+                                    )::numeric / NULLIF(COUNT(*), 0),
+                                    1
+                                ),
+                                0
+                            ) AS breach_rate
+                        FROM
+                            latest_sla la
+                        GROUP BY
+                            1,
+                            2
+                    ) agg
+            ),
+            '[]'::json
+        ) AS data
+),
+assignee_stats AS (
+    SELECT
+        la.assigned_user_id,
+        COALESCE(
+            NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+            NULLIF(TRIM(u.email), ''),
+            'Unassigned'
+        ) AS assignee_name,
+        COUNT(*) FILTER (
+            WHERE
+                la.conv_status_category != 'resolved'
+        )::int AS open_count,
+        COUNT(*) FILTER (
+            WHERE
+                la.conv_status_category = 'resolved'
+        )::int AS closed_count,
+        COUNT(*)::int AS total,
+        COALESCE(
+            percentile_cont(0.5) WITHIN GROUP (
+                ORDER BY
+                    EXTRACT(
+                        EPOCH
+                        FROM
+                            (
+                                COALESCE(la.first_response_met_at, la.first_response_breached_at) - la.conv_created_at
+                            )
+                    )
+            ) FILTER (
+                WHERE
+                    COALESCE(la.first_response_met_at, la.first_response_breached_at) IS NOT NULL
+            ),
+            0
+        ) AS median_first_response_sec,
+        COALESCE(
+            percentile_cont(0.5) WITHIN GROUP (
+                ORDER BY
+                    EXTRACT(
+                        EPOCH
+                        FROM
+                            (
+                                COALESCE(la.resolution_met_at, la.resolution_breached_at) - la.conv_created_at
+                            )
+                    )
+            ) FILTER (
+                WHERE
+                    COALESCE(la.resolution_met_at, la.resolution_breached_at) IS NOT NULL
+            ),
+            0
+        ) AS median_resolution_sec,
+        COALESCE(
+            ROUND(
+                100.0 * COUNT(*) FILTER (
+                    WHERE
+                        la.first_response_breached_at IS NOT NULL
+                        OR la.resolution_breached_at IS NOT NULL
+                )::numeric / NULLIF(COUNT(*), 0),
+                1
+            ),
+            0
+        ) AS breach_rate_percent
+    FROM
+        latest_sla la
+        LEFT JOIN users u ON u.id = la.assigned_user_id
+    GROUP BY
+        la.assigned_user_id,
+        assignee_name
+),
+assignee_overview AS (
+    SELECT
+        COALESCE(
+            (
+                SELECT
+                    json_agg(row_to_json(agg) ORDER BY agg.total DESC, agg.assignee_name)
+                FROM
+                    (
+                        SELECT
+                            assigned_user_id,
+                            assignee_name,
+                            open_count,
+                            closed_count,
+                            total,
+                            median_first_response_sec,
+                            median_resolution_sec,
+                            breach_rate_percent
+                        FROM
+                            assignee_stats
+                    ) agg
+            ),
+            '[]'::json
+        ) AS data
+),
+first_response_by_assignee AS (
+    SELECT
+        COALESCE(
+            (
+                SELECT
+                    json_agg(row_to_json(agg) ORDER BY agg.median_first_response_sec DESC)
+                FROM
+                    (
+                        SELECT
+                            assignee_name,
+                            median_first_response_sec
+                        FROM
+                            assignee_stats
+                        WHERE
+                            median_first_response_sec > 0
+                        ORDER BY
+                            median_first_response_sec DESC
+                        LIMIT
+                            15
+                    ) agg
+            ),
+            '[]'::json
+        ) AS data
+),
+resolution_by_assignee AS (
+    SELECT
+        COALESCE(
+            (
+                SELECT
+                    json_agg(row_to_json(agg) ORDER BY agg.median_resolution_sec DESC)
+                FROM
+                    (
+                        SELECT
+                            assignee_name,
+                            median_resolution_sec
+                        FROM
+                            assignee_stats
+                        WHERE
+                            median_resolution_sec > 0
+                        ORDER BY
+                            median_resolution_sec DESC
+                        LIMIT
+                            15
+                    ) agg
+            ),
+            '[]'::json
+        ) AS data
+)
+SELECT
+    json_build_object(
+        'first_response_buckets',
+        (SELECT data FROM first_response_buckets),
+        'resolution_buckets',
+        (SELECT data FROM resolution_buckets),
+        'median_sla_by_week',
+        (SELECT data FROM median_sla_by_week),
+        'achieved_vs_breached_by_week',
+        (SELECT data FROM achieved_vs_breached_by_week),
+        'breach_rate_by_hour',
+        (SELECT data FROM breach_rate_by_hour),
+        'breach_rate_by_dow',
+        (SELECT data FROM breach_rate_by_dow),
+        'first_response_by_assignee',
+        (SELECT data FROM first_response_by_assignee),
+        'resolution_by_assignee',
+        (SELECT data FROM resolution_by_assignee),
+        'assignee_overview',
+        (SELECT data FROM assignee_overview)
+    ) AS result;

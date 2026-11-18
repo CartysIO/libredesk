@@ -72,6 +72,12 @@ const routes = [
             name: 'issues',
             component: () => import('@main/views/reports/IssuesView.vue'),
             meta: { titleKey: 'globals.terms.issues' }
+          },
+          {
+            path: 'workforce',
+            name: 'workforce',
+            component: () => import('@main/views/reports/WorkforceView.vue'),
+            meta: { titleKey: 'globals.terms.workforce' }
           }
         ]
       },

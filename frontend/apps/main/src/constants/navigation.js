@@ -10,6 +10,12 @@ export const reportsNavItems = [
     href: '/reports/issues',
     permission: 'reports:manage',
     icon: 'LineChart'
+  },
+  {
+    titleKey: 'globals.terms.workforce',
+    href: '/reports/workforce',
+    permission: 'reports:manage',
+    icon: 'Users'
   }
 ]
 

@@ -52,6 +52,8 @@ type queries struct {
 	GetIssuesScalars           string `query:"get-issues-scalars"`
 	GetIssuesCharts            string `query:"get-issues-charts"`
 	GetIssuesTopAccounts       string `query:"get-issues-top-accounts"`
+	GetWorkforceScalars        string `query:"get-workforce-scalars"`
+	GetWorkforceCharts         string `query:"get-workforce-charts"`
 }
 
 // New creates and returns a new instance of the Manager.

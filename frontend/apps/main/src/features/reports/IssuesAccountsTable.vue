@@ -78,9 +78,12 @@ const ariaSort = (key) => {
 }
 
 const rowKey = (row, index) => {
-  const id = row.organization_id
-  if (id != null && id !== '') return `org-${id}`
-  return `no-org-${row.account_name ?? ''}-${index}`
+  const orgId = row.organization_id
+  if (orgId != null && orgId !== '') return `org-${orgId}`
+  const assigneeId = row.assigned_user_id
+  if (assigneeId != null && assigneeId !== '') return `assignee-${assigneeId}`
+  const label = row.account_name ?? row.assignee_name ?? ''
+  return `row-${label}-${index}`
 }
 
 const formatCell = (row, col) => {
