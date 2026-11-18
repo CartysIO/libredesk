@@ -92,6 +92,11 @@
       </DropdownMenu>
     </div>
 
+    <InboxAllDateRangeFilter
+      v-if="isAllInbox"
+      class="shrink-0 border-b border-border/50 px-3 py-2"
+    />
+
     <!-- Content -->
     <div class="desk-scroll min-h-0 flex-1 overscroll-contain">
       <EmptyList
@@ -188,10 +193,11 @@ import { useBulkActionPermissions } from '@/composables/useBulkActionPermissions
 import EmptyList from '@/features/conversation/list/ConversationEmptyList.vue'
 import ConversationBulkActionToolbar from '@/features/conversation/list/ConversationBulkActionToolbar.vue'
 import ConversationViewToggle from '@/features/conversation/board/ConversationViewToggle.vue'
-import { CONVERSATION_ACTIVE_STATUS } from '@/constants/conversation'
+import { CONVERSATION_ACTIVE_STATUS, CONVERSATION_LIST_TYPE } from '@/constants/conversation'
 import { useBoardMode } from '@/composables/useBoardMode'
 import ConversationListItem from '@/features/conversation/list/ConversationListItem.vue'
 import ConversationListItemSkeleton from '@/features/conversation/list/ConversationListItemSkeleton.vue'
+import InboxAllDateRangeFilter from '@/features/conversation/list/InboxAllDateRangeFilter.vue'
 
 const conversationStore = useConversationStore()
 const teamStore = useTeamStore()
@@ -199,6 +205,7 @@ const { canBulkAct } = useBulkActionPermissions()
 const route = useRoute()
 const { t } = useI18n()
 const { isBoard } = useBoardMode()
+const isAllInbox = computed(() => route.params.type === CONVERSATION_LIST_TYPE.ALL)
 
 const listStatusLabel = computed(() =>
   conversationStore.getListStatus === CONVERSATION_ACTIVE_STATUS

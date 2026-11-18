@@ -1,0 +1,2 @@
+export const DATE_RANGE_PRESET_OPTIONS = [7, 30, 90, 120]
+export const DEFAULT_DATE_RANGE_DAYS = 90
