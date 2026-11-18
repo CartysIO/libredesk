@@ -144,7 +144,7 @@ func handleSlaBreachesReport(r *fastglue.Request) error {
 		sortBy  = string(r.RequestCtx.QueryArgs().Peek("sort_by"))
 		sortDir = string(r.RequestCtx.QueryArgs().Peek("sort_dir"))
 	)
-	page, pageSize := slaBreachesPagination(r)
+	page, pageSize := reportPagination(r, report.SlaBreachesDefaultPageSize())
 	payload, err := app.report.GetSlaBreaches(
 		report.IssuesRangeInput{
 			Days:        days,
@@ -178,14 +178,14 @@ func handleSlaBreachesReport(r *fastglue.Request) error {
 	})
 }
 
-func slaBreachesPagination(r *fastglue.Request) (page, pageSize int) {
+func reportPagination(r *fastglue.Request, defaultPageSize int) (page, pageSize int) {
 	page, _ = strconv.Atoi(string(r.RequestCtx.QueryArgs().Peek("page")))
 	pageSize, _ = strconv.Atoi(string(r.RequestCtx.QueryArgs().Peek("page_size")))
 	if page < 1 {
 		page = 1
 	}
 	if pageSize < 1 {
-		pageSize = report.SlaBreachesDefaultPageSize()
+		pageSize = defaultPageSize
 	}
 	if pageSize > maxPageSize {
 		pageSize = maxPageSize

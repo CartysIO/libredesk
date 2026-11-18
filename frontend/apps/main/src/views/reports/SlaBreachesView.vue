@@ -12,7 +12,7 @@
             <span class="text-sm text-muted-foreground">
               {{ $t('globals.terms.lastUpdated') }}: {{ lastUpdateFormatted }}
             </span>
-            <span class="text-xs text-muted-foreground">{{ $t('report.slaBreaches.dataDelay') }}</span>
+            <span class="text-xs text-muted-foreground">{{ $t('report.issues.dataDelay') }}</span>
             <span class="text-xs text-muted-foreground">{{ $t('report.workforce.calendarTimeNote') }}</span>
             <template v-if="autoRefreshPaused">
               <span class="text-sm text-muted-foreground">{{ $t('report.autoRefreshPaused') }}</span>
@@ -60,12 +60,15 @@
               :disabled="isLoading"
             />
           </div>
-          <SlaBreachesTable
+          <IssuesAccountsTable
             v-if="rows.length"
             :rows="rows"
             :columns="columns"
             :sort-by="sortBy"
             :sort-dir="sortDir"
+            :sort-asc-keys="sortAscKeys"
+            row-id-key="uuid"
+            :link-column="conversationLink"
             @update:sort="onSort"
           />
           <p v-else-if="!isLoading" class="text-sm text-muted-foreground">
@@ -76,7 +79,7 @@
             v-model:page="page"
             v-model:per-page="perPage"
             :total-pages="totalPages"
-            :per-page-options="[25, 50, 100]"
+            :per-page-options="[50]"
             class="mt-4 border-t border-border/70 pt-3"
           />
         </div>
@@ -87,18 +90,20 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { useDocumentVisibility, useIntervalFn, watchDebounced } from '@vueuse/core'
-import { subDays, format } from 'date-fns'
+import { watchDebounced } from '@vueuse/core'
 import { useEmitter } from '@main/composables/useEmitter'
 import { EMITTER_EVENTS } from '@main/constants/emitterEvents.js'
 import { handleHTTPError } from '@shared-ui/utils/http.js'
 import {
   formatReportDateTime,
   formatReportDateTimeReadable,
-  formatResolutionDaysHours
+  formatReportDurationSeconds,
+  reportDateFnsLocale
 } from '@/features/reports/issuesFormat.js'
+import { REPORT_RANGE_OPTIONS, useReportDateRange } from '@main/composables/useReportDateRange.js'
+import { useReportPolling } from '@main/composables/useReportPolling.js'
 import IssuesReportDateRange from '@/features/reports/IssuesReportDateRange.vue'
-import SlaBreachesTable from '@/features/reports/SlaBreachesTable.vue'
+import IssuesAccountsTable from '@/features/reports/IssuesAccountsTable.vue'
 import PaginationBar from '@main/components/pagination/PaginationBar.vue'
 import Spinner from '@shared-ui/components/ui/spinner/Spinner.vue'
 import { Button } from '@shared-ui/components/ui/button/index.js'
@@ -107,19 +112,13 @@ import { Separator } from '@shared-ui/components/ui/separator'
 import { useI18n } from 'vue-i18n'
 import api from '@main/api'
 
-const REFRESH_INTERVAL_MS = 5 * 60 * 1000
-const MAX_POLL_DURATION_MS = 60 * 60 * 1000
+const rangeOptions = REPORT_RANGE_OPTIONS
+const sortAscKeys = ['reference_number', 'subject', 'organization_name']
 
 const emitter = useEmitter()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const isLoading = ref(false)
 const lastUpdate = ref(new Date())
-const rangeOptions = [7, 30, 90, 120]
-const range = ref(90)
-const isCustom = ref(false)
-const customStart = ref('')
-const customEnd = ref('')
-const autoRefreshPaused = ref(false)
 const search = ref('')
 const sortBy = ref('created_at')
 const sortDir = ref('desc')
@@ -129,39 +128,50 @@ const total = ref(0)
 const totalPages = ref(0)
 const rows = ref([])
 
+const conversationLink = {
+  columnKey: 'reference_number',
+  prefix: '#',
+  to: (row) => ({ name: 'inbox-conversation', params: { type: 'all', uuid: row.uuid } })
+}
+
+const dateLocale = computed(() => reportDateFnsLocale(locale.value))
+
 const columns = computed(() => [
   { key: 'reference_number', label: t('report.slaBreaches.conversationNumber') },
   {
     key: 'created_at',
     label: t('report.slaBreaches.conversationCreatedAt'),
-    format: (v) => formatReportDateTimeReadable(v)
+    format: (v, row) =>
+      formatReportDateTimeReadable(row.created_at_display || v, dateLocale.value)
   },
   {
     key: 'subject',
     label: t('report.slaBreaches.conversationTitle'),
+    plainText: true,
     format: (v) => v || '—'
   },
   {
     key: 'first_response_sec',
     label: t('report.slaBreaches.firstResponseTime'),
     numeric: true,
-    format: (v) => formatResolutionDaysHours(v)
+    format: (v) => formatReportDurationSeconds(v)
   },
   {
     key: 'resolution_sec',
     label: t('report.slaBreaches.resolutionTime'),
     numeric: true,
-    format: (v) => formatResolutionDaysHours(v)
+    format: (v) => formatReportDurationSeconds(v)
   },
   {
     key: 'max_next_response_sec',
     label: t('report.slaBreaches.maxNextResponseTime'),
     numeric: true,
-    format: (v) => formatResolutionDaysHours(v)
+    format: (v) => formatReportDurationSeconds(v)
   },
   {
     key: 'organization_name',
     label: t('globals.terms.organization'),
+    plainText: true,
     format: (v) => v || t('report.slaBreaches.noOrganization')
   }
 ])
@@ -177,32 +187,20 @@ const showError = (error) => {
 
 let loadSeq = 0
 
-const appendRangeParams = (params) => {
-  if (isCustom.value && customStart.value && customEnd.value) {
-    params.start_date = customStart.value
-    params.end_date = customEnd.value
-  } else {
-    params.days = range.value
-  }
-  return params
-}
-
-const buildParams = () =>
-  appendRangeParams({
-    search: search.value.trim(),
-    sort_by: sortBy.value,
-    sort_dir: sortDir.value,
-    page: page.value,
-    page_size: perPage.value
-  })
-
 const load = async ({ silent = false } = {}) => {
   const seq = ++loadSeq
   if (!silent) {
     isLoading.value = true
   }
   try {
-    const { data } = await api.getSlaBreachesReport(buildParams())
+    const params = appendRangeParams({
+      search: search.value.trim(),
+      sort_by: sortBy.value,
+      sort_dir: sortDir.value,
+      page: page.value,
+      page_size: perPage.value
+    })
+    const { data } = await api.getSlaBreachesReport(params)
     if (seq !== loadSeq) return
     rows.value = data.data?.results || []
     total.value = data.data?.total ?? 0
@@ -218,36 +216,23 @@ const load = async ({ silent = false } = {}) => {
   }
 }
 
-const selectRange = (option) => {
-  isCustom.value = false
-  if (option === range.value) return
-  markActive()
-  range.value = option
+const resetPageAndLoad = () => {
   page.value = 1
+  markActive()
   load()
 }
 
-const seedCustomRangeFromPreset = () => {
-  const end = new Date()
-  const start = subDays(end, range.value)
-  customEnd.value = format(end, 'yyyy-MM-dd')
-  customStart.value = format(start, 'yyyy-MM-dd')
-}
+const {
+  range,
+  isCustom,
+  customStart,
+  customEnd,
+  appendRangeParams,
+  selectRange,
+  enableCustom
+} = useReportDateRange({ defaultDays: 90, onRangeApply: resetPageAndLoad })
 
-const enableCustom = () => {
-  isCustom.value = true
-  if (!customStart.value || !customEnd.value) {
-    seedCustomRangeFromPreset()
-  }
-}
-
-const applyCustomRange = () => {
-  if (!isCustom.value || !customStart.value || !customEnd.value) return
-  if (customStart.value > customEnd.value) return
-  markActive()
-  page.value = 1
-  load()
-}
+const { autoRefreshPaused, markActive, manualRefresh } = useReportPolling(load, lastUpdate)
 
 const onSort = ({ by, dir }) => {
   if (sortBy.value === by && sortDir.value === dir) return
@@ -258,59 +243,14 @@ const onSort = ({ by, dir }) => {
   load({ silent: true })
 }
 
-let pollingSince = Date.now()
-
-const scheduledRefresh = () => {
-  if (Date.now() - pollingSince >= MAX_POLL_DURATION_MS) {
-    pause()
-    autoRefreshPaused.value = true
-    return
-  }
-  load({ silent: true })
-}
-
-const visibility = useDocumentVisibility()
-const { pause, resume } = useIntervalFn(scheduledRefresh, REFRESH_INTERVAL_MS)
-
-const markActive = () => {
-  pollingSince = Date.now()
-  autoRefreshPaused.value = false
-  resume()
-}
-
-const manualRefresh = () => {
-  markActive()
-  load()
-}
-
-watch(visibility, (v) => {
-  if (v === 'visible') {
-    markActive()
-    if (Date.now() - lastUpdate.value.getTime() >= REFRESH_INTERVAL_MS) {
-      load({ silent: true })
-    }
-  } else {
-    pause()
-  }
-})
-
 watchDebounced(
   search,
   () => {
     page.value = 1
+    markActive()
     load({ silent: true })
   },
   { debounce: 400 }
-)
-
-watchDebounced(
-  [customStart, customEnd],
-  () => {
-    if (isCustom.value && customStart.value && customEnd.value) {
-      applyCustomRange()
-    }
-  },
-  { debounce: 350 }
 )
 
 watch([page, perPage], () => {

@@ -1819,6 +1819,10 @@ breached AS (
         c.reference_number,
         c.subject,
         c.created_at AS conversation_created_at,
+        to_char(
+            timezone($6::text, c.created_at),
+            'FMMon FMDD, YYYY, FMHH12:MI AM'
+        ) AS created_at_display,
         c.organization_id,
         COALESCE(o.name, '') AS organization_name,
         EXTRACT(
@@ -1880,6 +1884,7 @@ page_rows AS (
         reference_number,
         subject,
         conversation_created_at AS created_at,
+        created_at_display,
         organization_id,
         organization_name,
         first_response_sec,

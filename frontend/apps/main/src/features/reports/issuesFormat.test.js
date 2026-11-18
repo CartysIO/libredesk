@@ -4,7 +4,8 @@ import {
   formatCompactDuration,
   formatResolutionDaysHours,
   formatReportHour24,
-  formatReportDateTimeReadable
+  formatReportDateTimeReadable,
+  formatReportDurationSeconds
 } from './issuesFormat.js'
 
 describe('issuesFormat', () => {
@@ -27,5 +28,12 @@ describe('issuesFormat', () => {
 
   it('formats readable report datetimes', () => {
     expect(formatReportDateTimeReadable('2026-11-17T14:50:00.000Z')).toMatch(/Nov 17, 2026/)
+    expect(formatReportDateTimeReadable('Nov 17, 2026, 8:50 AM')).toBe('Nov 17, 2026, 8:50 AM')
+  })
+
+  it('formats optional report durations', () => {
+    expect(formatReportDurationSeconds(null)).toBe('—')
+    expect(formatReportDurationSeconds(0)).toBe('0s')
+    expect(formatReportDurationSeconds(90)).toBe('1m')
   })
 })

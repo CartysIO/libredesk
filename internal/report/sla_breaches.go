@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/abhinavxd/libredesk/internal/envelope"
+	"github.com/abhinavxd/libredesk/internal/stringutil"
 )
 
 const (
@@ -47,12 +48,12 @@ func (s SlaBreachesSort) orderExpr() (string, error) {
 	}
 	col, ok := cols[by]
 	if !ok {
-		return "", fmt.Errorf("invalid sort_by %q", by)
+		return "", fmt.Errorf("invalid sla_breaches_sort_by %q", by)
 	}
 	switch dir {
 	case "asc", "desc":
 	default:
-		return "", fmt.Errorf("invalid sort_dir %q", dir)
+		return "", fmt.Errorf("invalid sla_breaches_sort_dir %q", dir)
 	}
 	dirSQL := strings.ToUpper(dir)
 	nulls := " NULLS LAST"
@@ -81,15 +82,13 @@ func (m *Manager) GetSlaBreaches(in IssuesRangeInput, search string, sort SlaBre
 	if err != nil {
 		return SlaBreachesPage{}, envelope.NewError(envelope.InputError, err.Error(), nil)
 	}
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 {
-		pageSize = slaBreachesDefaultPageSize
-	}
 	offset := (page - 1) * pageSize
+	if offset < 0 {
+		offset = 0
+	}
 
 	search = normalizeConversationSearch(search)
+	tz := stringutil.NormalizeTimezone(in.AppTimezone)
 	query := fmt.Sprintf(m.q.GetSlaBreaches, orderExpr)
 
 	tx, err := m.db.BeginTxx(context.Background(), &sql.TxOptions{ReadOnly: true})
@@ -103,7 +102,7 @@ func (m *Manager) GetSlaBreaches(in IssuesRangeInput, search string, sort SlaBre
 		Total int             `db:"total"`
 		Rows  json.RawMessage `db:"rows"`
 	}
-	if err := tx.Get(&row, query, bounds.StartsAt, bounds.EndsAt, search, pageSize, offset); err != nil {
+	if err := tx.Get(&row, query, bounds.StartsAt, bounds.EndsAt, search, pageSize, offset, tz); err != nil {
 		m.lo.Error("error fetching sla breaches", "error", err)
 		return SlaBreachesPage{}, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}

@@ -1829,7 +1829,6 @@
   "report.workforce.tickets": "Tickets",
   "report.workforce.total": "Total",
   "report.slaBreaches.title": "SLA breached conversations",
-  "report.slaBreaches.dataDelay": "Metrics refresh every five minutes.",
   "report.slaBreaches.search": "Search conversations",
   "report.slaBreaches.empty": "No SLA breaches in this date range.",
   "report.slaBreaches.noOrganization": "No organization",
