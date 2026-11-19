@@ -285,7 +285,8 @@ import { useIntervalFn, useDocumentVisibility } from '@vueuse/core'
 import { useEmitter } from '@main/composables/useEmitter'
 import { EMITTER_EVENTS } from '@main/constants/emitterEvents.js'
 import { handleHTTPError } from '@shared-ui/utils/http.js'
-import { formatDuration } from '@shared-ui/utils/datetime.js'
+import { formatReportDateTimeInZone, formatResolutionDaysHours } from '@/features/reports/issuesFormat.js'
+import { useReportFormatContext } from '@/features/reports/useReportLocale.js'
 import Card from '@/features/reports/OverviewCard.vue'
 import LineChart from '@/features/reports/OverviewLineChart.vue'
 import Spinner from '@shared-ui/components/ui/spinner/Spinner.vue'
@@ -297,6 +298,7 @@ import api from '@main/api'
 
 const emitter = useEmitter()
 const { t } = useI18n()
+const { dateLocale: reportLocale, appTimezone, i18nLocale } = useReportFormatContext()
 const isLoading = ref(false)
 const lastUpdate = ref(new Date())
 const rangeOptions = [7, 30, 90]
@@ -398,12 +400,21 @@ const formatCompactNumber = (value) => {
 
 const formattedSlaCounts = computed(() => ({
   ...slaCounts.value,
-  avg_first_response_time_sec: formatDuration(slaCounts.value.avg_first_response_time_sec, false),
-  avg_next_response_time_sec: formatDuration(slaCounts.value.avg_next_response_time_sec, false),
-  avg_resolution_time_sec: formatDuration(slaCounts.value.avg_resolution_time_sec, false)
+  avg_first_response_time_sec: formatResolutionDaysHours(
+    slaCounts.value.avg_first_response_time_sec
+  ),
+  avg_next_response_time_sec: formatResolutionDaysHours(slaCounts.value.avg_next_response_time_sec),
+  avg_resolution_time_sec: formatResolutionDaysHours(slaCounts.value.avg_resolution_time_sec)
 }))
 
-const lastUpdateFormatted = computed(() => lastUpdate.value.toLocaleTimeString())
+const lastUpdateFormatted = computed(() =>
+  formatReportDateTimeInZone(
+    lastUpdate.value,
+    i18nLocale.value,
+    appTimezone.value,
+    reportLocale.value
+  )
+)
 
 const conversationCountLabels = computed(() => ({
   open: t('globals.terms.open'),

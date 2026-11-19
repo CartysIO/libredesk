@@ -118,7 +118,7 @@
             :categories="tagsByWeekChart.categories"
             index="week"
             type="stacked"
-            format-index-as-date
+            format-index-as-week
           />
         </div>
 
@@ -132,7 +132,7 @@
               v-else
               :data="medianSlaChart"
               :categories="[firstResponseLabel, resolutionLabel]"
-              format-index-as-date
+              format-index-as-week
               duration-axis
             />
           </div>
@@ -143,7 +143,7 @@
               :categories="[withinWeekLabel, overWeekLabel]"
               index="week"
               type="stacked"
-              format-index-as-date
+              format-index-as-week
             />
           </div>
         </div>
@@ -153,7 +153,7 @@
           <IssuesLineChart
             :data="medianTimeInStatusChart.data"
             :categories="medianTimeInStatusChart.categories"
-            format-index-as-date
+            format-index-as-week
             duration-axis
           />
         </div>
@@ -206,10 +206,12 @@ import { EMITTER_EVENTS } from '@main/constants/emitterEvents.js'
 import { handleHTTPError } from '@shared-ui/utils/http.js'
 import { subDays, format } from 'date-fns'
 import {
-  formatReportDateTime,
+  formatReportDateTimeInZone,
+  formatReportDowRow,
   formatReportHour24,
   formatResolutionDaysHours
 } from '@/features/reports/issuesFormat.js'
+import { useReportFormatContext } from '@/features/reports/useReportLocale.js'
 import IssuesBarChart from '@/features/reports/IssuesBarChart.vue'
 import IssuesLineChart from '@/features/reports/IssuesLineChart.vue'
 import IssuesDonutChart from '@/features/reports/IssuesDonutChart.vue'
@@ -224,6 +226,7 @@ import api from '@main/api'
 
 const emitter = useEmitter()
 const { t } = useI18n()
+const { dateLocale: reportLocale, appTimezone, i18nLocale } = useReportFormatContext()
 const isLoading = ref(false)
 const accountsLoading = ref(false)
 const lastUpdate = ref(new Date())
@@ -320,7 +323,7 @@ const volumeByDayChart = computed(() => {
 const byHourChart = computed(() => {
   const rows = charts.value.by_hour || []
   return rows.map((row) => ({
-    label: formatReportHour24(row.hour),
+    label: formatReportHour24(row.hour, reportLocale.value),
     [countLabel.value]: row.count
   }))
 })
@@ -328,7 +331,7 @@ const byHourChart = computed(() => {
 const byDowChart = computed(() => {
   const rows = charts.value.by_dow || []
   return rows.map((row) => ({
-    label: row.label,
+    label: formatReportDowRow(row, reportLocale.value),
     [countLabel.value]: row.count
   }))
 })
@@ -453,7 +456,14 @@ const accountColumns = computed(() => [
   { key: 'avg_touches', label: t('report.issues.avgTouches') }
 ])
 
-const lastUpdateFormatted = computed(() => formatReportDateTime(lastUpdate.value))
+const lastUpdateFormatted = computed(() =>
+  formatReportDateTimeInZone(
+    lastUpdate.value,
+    i18nLocale.value,
+    appTimezone.value,
+    reportLocale.value
+  )
+)
 
 const showError = (error) => {
   emitter.emit(EMITTER_EVENTS.SHOW_TOAST, {

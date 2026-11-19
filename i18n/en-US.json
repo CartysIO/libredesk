@@ -1732,6 +1732,8 @@
   "report.chart.newConversations": "New conversations",
   "report.chart.resolvedConversations": "Resolved conversations",
   "report.chart.title": "Conversation trends",
+  "report.chart.weekOf": "Week of {date}",
+  "report.chart.weekRange": "{start} – {end}",
   "report.csat.avgRating": "Avg Rating",
   "report.csat.cardTitle": "Customer satisfaction",
   "report.csat.responseRate": "Response Rate",
