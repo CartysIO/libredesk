@@ -14,6 +14,8 @@ export const BULK_UNDO_WINDOW_MS = 8000
 let activeCommand = null
 let commitTimer = null
 
+export const hasActiveBulkCommand = () => activeCommand !== null
+
 const clearCommitTimer = () => {
   if (commitTimer !== null) {
     clearTimeout(commitTimer)
@@ -47,14 +49,13 @@ const scheduleCommit = (command) => {
 /**
  * Runs a bulk command: optimistic apply, undo toast, deferred commit.
  * @param {BulkCommand} command
- * @param {{ undoLabel: string }} options
+ * @param {{ undoLabel: string, onBlocked?: () => void }} options
+ * @returns {boolean} False when another command is still in its undo window.
  */
-export function runDeferredBulkCommand (command, { undoLabel }) {
-  if (activeCommand && activeCommand !== command) {
-    const previous = activeCommand
-    activeCommand = null
-    clearCommitTimer()
-    void previous.commit()
+export function runDeferredBulkCommand (command, { undoLabel, onBlocked }) {
+  if (activeCommand) {
+    onBlocked?.()
+    return false
   }
 
   activeCommand = command
@@ -73,4 +74,6 @@ export function runDeferredBulkCommand (command, { undoLabel }) {
       }
     }
   })
+
+  return true
 }

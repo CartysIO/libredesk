@@ -46,10 +46,19 @@ export function useBulkActions () {
     }
   }
 
-  const runDeferred = (command) => {
-    bulkLoading.value = true
-    runDeferredBulkCommand(command, { undoLabel: t('globals.messages.undo') })
-    bulkLoading.value = false
+  const runDeferred = (buildCommand) => {
+    const uuids = selectedUUIDs()
+    if (!uuids.length) return
+    const started = runDeferredBulkCommand(buildCommand(uuids), {
+      undoLabel: t('globals.messages.undo'),
+      onBlocked: () => {
+        emitter.emit(EMITTER_EVENTS.SHOW_TOAST, {
+          variant: 'warning',
+          description: t('conversation.bulkActions.pendingUndo')
+        })
+      }
+    })
+    if (!started) return
   }
 
   const bulkAssign = (assigneeType, assigneeValue) => {
@@ -65,23 +74,11 @@ export function useBulkActions () {
   const bulkAddTag = (tag) =>
     runBulkAction((uuid) => conversationStore.updateConversationTags(uuid, TAG_ACTION.ADD, [tag]))
 
-  const bulkUpdateStatus = (status) => {
-    const uuids = selectedUUIDs()
-    if (!uuids.length) return
-    runDeferred(createBulkStatusCommand(uuids, status))
-  }
+  const bulkUpdateStatus = (status) => runDeferred((uuids) => createBulkStatusCommand(uuids, status))
 
-  const bulkDelete = () => {
-    const uuids = selectedUUIDs()
-    if (!uuids.length) return
-    runDeferred(createBulkDeleteCommand(uuids))
-  }
+  const bulkDelete = () => runDeferred((uuids) => createBulkDeleteCommand(uuids))
 
-  const bulkMarkSpam = () => {
-    const uuids = selectedUUIDs()
-    if (!uuids.length) return
-    runDeferred(createBulkSpamCommand(uuids))
-  }
+  const bulkMarkSpam = () => runDeferred((uuids) => createBulkSpamCommand(uuids))
 
   return {
     bulkLoading,

@@ -1,4 +1,4 @@
-const cloneListRow = (row) => JSON.parse(JSON.stringify(row))
+import { cloneSnapshotRow } from './snapshotClone'
 
 export function captureListSnapshots (data, uuids) {
   const list = data || []
@@ -6,7 +6,7 @@ export function captureListSnapshots (data, uuids) {
     .map((uuid) => {
       const index = list.findIndex((c) => c.uuid === uuid)
       if (index === -1) return null
-      return { index, conversation: cloneListRow(list[index]) }
+      return { index, conversation: cloneSnapshotRow(list[index]) }
     })
     .filter(Boolean)
 }

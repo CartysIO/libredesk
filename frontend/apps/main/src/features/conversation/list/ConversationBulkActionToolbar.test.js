@@ -13,6 +13,7 @@ vi.mock('@/stores/conversation', () => ({
     allSelected: false,
     selectedCount: 2,
     conversations: { total: 120 },
+    conversationsList: [{ uuid: 'a' }, { uuid: 'b' }],
     statusOptionsNoSnooze: [],
     clearSelection: vi.fn(),
     selectAll: vi.fn()
@@ -21,7 +22,7 @@ vi.mock('@/stores/conversation', () => ({
 vi.mock('@/stores/conversationBoard', () => ({
   useConversationBoardStore: () => ({
     context: { active: false },
-    boardCardsTotal: 0
+    loadedCardUUIDs: []
   })
 }))
 vi.mock('@/composables/useBulkActions', () => ({

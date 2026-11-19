@@ -1,6 +1,5 @@
 import { boardColumnForStatus, findBoardCard, applyBoardMove } from '@main/utils/conversationBoard'
-
-const cloneCard = (card) => JSON.parse(JSON.stringify(card))
+import { cloneSnapshotRow } from './snapshotClone'
 
 export function captureBoardSnapshots (columns, uuids) {
   return uuids
@@ -10,7 +9,7 @@ export function captureBoardSnapshots (columns, uuids) {
       return {
         status: found.status,
         index: found.index,
-        card: cloneCard(found.card)
+        card: cloneSnapshotRow(found.card)
       }
     })
     .filter(Boolean)
@@ -30,7 +29,7 @@ export function restoreBoardSnapshots (columns, snapshots) {
     const col = columns[snap.status]
     if (!col) continue
     const at = Math.min(snap.index, col.items.length)
-    col.items.splice(at, 0, cloneCard(snap.card))
+    col.items.splice(at, 0, cloneSnapshotRow(snap.card))
     col.total += 1
   }
 }

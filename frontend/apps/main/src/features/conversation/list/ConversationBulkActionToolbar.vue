@@ -22,11 +22,11 @@
           isBoardActive
             ? t('conversation.bulkActions.selectedOfBoard', {
                 selected: conversationStore.selectedCount,
-                total: boardStore.boardCardsTotal
+                total: boardLoadedCount
               })
             : t('conversation.bulkActions.selectedOfTotal', {
                 selected: conversationStore.selectedCount,
-                total: conversationStore.conversations.total
+                total: listLoadedCount
               })
         }}
       </span>
@@ -226,6 +226,8 @@ import { useBulkActions } from '@/composables/useBulkActions'
 const conversationStore = useConversationStore()
 const boardStore = useConversationBoardStore()
 const isBoardActive = computed(() => boardStore.context.active)
+const boardLoadedCount = computed(() => boardStore.loadedCardUUIDs.length)
+const listLoadedCount = computed(() => conversationStore.conversationsList.length)
 const { t } = useI18n()
 const { bulkLoading, bulkAssign, bulkAddTag, bulkUpdateStatus, bulkDelete, bulkMarkSpam } =
   useBulkActions()

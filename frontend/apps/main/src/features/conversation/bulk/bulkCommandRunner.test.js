@@ -34,6 +34,26 @@ describe('bulkCommandRunner', () => {
     expect(revert).not.toHaveBeenCalled()
   })
 
+  it('blocks a second command while the undo window is open', () => {
+    const apply = vi.fn()
+    const revert = vi.fn()
+    const commit = vi.fn().mockResolvedValue(undefined)
+    const onBlocked = vi.fn()
+
+    runDeferredBulkCommand(
+      { apply, revert, commit, toastDescription: 'first' },
+      { undoLabel: 'Undo' }
+    )
+    const started = runDeferredBulkCommand(
+      { apply, revert, commit, toastDescription: 'second' },
+      { undoLabel: 'Undo', onBlocked }
+    )
+
+    expect(started).toBe(false)
+    expect(onBlocked).toHaveBeenCalledTimes(1)
+    expect(apply).toHaveBeenCalledTimes(1)
+  })
+
   it('reverts when undo is triggered before commit', async () => {
     const apply = vi.fn()
     const revert = vi.fn()

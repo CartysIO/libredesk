@@ -50,10 +50,7 @@
   </ResizablePanelGroup>
 
   <Teleport to="body">
-    <ConversationBulkActionToolbar
-      v-if="showBulkToolbar"
-      class="desk-bulk-toolbar-floating"
-    />
+    <ConversationBulkActionToolbar v-if="showBulkToolbar" />
   </Teleport>
 </template>
 

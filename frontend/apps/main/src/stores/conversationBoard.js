@@ -5,11 +5,7 @@ import { handleHTTPError } from '@shared-ui/utils/http.js'
 import { deepMerge } from '@shared-ui/utils/object.js'
 import { useEmitter } from '@main/composables/useEmitter'
 import { EMITTER_EVENTS } from '@main/constants/emitterEvents'
-import {
-  CONVERSATION_BOARD_COLUMNS,
-  CONVERSATION_BOARD_STATUS_LIST,
-  CONVERSATION_LIST_TYPE
-} from '@main/constants/conversation'
+import { CONVERSATION_BOARD_STATUS_LIST, CONVERSATION_LIST_TYPE } from '@main/constants/conversation'
 import { subscribeListReplace } from '@main/websocket'
 import { useConversationStore } from '@main/stores/conversation'
 import { useUserStore } from '@main/stores/user'
@@ -281,10 +277,6 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
     CONVERSATION_BOARD_STATUS_LIST.flatMap((s) => columns[s].items.map((c) => c.uuid))
   )
 
-  const boardCardsTotal = computed(() =>
-    CONVERSATION_BOARD_COLUMNS.reduce((sum, col) => sum + (columns[col.status]?.total || 0), 0)
-  )
-
   const cardUUIDs = () => {
     if (!context.active) return []
     const uuids = CONVERSATION_BOARD_STATUS_LIST.flatMap((s) => columns[s].items.map((c) => c.uuid))
@@ -410,7 +402,6 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
     restoreBoardSnapshots,
     applyBulkStatusBoard,
     loadedCardUUIDs,
-    boardCardsTotal,
     cardUUIDs,
     incrementUnread,
     applyConversationRead
