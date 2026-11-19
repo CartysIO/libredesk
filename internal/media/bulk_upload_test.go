@@ -33,7 +33,7 @@ func (f *flakyPutStore) SignedURLValidator() func(string, string, int64) bool { 
 func TestUploadBulkRetriesSlowDown(t *testing.T) {
 	t.Parallel()
 	db := testutil.NewDB(t, "media_bulk_upload")
-	var lo logf.Logger
+	lo := logf.New(logf.Opts{})
 	store := &flakyPutStore{}
 	mm, err := New(Opts{Store: store, Lo: &lo, DB: db, I18n: testutil.NewI18n(t), RootURL: func() string { return "http://x" }})
 	if err != nil {
