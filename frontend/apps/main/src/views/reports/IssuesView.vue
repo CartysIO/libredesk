@@ -206,12 +206,12 @@ import { EMITTER_EVENTS } from '@main/constants/emitterEvents.js'
 import { handleHTTPError } from '@shared-ui/utils/http.js'
 import { subDays, format } from 'date-fns'
 import {
-  formatReportDateTime,
+  formatReportDateTimeInZone,
   formatReportDowRow,
   formatReportHour24,
   formatResolutionDaysHours
 } from '@/features/reports/issuesFormat.js'
-import { useReportLocale } from '@/features/reports/useReportLocale.js'
+import { useReportFormatContext } from '@/features/reports/useReportLocale.js'
 import IssuesBarChart from '@/features/reports/IssuesBarChart.vue'
 import IssuesLineChart from '@/features/reports/IssuesLineChart.vue'
 import IssuesDonutChart from '@/features/reports/IssuesDonutChart.vue'
@@ -226,7 +226,7 @@ import api from '@main/api'
 
 const emitter = useEmitter()
 const { t } = useI18n()
-const reportLocale = useReportLocale()
+const { dateLocale: reportLocale, appTimezone, i18nLocale } = useReportFormatContext()
 const isLoading = ref(false)
 const accountsLoading = ref(false)
 const lastUpdate = ref(new Date())
@@ -457,7 +457,12 @@ const accountColumns = computed(() => [
 ])
 
 const lastUpdateFormatted = computed(() =>
-  formatReportDateTime(lastUpdate.value, reportLocale.value)
+  formatReportDateTimeInZone(
+    lastUpdate.value,
+    i18nLocale.value,
+    appTimezone.value,
+    reportLocale.value
+  )
 )
 
 const showError = (error) => {

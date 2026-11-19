@@ -285,8 +285,8 @@ import { useIntervalFn, useDocumentVisibility } from '@vueuse/core'
 import { useEmitter } from '@main/composables/useEmitter'
 import { EMITTER_EVENTS } from '@main/constants/emitterEvents.js'
 import { handleHTTPError } from '@shared-ui/utils/http.js'
-import { formatReportDateTime, formatResolutionDaysHours } from '@/features/reports/issuesFormat.js'
-import { useReportLocale } from '@/features/reports/useReportLocale.js'
+import { formatReportDateTimeInZone, formatResolutionDaysHours } from '@/features/reports/issuesFormat.js'
+import { useReportFormatContext } from '@/features/reports/useReportLocale.js'
 import Card from '@/features/reports/OverviewCard.vue'
 import LineChart from '@/features/reports/OverviewLineChart.vue'
 import Spinner from '@shared-ui/components/ui/spinner/Spinner.vue'
@@ -298,7 +298,7 @@ import api from '@main/api'
 
 const emitter = useEmitter()
 const { t } = useI18n()
-const reportLocale = useReportLocale()
+const { dateLocale: reportLocale, appTimezone, i18nLocale } = useReportFormatContext()
 const isLoading = ref(false)
 const lastUpdate = ref(new Date())
 const rangeOptions = [7, 30, 90]
@@ -408,7 +408,12 @@ const formattedSlaCounts = computed(() => ({
 }))
 
 const lastUpdateFormatted = computed(() =>
-  formatReportDateTime(lastUpdate.value, reportLocale.value)
+  formatReportDateTimeInZone(
+    lastUpdate.value,
+    i18nLocale.value,
+    appTimezone.value,
+    reportLocale.value
+  )
 )
 
 const conversationCountLabels = computed(() => ({

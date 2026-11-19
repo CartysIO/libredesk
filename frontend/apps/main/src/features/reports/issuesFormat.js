@@ -32,7 +32,10 @@ export function reportDateFnsLocale(i18nLocale) {
   return REPORT_DATE_LOCALES[i18nLocale] ?? enUS
 }
 
-/** Parse API `YYYY-MM-DD` as a civil date (no UTC day shift). */
+/**
+ * Parse API `YYYY-MM-DD` as a civil date (no UTC day shift).
+ * Strings are bucket labels in app.timezone from SQL; display with formatReportDate, not parseISO.
+ */
 export function parseReportDay(value) {
   if (value == null || value === '') return null
   try {
@@ -67,29 +70,60 @@ export function formatReportWeekTooltipTitle(weekStart, locale, translate) {
   return `${weekOf} (${range})`
 }
 
-export function formatReportDateTime(value, locale = enUS) {
+function formatInstantIntl(d, i18nLocaleTag, timeZone, intlOptions) {
   try {
-    const d = value instanceof Date ? value : new Date(value)
-    if (!isValid(d)) return ''
-    return format(d, 'Pp', { locale })
+    return new Intl.DateTimeFormat(i18nLocaleTag, { hour12: true, timeZone, ...intlOptions }).format(
+      d
+    )
   } catch {
     return ''
   }
 }
 
-/** Readable report datetime (e.g. Nov 17, 2026, 8:50 AM). Prefer `created_at_display` from API when set. */
-export function formatReportDateTimeReadable(value, locale = enUS) {
+/** Report header / refresh timestamps in app.timezone with viewer locale. */
+export function formatReportDateTimeInZone(
+  value,
+  i18nLocaleTag,
+  timeZone,
+  dateFnsLocale = enUS
+) {
+  const d = value instanceof Date ? value : new Date(value)
+  if (!isValid(d)) return ''
+  if (timeZone && i18nLocaleTag) {
+    const intl = formatInstantIntl(d, i18nLocaleTag, timeZone, {
+      dateStyle: 'short',
+      timeStyle: 'short'
+    })
+    if (intl) return intl
+  }
+  return format(d, 'Pp', { locale: dateFnsLocale })
+}
+
+/** @deprecated prefer formatReportDateTimeInZone for report surfaces */
+export function formatReportDateTime(value, locale = enUS) {
+  return formatReportDateTimeInZone(value, 'en-US', '', locale)
+}
+
+/** Readable report datetime. Prefer `created_at_display` from API when set. */
+export function formatReportDateTimeReadable(value, locale = enUS, options = {}) {
+  const { timeZone = '', i18nLocaleTag = 'en-US' } = options
   if (value == null || value === '') return ''
   if (typeof value === 'string' && !value.includes('T') && !/^\d{4}-\d{2}-\d{2}/.test(value)) {
     return value
   }
-  try {
-    const d = value instanceof Date ? value : new Date(value)
-    if (!isValid(d)) return ''
-    return format(d, 'MMM d, yyyy, h:mm a', { locale })
-  } catch {
-    return ''
+  const d = value instanceof Date ? value : new Date(value)
+  if (!isValid(d)) return ''
+  if (timeZone) {
+    const intl = formatInstantIntl(d, i18nLocaleTag, timeZone, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    })
+    if (intl) return intl
   }
+  return format(d, 'MMM d, yyyy, h:mm a', { locale })
 }
 
 /** Tables: null → —; otherwise same rules as chart value tooltips. */

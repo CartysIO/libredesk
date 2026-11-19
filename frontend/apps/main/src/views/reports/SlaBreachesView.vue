@@ -95,11 +95,11 @@ import { useEmitter } from '@main/composables/useEmitter'
 import { EMITTER_EVENTS } from '@main/constants/emitterEvents.js'
 import { handleHTTPError } from '@shared-ui/utils/http.js'
 import {
-  formatReportDateTime,
+  formatReportDateTimeInZone,
   formatReportDateTimeReadable,
   formatReportDurationSeconds
 } from '@/features/reports/issuesFormat.js'
-import { useReportLocale } from '@/features/reports/useReportLocale.js'
+import { useReportFormatContext } from '@/features/reports/useReportLocale.js'
 import { REPORT_RANGE_OPTIONS, useReportDateRange } from '@main/composables/useReportDateRange.js'
 import { useReportPolling } from '@main/composables/useReportPolling.js'
 import IssuesReportDateRange from '@/features/reports/IssuesReportDateRange.vue'
@@ -117,7 +117,7 @@ const sortAscKeys = ['reference_number', 'subject', 'organization_name']
 
 const emitter = useEmitter()
 const { t } = useI18n()
-const dateLocale = useReportLocale()
+const { dateLocale, appTimezone, i18nLocale } = useReportFormatContext()
 const isLoading = ref(false)
 const lastUpdate = ref(new Date())
 const search = ref('')
@@ -141,7 +141,10 @@ const columns = computed(() => [
     key: 'created_at',
     label: t('report.slaBreaches.conversationCreatedAt'),
     format: (v, row) =>
-      formatReportDateTimeReadable(row.created_at_display || v, dateLocale.value)
+      formatReportDateTimeReadable(row.created_at_display || v, dateLocale.value, {
+        timeZone: appTimezone.value,
+        i18nLocaleTag: i18nLocale.value
+      })
   },
   {
     key: 'subject',
@@ -176,7 +179,12 @@ const columns = computed(() => [
 ])
 
 const lastUpdateFormatted = computed(() =>
-  formatReportDateTime(lastUpdate.value, dateLocale.value)
+  formatReportDateTimeInZone(
+    lastUpdate.value,
+    i18nLocale.value,
+    appTimezone.value,
+    dateLocale.value
+  )
 )
 
 const showError = (error) => {

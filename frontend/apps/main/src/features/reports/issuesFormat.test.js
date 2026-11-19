@@ -6,6 +6,7 @@ import {
   formatCompactDuration,
   formatResolutionDaysHours,
   formatReportHour24,
+  formatReportDateTimeInZone,
   formatReportDateTimeReadable,
   formatReportDurationSeconds,
   formatReportDayOfWeek,
@@ -47,6 +48,17 @@ describe('issuesFormat', () => {
   it('formats localized day of week', () => {
     expect(formatReportDayOfWeek(1, enUS)).toMatch(/Mon/i)
     expect(formatReportDayOfWeek(1, es)).toMatch(/lun/i)
+  })
+
+  it('formats instants in app timezone', () => {
+    const label = formatReportDateTimeInZone(
+      '2026-01-15T12:00:00.000Z',
+      'en-US',
+      'America/New_York',
+      enUS
+    )
+    expect(label).toMatch(/1\/15\/26/i)
+    expect(label).toMatch(/7:00/)
   })
 
   it('formats readable report datetimes', () => {
