@@ -4,12 +4,14 @@ import { useConversationBoardStore } from '@/stores/conversationBoard'
 import { getI18n } from '@main/i18n'
 import { createBulkRemovalCommand } from './bulkRemovalCommand'
 
+const bulkT = () => getI18n().global.t
+
 /**
  * @param {string[]} uuids
  * @returns {BulkCommand}
  */
 export function createBulkDeleteCommand (uuids) {
-  const { t } = getI18n()
+  const t = bulkT()
   return createBulkRemovalCommand(
     uuids,
     t('conversation.bulkActions.deletedPending', { count: uuids.length }),
@@ -27,7 +29,7 @@ export function createBulkDeleteCommand (uuids) {
 export function createBulkSpamCommand (uuids) {
   const conversationStore = useConversationStore()
   const boardStore = useConversationBoardStore()
-  const { t } = getI18n()
+  const t = bulkT()
   const deletedUUIDs = new Set()
 
   return createBulkRemovalCommand(
@@ -62,7 +64,7 @@ export function createBulkSpamCommand (uuids) {
 export function createBulkStatusCommand (uuids, status) {
   const conversationStore = useConversationStore()
   const boardStore = useConversationBoardStore()
-  const { t } = getI18n()
+  const t = bulkT()
   let listSnapshots = []
   let boardSnapshots = []
 

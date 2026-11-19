@@ -79,7 +79,7 @@ const conversationStore = useConversationStore()
 const { canBulkAct } = useBulkActionPermissions()
 const isMobile = useIsMobile()
 const showBulkToolbar = computed(
-  () => !isSearchRoute.value && conversationStore.selectedCount > 0 && canBulkAct.value
+  () => !isSearchRoute.value && canBulkAct.value && conversationStore.selectedCount > 0
 )
 const isSearchRoute = computed(() => route.name === 'search')
 const panelGroupRef = ref(null)

@@ -178,7 +178,12 @@
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{{ t('globals.messages.cancel') }}</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" @click="runConfirmedAction">
+          <AlertDialogAction
+            variant="destructive"
+            @pointerdown.prevent.stop="runConfirmedAction"
+            @keydown.enter.prevent.stop="runConfirmedAction"
+            @keydown.space.prevent.stop="runConfirmedAction"
+          >
             {{
               t(
                 confirmAction === 'spam'
@@ -245,10 +250,22 @@ const openConfirm = (action) => {
   confirmOpen.value = true
 }
 
+// Radix closes the dialog on pointerdown, which can unmount the action before a click
+// fires — and clearing selection can tear down this toolbar mid-sequence. Run on pointerdown.
+let confirmHandling = false
 const runConfirmedAction = () => {
-  const action = confirmAction.value
-  confirmOpen.value = false
-  return action === 'spam' ? bulkMarkSpam() : bulkDelete()
+  if (confirmHandling) return
+  confirmHandling = true
+  try {
+    const action = confirmAction.value
+    if (action === 'spam') bulkMarkSpam()
+    else bulkDelete()
+    confirmOpen.value = false
+  } finally {
+    queueMicrotask(() => {
+      confirmHandling = false
+    })
+  }
 }
 
 const toggleSelectAll = () => {
