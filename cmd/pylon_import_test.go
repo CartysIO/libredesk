@@ -102,6 +102,8 @@ func setPylonPurgeTestConfig(t *testing.T) {
 		"app.lang":              "en-US",
 		"app.root_url":          "http://localhost",
 		"app.encryption_key":    "01234567890123456789012345678901",
+		"app.log_level":         "info",
+		"app.env":               "dev",
 	}
 	for k, v := range keys {
 		if err := ko.Set(k, v); err != nil {
