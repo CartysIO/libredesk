@@ -14,12 +14,8 @@
       <ConversationViewToggle class="ml-auto shrink-0" />
     </div>
 
-    <!-- Bulk Action Toolbar (when items selected) -->
-    <ConversationBulkActionToolbar v-if="hasSelection && canBulkAct" />
-
-    <!-- Filters (hidden when bulk selecting) -->
+    <!-- Filters -->
     <div
-      v-else
       class="desk-inbox-filters flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-3 py-2.5"
     >
       <!-- Status dropdown-menu, hidden when a view is selected as views are pre-filtered -->
@@ -169,6 +165,7 @@
         </p>
       </div>
     </div>
+
   </div>
 </template>
 
@@ -189,9 +186,7 @@ import {
 import { SidebarTrigger } from '@shared-ui/components/ui/sidebar'
 import { useConversationStore } from '@/stores/conversation'
 import { useTeamStore } from '@/stores/team'
-import { useBulkActionPermissions } from '@/composables/useBulkActionPermissions'
 import EmptyList from '@/features/conversation/list/ConversationEmptyList.vue'
-import ConversationBulkActionToolbar from '@/features/conversation/list/ConversationBulkActionToolbar.vue'
 import ConversationViewToggle from '@/features/conversation/board/ConversationViewToggle.vue'
 import { CONVERSATION_ACTIVE_STATUS, CONVERSATION_LIST_TYPE } from '@/constants/conversation'
 import { useBoardMode } from '@/composables/useBoardMode'
@@ -201,7 +196,6 @@ import InboxAllDateRangeFilter from '@/features/conversation/list/InboxAllDateRa
 
 const conversationStore = useConversationStore()
 const teamStore = useTeamStore()
-const { canBulkAct } = useBulkActionPermissions()
 const route = useRoute()
 const { t } = useI18n()
 const { isBoard } = useBoardMode()
@@ -220,8 +214,6 @@ watch(
   teamStore.ensureTeamIDs,
   { immediate: true }
 )
-
-const hasSelection = computed(() => conversationStore.selectedCount > 0)
 
 const title = computed(() => {
   const typeKey = route.meta?.typeKey?.(route)

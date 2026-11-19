@@ -570,8 +570,26 @@ html[data-app='desk'] .desk-detail-sidebar .desk-spec {
 }
 
 html[data-app='desk'] .desk-bulk-toolbar {
-  background: hsl(var(--primary) / 0.08);
-  border-bottom: 1px solid hsl(var(--primary) / 0.2);
+  background: hsl(var(--card) / 0.96);
+  border: 1px solid hsl(var(--primary) / 0.28);
+  border-radius: calc(var(--radius) + 4px);
+  backdrop-filter: blur(10px);
+}
+
+html[data-app='desk'] .desk-bulk-toolbar-floating {
+  position: fixed;
+  z-index: 50;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  max-width: min(42rem, calc(100vw - 1.5rem));
+  width: max-content;
+}
+
+@media (min-width: 768px) {
+  html[data-app='desk'] .desk-bulk-toolbar-floating {
+    bottom: 1.5rem;
+  }
 }
 
 html[data-app='desk'] .desk-reply-surface.box {

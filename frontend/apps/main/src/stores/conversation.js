@@ -24,6 +24,11 @@ import {
   inboxAllCreatedAtListFilter
 } from '@/utils/inboxAllDateRange'
 import api from '@main/api'
+import {
+  captureListSnapshots as captureRows,
+  restoreListSnapshots as restoreRows
+} from '@/features/conversation/bulk/listSnapshots'
+import { useConversationBoardStore } from '@main/stores/conversationBoard'
 
 export const useConversationStore = defineStore('conversation', () => {
   const CONV_LIST_PAGE_SIZE = 25
@@ -135,8 +140,14 @@ export const useConversationStore = defineStore('conversation', () => {
   let lastClickedUUID = null
 
   const selectedCount = computed(() => selectedUUIDs.value.size)
+  const selectableUUIDs = () => {
+    const boardStore = useConversationBoardStore()
+    if (boardStore.context.active) return boardStore.loadedCardUUIDs
+    return conversationsList.value.map((c) => c.uuid)
+  }
+
   const allSelected = computed(() => {
-    const list = conversationsList.value
+    const list = selectableUUIDs()
     return list.length > 0 && selectedUUIDs.value.size === list.length
   })
 
@@ -164,7 +175,7 @@ export const useConversationStore = defineStore('conversation', () => {
   }
 
   function selectAll () {
-    selectedUUIDs.value = new Set(conversationsList.value.map(c => c.uuid))
+    selectedUUIDs.value = new Set(selectableUUIDs())
   }
 
   function clearSelection () {
@@ -965,6 +976,36 @@ export const useConversationStore = defineStore('conversation', () => {
     applyConversationRead(response.data.data)
   }
 
+  // Snapshots list rows (with index) for bulk-command undo.
+  function captureListSnapshots (uuids) {
+    return captureRows(conversations.data, uuids)
+  }
+
+  function restoreListSnapshots (snapshots) {
+    if (!snapshots?.length) return
+    const { data, added } = restoreRows(conversations.data, conversations.total, snapshots)
+    conversations.data = data
+    if (added) conversations.total += added
+    fetchSidebarCounts({ force: true })
+  }
+
+  // Optimistic bulk status change; returns snapshots for undo.
+  function applyBulkStatusLocal (uuids, status) {
+    const listStatus = getListStatus.value
+    const snapshots = captureListSnapshots(uuids)
+    const toDrop = []
+    for (const uuid of uuids) {
+      const row = conversations.data?.find((c) => c.uuid === uuid)
+      if (!row) continue
+      row.status = status
+      if (listStatus && !matchesListStatus(status, listStatus)) {
+        toDrop.push(uuid)
+      }
+    }
+    if (toDrop.length) removeConversations(toDrop)
+    return snapshots
+  }
+
   // removeConversations drops deleted conversations from the list, the selection and the detail caches.
   function removeConversations (uuids) {
     const removed = new Set(uuids)
@@ -996,6 +1037,12 @@ export const useConversationStore = defineStore('conversation', () => {
 
   function refreshConversationList () {
     throttledFetchFirstPage()
+  }
+
+  function refreshInboxSurface () {
+    const boardStore = useConversationBoardStore()
+    if (boardStore.context.active) boardStore.refreshAll()
+    else fetchFirstPageConversations()
   }
 
   function updateConversationLastMessage (uuid, message) {
@@ -1362,6 +1409,9 @@ export const useConversationStore = defineStore('conversation', () => {
   return {
     macros,
     removeConversations,
+    captureListSnapshots,
+    restoreListSnapshots,
+    applyBulkStatusLocal,
     conversations,
     conversation,
     messages,
@@ -1401,6 +1451,7 @@ export const useConversationStore = defineStore('conversation', () => {
     updatePriority,
     updateStatus,
     refreshConversationList,
+    refreshInboxSurface,
     getListSortParams,
     resetConversations,
     updateConversationLastMessage,
