@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -73,6 +74,55 @@ func TestPutStoresSafeContentHeaders(t *testing.T) {
 				t.Errorf("Content-Disposition = %q, want %q", got, tt.disposition)
 			}
 		})
+	}
+}
+
+func TestPutRetriesSlowDown(t *testing.T) {
+	body := "png-bytes"
+	var calls int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if calls < 3 {
+			http.Error(w, `<Error><Code>SlowDown</Code><Message>Please reduce your request rate.</Message></Error>`, http.StatusServiceUnavailable)
+			return
+		}
+		if r.Method != http.MethodPut {
+			t.Errorf("unexpected method: %s", r.Method)
+		}
+		got, _ := io.ReadAll(r.Body)
+		if string(got) != body {
+			t.Errorf("body = %q", got)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	store, err := New(Opt{
+		URL:        server.URL,
+		AccessKey:  uuid.NewString(),
+		SecretKey:  uuid.NewString(),
+		Region:     "test-region",
+		Bucket:     "test-bucket",
+		BucketPath: "",
+		BucketType: "private",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Put("file", "image/png", strings.NewReader(body)); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 3 {
+		t.Fatalf("PUT attempts = %d, want 3", calls)
+	}
+}
+
+func TestRetriablePutError(t *testing.T) {
+	if !retriablePutError(fmt.Errorf(`status code: 503 Service Unavailable: "<Code>SlowDown</Code>"`)) {
+		t.Fatal("expected SlowDown 503 to be retriable")
+	}
+	if retriablePutError(fmt.Errorf("access denied")) {
+		t.Fatal("expected permanent error")
 	}
 }
 

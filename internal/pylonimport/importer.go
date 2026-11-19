@@ -1127,6 +1127,9 @@ func (im *Importer) countIssue(is Issue, msgs []Message, merge bool) {
 // importMediaUploadTimeout caps one file upload so a stuck object store cannot block the import for hours.
 const importMediaUploadTimeout = 3 * time.Minute
 
+// importUploadPace spaces PUTs so object stores (e.g. Railway buckets) are less likely to answer SlowDown.
+const importUploadPace = 50 * time.Millisecond
+
 // importIssue writes one issue: media uploads run before the database transaction so row locks are not held during S3 I/O.
 func (im *Importer) importIssue(is Issue, msgs []Message, target *ExistingConversation) (err error) {
 	msgs = orderedMessages(is, msgs)
@@ -1528,6 +1531,7 @@ func (im *Importer) uploadMedia(fileName, contentType string, content io.ReadSee
 	}()
 	select {
 	case r := <-ch:
+		time.Sleep(importUploadPace)
 		return r.name, r.cType, r.err
 	case <-time.After(importMediaUploadTimeout):
 		return "", "", fmt.Errorf("timed out after %s", importMediaUploadTimeout)
