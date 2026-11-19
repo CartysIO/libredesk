@@ -285,7 +285,11 @@ import { useIntervalFn, useDocumentVisibility } from '@vueuse/core'
 import { useEmitter } from '@main/composables/useEmitter'
 import { EMITTER_EVENTS } from '@main/constants/emitterEvents.js'
 import { handleHTTPError } from '@shared-ui/utils/http.js'
-import { formatDuration } from '@shared-ui/utils/datetime.js'
+import {
+  formatReportDateTime,
+  formatResolutionDaysHours,
+  reportDateFnsLocale
+} from '@/features/reports/issuesFormat.js'
 import Card from '@/features/reports/OverviewCard.vue'
 import LineChart from '@/features/reports/OverviewLineChart.vue'
 import Spinner from '@shared-ui/components/ui/spinner/Spinner.vue'
@@ -296,7 +300,7 @@ import { useI18n } from 'vue-i18n'
 import api from '@main/api'
 
 const emitter = useEmitter()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const isLoading = ref(false)
 const lastUpdate = ref(new Date())
 const rangeOptions = [7, 30, 90]
@@ -398,12 +402,16 @@ const formatCompactNumber = (value) => {
 
 const formattedSlaCounts = computed(() => ({
   ...slaCounts.value,
-  avg_first_response_time_sec: formatDuration(slaCounts.value.avg_first_response_time_sec, false),
-  avg_next_response_time_sec: formatDuration(slaCounts.value.avg_next_response_time_sec, false),
-  avg_resolution_time_sec: formatDuration(slaCounts.value.avg_resolution_time_sec, false)
+  avg_first_response_time_sec: formatResolutionDaysHours(
+    slaCounts.value.avg_first_response_time_sec
+  ),
+  avg_next_response_time_sec: formatResolutionDaysHours(slaCounts.value.avg_next_response_time_sec),
+  avg_resolution_time_sec: formatResolutionDaysHours(slaCounts.value.avg_resolution_time_sec)
 }))
 
-const lastUpdateFormatted = computed(() => lastUpdate.value.toLocaleTimeString())
+const lastUpdateFormatted = computed(() =>
+  formatReportDateTime(lastUpdate.value, reportDateFnsLocale(locale.value))
+)
 
 const conversationCountLabels = computed(() => ({
   open: t('globals.terms.open'),

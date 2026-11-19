@@ -1,16 +1,29 @@
 import { describe, it, expect } from 'vitest'
+import { es, enUS } from 'date-fns/locale'
 import {
   formatReportDate,
+  formatReportWeekTooltipTitle,
   formatCompactDuration,
   formatResolutionDaysHours,
   formatReportHour24,
   formatReportDateTimeReadable,
-  formatReportDurationSeconds
+  formatReportDurationSeconds,
+  formatReportDayOfWeek
 } from './issuesFormat.js'
 
 describe('issuesFormat', () => {
-  it('formats US dates', () => {
-    expect(formatReportDate('2026-08-05')).toBe('08/05/2026')
+  it('formats localized chart dates', () => {
+    expect(formatReportDate('2026-08-05', enUS)).toBe('08/05/2026')
+    expect(formatReportDate('2026-08-05', es)).toMatch(/2026/)
+  })
+
+  it('formats week tooltip with range', () => {
+    const title = formatReportWeekTooltipTitle('2026-08-05', enUS, (key, params) => {
+      if (key === 'report.chart.weekOf') return `Week of ${params.date}`
+      return `${params.start} – ${params.end}`
+    })
+    expect(title).toContain('Week of 08/05/2026')
+    expect(title).toContain('08/11/2026')
   })
 
   it('formats compact duration', () => {
@@ -24,6 +37,11 @@ describe('issuesFormat', () => {
   it('formats hours in twelve hour clock', () => {
     expect(formatReportHour24(0)).toMatch(/12:00 AM/i)
     expect(formatReportHour24(15)).toMatch(/3:00 PM/i)
+  })
+
+  it('formats localized day of week', () => {
+    expect(formatReportDayOfWeek(1, enUS)).toMatch(/Mon/i)
+    expect(formatReportDayOfWeek(1, es)).toMatch(/lun/i)
   })
 
   it('formats readable report datetimes', () => {

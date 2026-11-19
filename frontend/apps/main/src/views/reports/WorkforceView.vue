@@ -91,7 +91,7 @@
             :data="medianSlaChart"
             :categories="[firstResponseLabel, resolutionLabel]"
             index-field="date"
-            format-index-as-date
+            format-index-as-week
             duration-axis
           />
         </div>
@@ -102,7 +102,7 @@
             :data="achievedVsBreachedChart"
             :categories="[achievedLabel, breachedLabel]"
             index="week"
-            format-index-as-date
+            format-index-as-week
           />
         </div>
 
@@ -136,7 +136,7 @@
               :data="firstResponseByAssigneeChart"
               :categories="[medianFrLabel]"
               index="assignee_name"
-              :value-formatter="formatCompactDuration"
+              duration-y-axis
             />
           </div>
           <div class="flex-1 box p-5">
@@ -145,7 +145,7 @@
               :data="resolutionByAssigneeChart"
               :categories="[medianResLabel]"
               index="assignee_name"
-              :value-formatter="formatCompactDuration"
+              duration-y-axis
             />
           </div>
         </div>
@@ -178,10 +178,11 @@ import { useEmitter } from '@main/composables/useEmitter'
 import { EMITTER_EVENTS } from '@main/constants/emitterEvents.js'
 import { handleHTTPError } from '@shared-ui/utils/http.js'
 import {
-  formatCompactDuration,
   formatReportDateTime,
+  formatReportDayOfWeek,
   formatReportHour24,
-  formatResolutionDaysHours
+  formatResolutionDaysHours,
+  reportDateFnsLocale
 } from '@/features/reports/issuesFormat.js'
 import IssuesBarChart from '@/features/reports/IssuesBarChart.vue'
 import IssuesLineChart from '@/features/reports/IssuesLineChart.vue'
@@ -198,7 +199,8 @@ const REFRESH_INTERVAL_MS = 5 * 60 * 1000
 const MAX_POLL_DURATION_MS = 60 * 60 * 1000
 
 const emitter = useEmitter()
-const { t } = useI18n()
+const { t, locale } = useI18n()
+const reportLocale = computed(() => reportDateFnsLocale(locale.value))
 const isLoading = ref(false)
 const lastUpdate = ref(new Date())
 const rangeOptions = [7, 30, 90, 120]
@@ -323,14 +325,17 @@ const achievedVsBreachedChart = computed(() =>
 
 const breachRateByHourChart = computed(() =>
   (charts.value.breach_rate_by_hour || []).map((row) => ({
-    label: formatReportHour24(row.hour),
+    label: formatReportHour24(row.hour, reportLocale.value),
     [breachRateLabel.value]: Number(row.breach_rate) || 0
   }))
 )
 
 const breachRateByDowChart = computed(() =>
   (charts.value.breach_rate_by_dow || []).map((row) => ({
-    label: row.label,
+    label:
+      row.dow != null
+        ? formatReportDayOfWeek(row.dow, reportLocale.value)
+        : row.label,
     [breachRateLabel.value]: Number(row.breach_rate) || 0
   }))
 )
@@ -387,7 +392,9 @@ const assigneeRows = computed(() => {
   return rows
 })
 
-const lastUpdateFormatted = computed(() => formatReportDateTime(lastUpdate.value))
+const lastUpdateFormatted = computed(() =>
+  formatReportDateTime(lastUpdate.value, reportLocale.value)
+)
 
 const showError = (error) => {
   emitter.emit(EMITTER_EVENTS.SHOW_TOAST, {

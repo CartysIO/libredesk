@@ -1,4 +1,4 @@
-import { format, parseISO, isValid } from 'date-fns'
+import { addDays, format, parseISO, isValid, setISODay } from 'date-fns'
 import { enUS, es, fr, ptBR, ja } from 'date-fns/locale'
 
 const REPORT_DATE_LOCALES = {
@@ -19,22 +19,40 @@ export function reportDateFnsLocale(i18nLocale) {
   return REPORT_DATE_LOCALES[i18nLocale] ?? enUS
 }
 
-export function formatReportDate(value) {
-  if (value == null || value === '') return ''
+function parseReportDay(value) {
+  if (value == null || value === '') return null
   try {
     const d = typeof value === 'string' ? parseISO(value.slice(0, 10)) : new Date(value)
-    if (!isValid(d)) return String(value)
-    return format(d, 'MM/dd/yyyy')
+    return isValid(d) ? d : null
   } catch {
-    return String(value)
+    return null
   }
 }
 
-export function formatReportDateTime(value) {
+/** Short localized calendar date for chart axes (no time). */
+export function formatReportDate(value, locale = enUS) {
+  const d = parseReportDay(value)
+  if (!d) return value == null ? '' : String(value)
+  return format(d, 'P', { locale })
+}
+
+/** Tooltip title for weekly buckets (week start is Monday in app TZ from API). */
+export function formatReportWeekTooltipTitle(weekStart, locale, translate) {
+  const start = parseReportDay(weekStart)
+  if (!start) return String(weekStart ?? '')
+  const end = addDays(start, 6)
+  const startLabel = format(start, 'P', { locale })
+  const endLabel = format(end, 'P', { locale })
+  const weekOf = translate('report.chart.weekOf', { date: startLabel })
+  const range = translate('report.chart.weekRange', { start: startLabel, end: endLabel })
+  return `${weekOf} (${range})`
+}
+
+export function formatReportDateTime(value, locale = enUS) {
   try {
     const d = value instanceof Date ? value : new Date(value)
     if (!isValid(d)) return ''
-    return format(d, 'MM/dd/yyyy, h:mm a')
+    return format(d, 'Pp', { locale })
   } catch {
     return ''
   }
@@ -64,12 +82,21 @@ export function formatReportDurationSeconds(seconds) {
   return formatResolutionDaysHours(total)
 }
 
-export function formatReportHour24(hour) {
+/** Hour-of-day bucket label; always 12-hour clock with AM/PM. */
+export function formatReportHour24(hour, locale = enUS) {
   const h = Number(hour)
   if (!Number.isFinite(h)) return ''
   const d = new Date()
   d.setHours(h, 0, 0, 0)
-  return format(d, 'h:mm a')
+  return format(d, 'h:mm a', { locale })
+}
+
+/** ISO day-of-week 1 (Mon) … 7 (Sun). */
+export function formatReportDayOfWeek(isoDow, locale = enUS) {
+  const n = Number(isoDow)
+  if (!Number.isFinite(n) || n < 1 || n > 7) return ''
+  const ref = setISODay(new Date(2024, 0, 1), n)
+  return format(ref, 'EEE', { locale })
 }
 
 export function formatCompactDuration(seconds) {

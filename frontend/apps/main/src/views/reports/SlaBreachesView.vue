@@ -176,7 +176,9 @@ const columns = computed(() => [
   }
 ])
 
-const lastUpdateFormatted = computed(() => formatReportDateTime(lastUpdate.value))
+const lastUpdateFormatted = computed(() =>
+  formatReportDateTime(lastUpdate.value, dateLocale.value)
+)
 
 const showError = (error) => {
   emitter.emit(EMITTER_EVENTS.SHOW_TOAST, {

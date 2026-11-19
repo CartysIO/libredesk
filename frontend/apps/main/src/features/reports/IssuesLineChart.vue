@@ -17,8 +17,9 @@ import { LineChart } from '@shared-ui/components/ui/chart-line'
 import {
   formatChartCount,
   formatCompactDuration,
-  formatReportDate
+  formatResolutionDaysHours
 } from '@/features/reports/issuesFormat.js'
+import { useReportChartIndexFormatters } from '@/features/reports/useReportChartIndexFormatters.js'
 
 const props = defineProps({
   data: { type: Array, default: () => [] },
@@ -27,22 +28,25 @@ const props = defineProps({
   xFormatter: { type: Function, default: null },
   yFormatter: { type: Function, default: null },
   titleFormatter: { type: Function, default: null },
-  valueFormatter: { type: Function, default: formatChartCount },
+  valueFormatter: { type: Function, default: null },
   durationAxis: { type: Boolean, default: false },
-  formatIndexAsDate: { type: Boolean, default: false }
+  formatIndexAsDate: { type: Boolean, default: false },
+  formatIndexAsWeek: { type: Boolean, default: false }
 })
+
+const { formatIndexAxisValue, formatIndexTitleValue } = useReportChartIndexFormatters(props)
 
 const resolvedXFormatter = computed(() => {
   if (props.xFormatter) return props.xFormatter
   return (tick) => {
     const raw = props.data[tick]?.[props.indexField] ?? ''
-    return props.formatIndexAsDate ? formatReportDate(raw) : String(raw)
+    return formatIndexAxisValue(raw)
   }
 })
 
 const resolvedTitleFormatter = computed(() => {
   if (props.titleFormatter) return props.titleFormatter
-  return (title) => (props.formatIndexAsDate ? formatReportDate(title) : String(title ?? ''))
+  return (title) => formatIndexTitleValue(title)
 })
 
 const resolvedYFormatter = computed(() => {
@@ -55,7 +59,8 @@ const resolvedYFormatter = computed(() => {
 })
 
 const resolvedValueFormatter = computed(() => {
-  if (props.durationAxis) return formatCompactDuration
-  return props.valueFormatter
+  if (props.valueFormatter) return props.valueFormatter
+  if (props.durationAxis) return formatResolutionDaysHours
+  return formatChartCount
 })
 </script>
