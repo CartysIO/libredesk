@@ -93,12 +93,12 @@ type Importer struct {
 	Opt      Options
 	Out      io.Writer
 
-	statusIDs       map[string]int
-	statusCategory  map[string]string
-	emailInboxID    int
-	chatInboxID     int
-	agentByEmail map[string]int
-	agentByPylon map[string]int
+	statusIDs      map[string]int
+	statusCategory map[string]string
+	emailInboxID   int
+	chatInboxID    int
+	agentByEmail   map[string]int
+	agentByPylon   map[string]int
 	// Agents this import created, by display name: one person with two Pylon users gets one agent.
 	agentByName   map[string]int
 	enabledAgents []int
@@ -1124,11 +1124,8 @@ func (im *Importer) countIssue(is Issue, msgs []Message, merge bool) {
 	}
 }
 
-// importMediaUploadTimeout caps one file upload so a stuck object store cannot block the import for hours.
-const importMediaUploadTimeout = 3 * time.Minute
-
-// importUploadPace spaces PUTs so object stores (e.g. Railway buckets) are less likely to answer SlowDown.
-const importUploadPace = 50 * time.Millisecond
+// importMediaUploadTimeout must cover UploadBulk backoff plus a slow Put (see media.UploadBulkTimeout).
+var importMediaUploadTimeout = media.UploadBulkTimeout()
 
 // importIssue writes one issue: media uploads run before the database transaction so row locks are not held during S3 I/O.
 func (im *Importer) importIssue(is Issue, msgs []Message, target *ExistingConversation) (err error) {
@@ -1350,14 +1347,14 @@ const (
 )
 
 type msgPlan struct {
-	kind                              msgPlanKind
-	m                                 Message
-	sourceID, msgType, status         string
-	senderType                        string
-	senderID, agentID                 int
-	content                           string
-	files                             []uploaded
-	metaJSON                          []byte
+	kind                      msgPlanKind
+	m                         Message
+	sourceID, msgType, status string
+	senderType                string
+	senderID, agentID         int
+	content                   string
+	files                     []uploaded
+	metaJSON                  []byte
 }
 
 // prepareMessagePlans reads idempotency state and uploads attachments before any write transaction opens.
@@ -1526,12 +1523,11 @@ func (im *Importer) uploadMedia(fileName, contentType string, content io.ReadSee
 	}
 	ch := make(chan result, 1)
 	go func() {
-		name, cType, err := im.Media.Upload(fileName, contentType, content)
+		name, cType, err := im.Media.UploadBulk(fileName, contentType, content)
 		ch <- result{name, cType, err}
 	}()
 	select {
 	case r := <-ch:
-		time.Sleep(importUploadPace)
 		return r.name, r.cType, r.err
 	case <-time.After(importMediaUploadTimeout):
 		return "", "", fmt.Errorf("timed out after %s", importMediaUploadTimeout)

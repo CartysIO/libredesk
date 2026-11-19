@@ -3,7 +3,6 @@
 package s3
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -84,42 +83,11 @@ func (c *Client) Put(name string, cType string, file io.ReadSeeker) (string, err
 		p.ACL = "public-read"
 	}
 
-	const maxAttempts = 6
-	for attempt := 0; ; attempt++ {
-		if _, err := file.Seek(0, io.SeekStart); err != nil {
-			return "", fmt.Errorf("s3 put bucket=%q key=%q: rewind: %w", c.opts.Bucket, p.ObjectKey, err)
-		}
-		_, err := c.s3.FilePut(p)
-		if err == nil {
-			return name, nil
-		}
-		if attempt >= maxAttempts-1 || !retriablePutError(err) {
-			return "", fmt.Errorf("s3 put bucket=%q key=%q content_type=%q: %w", c.opts.Bucket, p.ObjectKey, cType, err)
-		}
-		wait := time.Duration(1<<attempt) * time.Second
-		if wait > maxPutBackoff {
-			wait = maxPutBackoff
-		}
-		time.Sleep(wait)
+	if _, err := c.s3.FilePut(p); err != nil {
+		return "", fmt.Errorf("s3 put bucket=%q key=%q content_type=%q: %w", c.opts.Bucket, p.ObjectKey, cType, err)
 	}
-}
 
-const maxPutBackoff = 30 * time.Second
-
-// retriablePutError reports S3-compatible responses that clear on backoff (e.g. Railway SlowDown).
-func retriablePutError(err error) bool {
-	for err != nil {
-		msg := strings.ToLower(err.Error())
-		if strings.Contains(msg, "slowdown") ||
-			strings.Contains(msg, "503") ||
-			strings.Contains(msg, "429") ||
-			strings.Contains(msg, "service unavailable") ||
-			strings.Contains(msg, "requesttimeout") {
-			return true
-		}
-		err = errors.Unwrap(err)
-	}
-	return false
+	return name, nil
 }
 
 // GetURL generates a URL to access the file stored in S3.
