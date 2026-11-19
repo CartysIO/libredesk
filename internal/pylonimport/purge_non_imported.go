@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 
-	"github.com/abhinavxd/libredesk/internal/image"
 	"github.com/abhinavxd/libredesk/internal/media"
 	mmodels "github.com/abhinavxd/libredesk/internal/media/models"
 	"github.com/jmoiron/sqlx"
@@ -17,6 +15,13 @@ const nonImportedSQL = `
 NOT COALESCE(c.meta ? '` + MetaIssueID + `', FALSE)
 AND NOT COALESCE(c.meta ? '` + MetaMergedIssueID + `', FALSE)`
 
+// NonImportedConversation is a Libredesk conversation with no Pylon import meta.
+type NonImportedConversation struct {
+	ID              int64  `db:"id"`
+	ReferenceNumber string `db:"reference_number"`
+	Subject         string `db:"subject"`
+}
+
 // PurgeNonImportedOptions control removal of conversations that were not created or merged from a Pylon issue.
 type PurgeNonImportedOptions struct {
 	// Confirm deletes rows; otherwise only counts are printed.
@@ -26,6 +31,8 @@ type PurgeNonImportedOptions struct {
 // PurgeNonImportedReport counts what a purge run did or would do.
 type PurgeNonImportedReport struct {
 	DryRun bool
+
+	Targets []NonImportedConversation
 
 	Conversations           int
 	ConversationMessages    int
@@ -56,13 +63,15 @@ func (p *NonImportedPurger) Run(ctx context.Context) (*PurgeNonImportedReport, e
 	}
 	rep := &PurgeNonImportedReport{DryRun: !p.Opt.Confirm}
 
-	ids, err := p.listConversationIDs()
+	targets, err := p.listNonImportedConversations()
 	if err != nil {
 		return rep, err
 	}
-	if len(ids) == 0 {
+	rep.Targets = targets
+	if len(targets) == 0 {
 		return rep, nil
 	}
+	ids := conversationIDs(targets)
 
 	if err := p.countForIDs(rep, ids); err != nil {
 		return rep, err
@@ -75,25 +84,12 @@ func (p *NonImportedPurger) Run(ctx context.Context) (*PurgeNonImportedReport, e
 	if err != nil {
 		return rep, err
 	}
-	for _, mm := range files {
-		if ctx.Err() != nil {
-			return rep, ctx.Err()
-		}
-		if p.Media == nil {
-			return rep, fmt.Errorf("a media manager is required to delete message attachments")
-		}
-		if err := p.Media.Delete(mm.UUID); err != nil {
-			rep.MediaStoreDeleteErrors++
-			fmt.Fprintf(p.Out, "warning: delete media %s: %v\n", mm.UUID, err)
-			continue
-		}
-		rep.MediaStoreDeletes++
-		if strings.HasPrefix(mm.ContentType, "image/") {
-			thumb := image.ThumbPrefix + mm.UUID
-			if err := p.Media.Delete(thumb); err != nil {
-				fmt.Fprintf(p.Out, "warning: delete thumb %s: %v\n", thumb, err)
-			}
-		}
+	rep.MediaStoreDeletes, rep.MediaStoreDeleteErrors, err = deleteStoredMessageMedia(ctx, p.Media, p.Out, files)
+	if err != nil {
+		return rep, err
+	}
+	if rep.MediaStoreDeleteErrors > 0 {
+		return rep, fmt.Errorf("message media: %d file(s) could not be deleted from the store (database rows not changed)", rep.MediaStoreDeleteErrors)
 	}
 
 	tx, err := p.DB.BeginTxx(ctx, nil)
@@ -127,13 +123,21 @@ func (p *NonImportedPurger) Run(ctx context.Context) (*PurgeNonImportedReport, e
 	return rep, nil
 }
 
-func (p *NonImportedPurger) listConversationIDs() ([]int64, error) {
-	var ids []int64
-	q := `SELECT c.id FROM conversations c WHERE ` + nonImportedSQL + ` ORDER BY c.id`
-	if err := p.DB.Select(&ids, q); err != nil {
+func (p *NonImportedPurger) listNonImportedConversations() ([]NonImportedConversation, error) {
+	var out []NonImportedConversation
+	q := `SELECT c.id, c.reference_number, c.subject FROM conversations c WHERE ` + nonImportedSQL + ` ORDER BY c.id`
+	if err := p.DB.Select(&out, q); err != nil {
 		return nil, err
 	}
-	return ids, nil
+	return out, nil
+}
+
+func conversationIDs(targets []NonImportedConversation) []int64 {
+	ids := make([]int64, len(targets))
+	for i, t := range targets {
+		ids[i] = t.ID
+	}
+	return ids
 }
 
 func (p *NonImportedPurger) countForIDs(rep *PurgeNonImportedReport, ids []int64) error {
@@ -143,8 +147,6 @@ func (p *NonImportedPurger) countForIDs(rep *PurgeNonImportedReport, ids []int64
 		q    string
 	}{
 		{&rep.ConversationMessages, `SELECT COUNT(*) FROM conversation_messages WHERE conversation_id = ANY($1)`},
-		{&rep.MessageMedia, `SELECT COUNT(*) FROM media m
-			WHERE m.model_type = $2 AND m.model_id IN (SELECT id FROM conversation_messages WHERE conversation_id = ANY($1))`},
 		{&rep.WidgetDeliveriesCleared, `SELECT COUNT(*) FROM widget_campaign_deliveries d
 			JOIN conversations c ON d.conversation_uuid = c.uuid WHERE c.id = ANY($1)`},
 		{&rep.SlackThreads, `SELECT COUNT(*) FROM slack_threads WHERE conversation_id = ANY($1)`},
@@ -154,15 +156,15 @@ func (p *NonImportedPurger) countForIDs(rep *PurgeNonImportedReport, ids []int64
 		{&rep.NotificationEmailQueue, `SELECT COUNT(*) FROM notification_email_queue WHERE conversation_id = ANY($1)`},
 	}
 	for _, c := range counts {
-		var err error
-		if strings.Contains(c.q, "$2") {
-			err = p.DB.Get(c.dest, c.q, pq.Array(ids), mmodels.ModelMessages)
-		} else {
-			err = p.DB.Get(c.dest, c.q, pq.Array(ids))
-		}
-		if err != nil {
+		if err := p.DB.Get(c.dest, c.q, pq.Array(ids)); err != nil {
 			return err
 		}
+	}
+	if err := p.DB.Get(&rep.MessageMedia, `SELECT COUNT(*) FROM media m
+		WHERE m.model_type = $1
+		  AND m.model_id IN (SELECT id FROM conversation_messages WHERE conversation_id = ANY($2))`,
+		mmodels.ModelMessages, pq.Array(ids)); err != nil {
+		return err
 	}
 	return nil
 }
@@ -183,10 +185,15 @@ func (r *PurgeNonImportedReport) Print(w io.Writer) {
 		mode = "DRY RUN (non-imported conversations counted only; no rows deleted)"
 	}
 	fmt.Fprintf(w, "\n=== Pylon import: %s ===\n", mode)
+	fmt.Fprintf(w, "Criterion: conversations.meta lacks %q and %q.\n", MetaIssueID, MetaMergedIssueID)
 	fmt.Fprintf(w, "Conversations without Pylon meta: %d\n", r.Conversations)
 	if r.Conversations == 0 {
 		fmt.Fprintf(w, "Nothing to remove.\n")
 		return
+	}
+	fmt.Fprintf(w, "Conversations to remove:\n")
+	for _, t := range r.Targets {
+		fmt.Fprintf(w, "  #%s id=%d %s\n", t.ReferenceNumber, t.ID, t.Subject)
 	}
 	fmt.Fprintf(w, "Messages (cascade): %d\n", r.ConversationMessages)
 	fmt.Fprintf(w, "Message media rows: %d\n", r.MessageMedia)

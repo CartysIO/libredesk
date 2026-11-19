@@ -58,6 +58,9 @@ func TestPurgeNonImportedDryRunLeavesData(t *testing.T) {
 	if !strings.Contains(buf.String(), "DRY RUN") {
 		t.Fatalf("output %q", buf.String())
 	}
+	if !strings.Contains(buf.String(), "#") || !strings.Contains(buf.String(), "native") {
+		t.Fatalf("expected listed conversation in output %q", buf.String())
+	}
 }
 
 func TestPurgeNonImportedDeletesAttachments(t *testing.T) {
