@@ -166,6 +166,7 @@ func initFlags() {
 	f.Bool("pylon-verify-live", true, "with --pylon-import: skip issues that no longer exist in Pylon (GET /issues/{id}); needs PYLON_API_KEY")
 	f.Bool("pylon-refresh-issues", false, "with --pylon-import: refetch the issue list from the Pylon API instead of issues.json cache")
 	f.StringSlice("pylon-agent-alias", []string{"omer.menashe@gmail.com=omer@clyr.io"}, "with --pylon-import: pylon-user-email=libredesk-agent-email")
+	f.Bool("pylon-purge-non-imported", false, "with --pylon-import: after import, delete conversations that have no pylon_issue_id or pylon_merged_issue_id in meta (dry-run import only prints counts)")
 
 	// Clyr fork: compare Pylon cache medians to UI targets (cmd/pylon_sla_reconcile.go).
 	f.Bool("pylon-sla-reconcile", false, "analyze Pylon issues.json SLA medians for one Workforce week and exit")

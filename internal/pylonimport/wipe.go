@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 
-	"github.com/abhinavxd/libredesk/internal/image"
 	"github.com/abhinavxd/libredesk/internal/media"
 	mmodels "github.com/abhinavxd/libredesk/internal/media/models"
 	"github.com/jmoiron/sqlx"
@@ -22,18 +20,18 @@ type WipeOptions struct {
 type WipeReport struct {
 	DryRun bool
 
-	Conversations              int
-	ConversationMessages       int
-	MessageMedia               int
-	WidgetDeliveriesCleared    int
-	SlackThreads               int
-	LinearIssueLinks           int
-	ConversationTags           int
-	UserNotifications          int
-	NotificationEmailQueue     int
+	Conversations                int
+	ConversationMessages         int
+	MessageMedia                 int
+	WidgetDeliveriesCleared      int
+	SlackThreads                 int
+	LinearIssueLinks             int
+	ConversationTags             int
+	UserNotifications            int
+	NotificationEmailQueue       int
 	ReferenceSequenceRestartedAt int
-	MediaStoreDeletes          int
-	MediaStoreDeleteErrors     int
+	MediaStoreDeletes            int
+	MediaStoreDeleteErrors       int
 }
 
 // Wiper removes every conversation and related Libredesk rows so --pylon-import can run on a clean ticket store.
@@ -63,25 +61,9 @@ func (w *Wiper) Run(ctx context.Context) (*WipeReport, error) {
 	if err != nil {
 		return rep, err
 	}
-	for _, mm := range files {
-		if ctx.Err() != nil {
-			return rep, ctx.Err()
-		}
-		if w.Media == nil {
-			return rep, fmt.Errorf("a media manager is required to delete message attachments")
-		}
-		if err := w.Media.Delete(mm.UUID); err != nil {
-			rep.MediaStoreDeleteErrors++
-			fmt.Fprintf(w.Out, "warning: delete media %s: %v\n", mm.UUID, err)
-			continue
-		}
-		rep.MediaStoreDeletes++
-		if strings.HasPrefix(mm.ContentType, "image/") {
-			thumb := image.ThumbPrefix + mm.UUID
-			if err := w.Media.Delete(thumb); err != nil {
-				fmt.Fprintf(w.Out, "warning: delete thumb %s: %v\n", thumb, err)
-			}
-		}
+	rep.MediaStoreDeletes, rep.MediaStoreDeleteErrors, err = deleteStoredMessageMedia(ctx, w.Media, w.Out, files)
+	if err != nil {
+		return rep, err
 	}
 
 	tx, err := w.DB.BeginTxx(ctx, nil)

@@ -35,6 +35,7 @@ func runPylonImport(ctx context.Context, db *sqlx.DB, fs stuffbin.FileSystem, se
 		VerifyIssuesInPylon: ko.Bool("pylon-verify-live"),
 		ImportThumbnails:    ko.Bool("pylon-import-thumbnails"),
 	}
+	purgeNonImported := ko.Bool("pylon-purge-non-imported")
 	if s := ko.String("since"); s != "" {
 		t, err := time.Parse("2006-01-02", s)
 		if err != nil {
@@ -107,5 +108,29 @@ func runPylonImport(ctx context.Context, db *sqlx.DB, fs stuffbin.FileSystem, se
 	if err != nil {
 		log.Fatalf("pylon import: %v", err)
 	}
+
+	if purgeNonImported {
+		if err := runPylonPurgeNonImported(ctx, db, fs, settings, opt.DryRun); err != nil {
+			log.Fatalf("pylon import: purge non-imported: %v", err)
+		}
+	}
+
 	fmt.Printf("Done in %s.\n", time.Since(started).Round(time.Second))
+}
+
+// runPylonPurgeNonImported deletes conversations with no Pylon import meta (--pylon-purge-non-imported).
+func runPylonPurgeNonImported(ctx context.Context, db *sqlx.DB, fs stuffbin.FileSystem, settings *setting.Manager, dryRun bool) error {
+	purge := &pylonimport.NonImportedPurger{
+		DB:  db,
+		Opt: pylonimport.PurgeNonImportedOptions{Confirm: !dryRun},
+		Out: os.Stdout,
+	}
+	if !dryRun {
+		purge.Media = initMedia(db, initI18n(fs), settings)
+	}
+	purgeRep, err := purge.Run(ctx)
+	if purgeRep != nil {
+		purgeRep.Print(os.Stdout)
+	}
+	return err
 }
