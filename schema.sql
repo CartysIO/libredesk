@@ -463,6 +463,13 @@ CREATE INDEX index_conversation_messages_on_source_id ON conversation_messages (
 CREATE INDEX index_conversation_messages_on_status ON conversation_messages (status);
 CREATE INDEX index_conversation_messages_on_conversation_id_and_created_at ON conversation_messages (conversation_id, created_at);
 
+-- Inbound dedup tombstone: survives conversation delete so IMAP does not re-import the same Message-ID (Clyr fork).
+DROP TABLE IF EXISTS ingested_message_source_ids CASCADE;
+CREATE TABLE ingested_message_source_ids (
+    source_id TEXT PRIMARY KEY,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
 -- Slack bridge (Clyr fork): one Slack thread per conversation, and the Slack messages the bridge has handled.
 DROP TABLE IF EXISTS slack_threads CASCADE;
 CREATE TABLE slack_threads (

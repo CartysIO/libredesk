@@ -428,6 +428,9 @@ type queries struct {
 	GetEmailSenderMessage              *sqlx.Stmt `query:"get-email-sender-message"`
 	GetConversationUUIDFromMessageUUID *sqlx.Stmt `query:"get-conversation-uuid-from-message-uuid"`
 	MessageExistsBySourceID            *sqlx.Stmt `query:"message-exists-by-source-id"`
+	MessageIngestedExistsBySourceID    *sqlx.Stmt `query:"message-ingested-exists-by-source-id"`
+	RecordIngestedMessageSourceID      *sqlx.Stmt `query:"record-ingested-message-source-id"`
+	RecordIngestedSourceIDsForConversations *sqlx.Stmt `query:"record-ingested-source-ids-for-conversations"`
 	GetConversationByMessageID         *sqlx.Stmt `query:"get-conversation-by-message-id"`
 	InsertMessage                      *sqlx.Stmt `query:"insert-message"`
 	InsertMessageWithTimestamps        *sqlx.Stmt `query:"insert-message-with-timestamps"`
@@ -2061,6 +2064,9 @@ func (m *Manager) UpdateCSATResponse(uuid string, rating int, feedback string, m
 
 // DeleteConversation deletes a conversation.
 func (m *Manager) DeleteConversation(uuid string) error {
+	if err := m.recordIngestedSourceIDsForConversations([]string{uuid}); err != nil {
+		return err
+	}
 	res, err := m.q.DeleteConversation.Exec(uuid)
 	if err != nil {
 		m.lo.Error("error deleting conversation", "uuid", uuid, "error", err)
@@ -2084,6 +2090,9 @@ func (m *Manager) GetSpamCandidateConversations(contactID int) ([]string, error)
 // DeleteSpamConversations blocks the contact and deletes the given conversations of that contact in one statement.
 func (m *Manager) DeleteSpamConversations(contactID int, uuids []string) ([]models.DeletedConversation, error) {
 	var deleted = make([]models.DeletedConversation, 0)
+	if err := m.recordIngestedSourceIDsForConversations(uuids); err != nil {
+		return nil, err
+	}
 	if err := m.q.DeleteSpamConversations.Select(&deleted, contactID, pq.Array(uuids)); err != nil {
 		m.lo.Error("error deleting spam conversations", "contact_id", contactID, "error", err)
 		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)

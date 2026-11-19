@@ -964,6 +964,13 @@ func (m *Manager) InsertMessageTx(tx *sqlx.Tx, message *models.Message) ([]strin
 		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
 
+	if sourceID := strings.TrimSpace(message.SourceID.String); sourceID != "" {
+		if _, err := tx.Stmtx(m.q.RecordIngestedMessageSourceID).Exec(sourceID); err != nil {
+			m.lo.Error("error recording ingested message source id", "source_id", sourceID, "error", err)
+			return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+		}
+	}
+
 	if err := m.mediaStore.LinkMessageMediaTx(tx, message.ID, message.Media, inlineUUIDs, message.UploadUserID); err != nil {
 		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
@@ -1406,15 +1413,27 @@ func (m *Manager) ProcessIncomingWhatsAppMessage(msg models.Message, isNewConver
 
 // MessageExists checks if a message with the given messageID exists.
 func (m *Manager) MessageExists(messageID string) (bool, error) {
-	_, err := m.messageExistsBySourceID([]string{messageID})
-	if err != nil {
-		if errors.Is(err, errConversationNotFound) {
-			return false, nil
-		}
-		m.lo.Error("error fetching message from db", "error", err)
+	messageID = strings.TrimSpace(messageID)
+	if messageID == "" {
+		return false, nil
+	}
+	var exists bool
+	if err := m.q.MessageIngestedExistsBySourceID.QueryRowx(messageID).Scan(&exists); err != nil {
+		m.lo.Error("error checking ingested message source id", "source_id", messageID, "error", err)
 		return false, err
 	}
-	return true, nil
+	return exists, nil
+}
+
+func (m *Manager) recordIngestedSourceIDsForConversations(uuids []string) error {
+	if len(uuids) == 0 {
+		return nil
+	}
+	if _, err := m.q.RecordIngestedSourceIDsForConversations.Exec(pq.Array(uuids)); err != nil {
+		m.lo.Error("error recording ingested source ids for conversations", "count", len(uuids), "error", err)
+		return envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+	return nil
 }
 
 func (m *Manager) AdvanceWhatsAppWindowForMessage(messageID string, inboundAt time.Time) (bool, error) {
