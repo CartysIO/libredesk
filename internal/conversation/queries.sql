@@ -1210,6 +1210,29 @@ SELECT conversation_id
 FROM conversation_messages
 WHERE source_id = ANY($1::text []);
 
+-- name: message-ingested-exists-by-source-id
+SELECT (
+    EXISTS (
+        SELECT 1 FROM conversation_messages
+        WHERE NULLIF(TRIM(source_id), '') = NULLIF(TRIM($1), '')
+    )
+    OR EXISTS (SELECT 1 FROM ingested_message_source_ids WHERE source_id = NULLIF(TRIM($1), ''))
+);
+
+-- name: record-ingested-message-source-id
+INSERT INTO ingested_message_source_ids (source_id)
+SELECT NULLIF(TRIM($1), '')
+ON CONFLICT (source_id) DO NOTHING;
+
+-- name: record-ingested-source-ids-for-conversations
+INSERT INTO ingested_message_source_ids (source_id)
+SELECT DISTINCT NULLIF(TRIM(m.source_id), '')
+FROM conversation_messages m
+JOIN conversations c ON c.id = m.conversation_id
+WHERE c.uuid = ANY($1::uuid[])
+  AND NULLIF(TRIM(m.source_id), '') IS NOT NULL
+ON CONFLICT (source_id) DO NOTHING;
+
 -- name: update-message-status
 UPDATE conversation_messages SET status = $1::message_status, updated_at = NOW()
 WHERE uuid = $2 AND NOT ($1 = 'sent' AND status = 'failed');
