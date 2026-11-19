@@ -34,6 +34,7 @@ func runPylonImport(ctx context.Context, db *sqlx.DB, fs stuffbin.FileSystem, se
 		Reconcile:           ko.Bool("pylon-reconcile"),
 		VerifyIssuesInPylon: ko.Bool("pylon-verify-live"),
 		ImportThumbnails:    ko.Bool("pylon-import-thumbnails"),
+		PurgeNonImported:    ko.Bool("pylon-purge-non-imported"),
 	}
 	if s := ko.String("since"); s != "" {
 		t, err := time.Parse("2006-01-02", s)
@@ -107,5 +108,24 @@ func runPylonImport(ctx context.Context, db *sqlx.DB, fs stuffbin.FileSystem, se
 	if err != nil {
 		log.Fatalf("pylon import: %v", err)
 	}
+
+	if opt.PurgeNonImported {
+		purge := &pylonimport.NonImportedPurger{
+			DB:  db,
+			Opt: pylonimport.PurgeNonImportedOptions{Confirm: !opt.DryRun},
+			Out: os.Stdout,
+		}
+		if !opt.DryRun {
+			purge.Media = initMedia(db, initI18n(fs), settings)
+		}
+		purgeRep, err := purge.Run(ctx)
+		if purgeRep != nil {
+			purgeRep.Print(os.Stdout)
+		}
+		if err != nil {
+			log.Fatalf("pylon import: purge non-imported: %v", err)
+		}
+	}
+
 	fmt.Printf("Done in %s.\n", time.Since(started).Round(time.Second))
 }

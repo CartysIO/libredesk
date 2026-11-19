@@ -80,6 +80,8 @@ type Options struct {
 	ImportThumbnails bool
 	// SkippedNotInPylon lists issues dropped by live verification (numbers and titles for the report).
 	SkippedNotInPylon []string
+	// PurgeNonImported removes conversations without Pylon meta after a successful import (--pylon-purge-non-imported).
+	PurgeNonImported bool
 }
 
 // Importer writes Pylon data into a Libredesk database. It writes rows directly with SQL, in one transaction per
