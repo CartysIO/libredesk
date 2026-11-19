@@ -15,7 +15,7 @@ import (
 func TestMessageExistsAfterConversationDelete(t *testing.T) {
 	db := testutil.NewDB(t, "ingested_source_id")
 	lo := logf.New(logf.Opts{})
-	m := &Manager{db: db, lo: &lo, i18n: testutil.NewI18n(t)}
+	m := &Manager{db: db, lo: &lo, i18n: testutil.NewI18n(t), mediaStore: noopMessageMedia{}}
 	if err := dbutil.ScanSQLFile("queries.sql", &m.q, db, efs); err != nil {
 		t.Fatal(err)
 	}
