@@ -14,6 +14,7 @@ func V2_9_0_RC10_CLYR5(db *sqlx.DB, fs stuffbin.FileSystem, ko *koanf.Koanf) err
 			created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 		);
 
+		-- Same trim/null rules as record-ingested-source-ids-for-conversations in internal/conversation/queries.sql.
 		INSERT INTO ingested_message_source_ids (source_id)
 		SELECT DISTINCT NULLIF(TRIM(source_id), '')
 		FROM conversation_messages

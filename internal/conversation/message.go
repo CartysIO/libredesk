@@ -1425,17 +1425,6 @@ func (m *Manager) MessageExists(messageID string) (bool, error) {
 	return exists, nil
 }
 
-func (m *Manager) recordIngestedSourceIDsForConversations(uuids []string) error {
-	if len(uuids) == 0 {
-		return nil
-	}
-	if _, err := m.q.RecordIngestedSourceIDsForConversations.Exec(pq.Array(uuids)); err != nil {
-		m.lo.Error("error recording ingested source ids for conversations", "count", len(uuids), "error", err)
-		return envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
-	}
-	return nil
-}
-
 func (m *Manager) AdvanceWhatsAppWindowForMessage(messageID string, inboundAt time.Time) (bool, error) {
 	conversationID, err := m.messageExistsBySourceID([]string{messageID})
 	if errors.Is(err, errConversationNotFound) {

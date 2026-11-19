@@ -418,36 +418,36 @@ type queries struct {
 	DeleteStaleDrafts       *sqlx.Stmt `query:"delete-stale-drafts"`
 
 	// Message queries.
-	GetMessage                         *sqlx.Stmt `query:"get-message"`
-	GetCSATMessages                    *sqlx.Stmt `query:"get-csat-messages"`
-	GetMessages                        string     `query:"get-messages"`
-	GetContactUnreadPreviewMessages    *sqlx.Stmt `query:"get-contact-unread-preview-messages"`
-	GetOutgoingPendingMessages         *sqlx.Stmt `query:"get-outgoing-pending-messages"`
-	GetMessageSourceIDs                *sqlx.Stmt `query:"get-message-source-ids"`
-	GetPreviousMessages                *sqlx.Stmt `query:"get-previous-messages"`
-	GetEmailSenderMessage              *sqlx.Stmt `query:"get-email-sender-message"`
-	GetConversationUUIDFromMessageUUID *sqlx.Stmt `query:"get-conversation-uuid-from-message-uuid"`
-	MessageExistsBySourceID            *sqlx.Stmt `query:"message-exists-by-source-id"`
-	MessageIngestedExistsBySourceID    *sqlx.Stmt `query:"message-ingested-exists-by-source-id"`
-	RecordIngestedMessageSourceID      *sqlx.Stmt `query:"record-ingested-message-source-id"`
+	GetMessage                              *sqlx.Stmt `query:"get-message"`
+	GetCSATMessages                         *sqlx.Stmt `query:"get-csat-messages"`
+	GetMessages                             string     `query:"get-messages"`
+	GetContactUnreadPreviewMessages         *sqlx.Stmt `query:"get-contact-unread-preview-messages"`
+	GetOutgoingPendingMessages              *sqlx.Stmt `query:"get-outgoing-pending-messages"`
+	GetMessageSourceIDs                     *sqlx.Stmt `query:"get-message-source-ids"`
+	GetPreviousMessages                     *sqlx.Stmt `query:"get-previous-messages"`
+	GetEmailSenderMessage                   *sqlx.Stmt `query:"get-email-sender-message"`
+	GetConversationUUIDFromMessageUUID      *sqlx.Stmt `query:"get-conversation-uuid-from-message-uuid"`
+	MessageExistsBySourceID                 *sqlx.Stmt `query:"message-exists-by-source-id"`
+	MessageIngestedExistsBySourceID         *sqlx.Stmt `query:"message-ingested-exists-by-source-id"`
+	RecordIngestedMessageSourceID           *sqlx.Stmt `query:"record-ingested-message-source-id"`
 	RecordIngestedSourceIDsForConversations *sqlx.Stmt `query:"record-ingested-source-ids-for-conversations"`
-	GetConversationByMessageID         *sqlx.Stmt `query:"get-conversation-by-message-id"`
-	InsertMessage                      *sqlx.Stmt `query:"insert-message"`
-	InsertMessageWithTimestamps        *sqlx.Stmt `query:"insert-message-with-timestamps"`
-	UpdateMessageStatus                *sqlx.Stmt `query:"update-message-status"`
-	MarkMessagePendingForRetry         *sqlx.Stmt `query:"mark-message-pending-for-retry"`
-	ClearMessageHandoffFormPending     *sqlx.Stmt `query:"clear-message-handoff-form-pending"`
-	UpdateMessageSourceID              *sqlx.Stmt `query:"update-message-source-id"`
-	UpdateMessageSourceIDByUUID        *sqlx.Stmt `query:"update-message-source-id-by-uuid"`
-	ApplyWhatsAppMessageStatus         *sqlx.Stmt `query:"apply-whatsapp-message-status"`
-	MergeMessageMetaByUUID             *sqlx.Stmt `query:"merge-message-meta-by-uuid"`
-	GetWhatsAppReadReceiptTarget       *sqlx.Stmt `query:"get-whatsapp-read-receipt-target"`
-	UpdateConversationLastInboundAt    *sqlx.Stmt `query:"update-conversation-last-inbound-at"`
-	GetContactWindowInboundAt          *sqlx.Stmt `query:"get-contact-window-inbound-at"`
-	GetLatestOpenConversationByContact *sqlx.Stmt `query:"get-latest-open-conversation-by-contact-inbox"`
-	GetReopenableConversationByContact *sqlx.Stmt `query:"get-latest-reopenable-conversation-by-contact-inbox"`
-	DeleteMessage                      *sqlx.Stmt `query:"delete-message"`
-	DeletePrivateMessage               *sqlx.Stmt `query:"delete-private-message"`
+	GetConversationByMessageID              *sqlx.Stmt `query:"get-conversation-by-message-id"`
+	InsertMessage                           *sqlx.Stmt `query:"insert-message"`
+	InsertMessageWithTimestamps             *sqlx.Stmt `query:"insert-message-with-timestamps"`
+	UpdateMessageStatus                     *sqlx.Stmt `query:"update-message-status"`
+	MarkMessagePendingForRetry              *sqlx.Stmt `query:"mark-message-pending-for-retry"`
+	ClearMessageHandoffFormPending          *sqlx.Stmt `query:"clear-message-handoff-form-pending"`
+	UpdateMessageSourceID                   *sqlx.Stmt `query:"update-message-source-id"`
+	UpdateMessageSourceIDByUUID             *sqlx.Stmt `query:"update-message-source-id-by-uuid"`
+	ApplyWhatsAppMessageStatus              *sqlx.Stmt `query:"apply-whatsapp-message-status"`
+	MergeMessageMetaByUUID                  *sqlx.Stmt `query:"merge-message-meta-by-uuid"`
+	GetWhatsAppReadReceiptTarget            *sqlx.Stmt `query:"get-whatsapp-read-receipt-target"`
+	UpdateConversationLastInboundAt         *sqlx.Stmt `query:"update-conversation-last-inbound-at"`
+	GetContactWindowInboundAt               *sqlx.Stmt `query:"get-contact-window-inbound-at"`
+	GetLatestOpenConversationByContact      *sqlx.Stmt `query:"get-latest-open-conversation-by-contact-inbox"`
+	GetReopenableConversationByContact      *sqlx.Stmt `query:"get-latest-reopenable-conversation-by-contact-inbox"`
+	DeleteMessage                           *sqlx.Stmt `query:"delete-message"`
+	DeletePrivateMessage                    *sqlx.Stmt `query:"delete-private-message"`
 
 	// Conversation continuity queries.
 	GetOfflineLiveChatConversations *sqlx.Stmt `query:"get-offline-livechat-conversations"`
@@ -2064,12 +2064,23 @@ func (m *Manager) UpdateCSATResponse(uuid string, rating int, feedback string, m
 
 // DeleteConversation deletes a conversation.
 func (m *Manager) DeleteConversation(uuid string) error {
-	if err := m.recordIngestedSourceIDsForConversations([]string{uuid}); err != nil {
+	tx, err := m.db.Beginx()
+	if err != nil {
+		m.lo.Error("error beginning delete conversation transaction", "uuid", uuid, "error", err)
+		return envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+	defer tx.Rollback()
+
+	if err := m.recordIngestedSourceIDsForConversationsTx(tx, []string{uuid}); err != nil {
 		return err
 	}
-	res, err := m.q.DeleteConversation.Exec(uuid)
+	res, err := tx.Stmtx(m.q.DeleteConversation).Exec(uuid)
 	if err != nil {
 		m.lo.Error("error deleting conversation", "uuid", uuid, "error", err)
+		return envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+	if err := tx.Commit(); err != nil {
+		m.lo.Error("error committing delete conversation transaction", "uuid", uuid, "error", err)
 		return envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
 	rows, _ := res.RowsAffected()
@@ -2090,15 +2101,41 @@ func (m *Manager) GetSpamCandidateConversations(contactID int) ([]string, error)
 // DeleteSpamConversations blocks the contact and deletes the given conversations of that contact in one statement.
 func (m *Manager) DeleteSpamConversations(contactID int, uuids []string) ([]models.DeletedConversation, error) {
 	var deleted = make([]models.DeletedConversation, 0)
-	if err := m.recordIngestedSourceIDsForConversations(uuids); err != nil {
+	if len(uuids) == 0 {
+		return deleted, nil
+	}
+
+	tx, err := m.db.Beginx()
+	if err != nil {
+		m.lo.Error("error beginning delete spam conversations transaction", "contact_id", contactID, "error", err)
+		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+	defer tx.Rollback()
+
+	if err := m.recordIngestedSourceIDsForConversationsTx(tx, uuids); err != nil {
 		return nil, err
 	}
-	if err := m.q.DeleteSpamConversations.Select(&deleted, contactID, pq.Array(uuids)); err != nil {
+	if err := tx.Stmtx(m.q.DeleteSpamConversations).Select(&deleted, contactID, pq.Array(uuids)); err != nil {
 		m.lo.Error("error deleting spam conversations", "contact_id", contactID, "error", err)
+		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+	if err := tx.Commit(); err != nil {
+		m.lo.Error("error committing delete spam conversations transaction", "contact_id", contactID, "error", err)
 		return nil, envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
 	}
 	m.lo.Info("blocked contact and deleted spam conversations", "contact_id", contactID, "count", len(deleted))
 	return deleted, nil
+}
+
+func (m *Manager) recordIngestedSourceIDsForConversationsTx(tx *sqlx.Tx, uuids []string) error {
+	if len(uuids) == 0 {
+		return nil
+	}
+	if _, err := tx.Stmtx(m.q.RecordIngestedSourceIDsForConversations).Exec(pq.Array(uuids)); err != nil {
+		m.lo.Error("error recording ingested source ids for conversations", "count", len(uuids), "error", err)
+		return envelope.NewError(envelope.GeneralError, m.i18n.T("globals.messages.somethingWentWrong"), nil)
+	}
+	return nil
 }
 
 // UpdateConversationCustomAttributes updates the custom attributes of a conversation.

@@ -1212,13 +1212,16 @@ WHERE source_id = ANY($1::text []);
 
 -- name: message-ingested-exists-by-source-id
 SELECT (
-    EXISTS (SELECT 1 FROM conversation_messages WHERE source_id = $1)
-    OR EXISTS (SELECT 1 FROM ingested_message_source_ids WHERE source_id = $1)
+    EXISTS (
+        SELECT 1 FROM conversation_messages
+        WHERE NULLIF(TRIM(source_id), '') = NULLIF(TRIM($1), '')
+    )
+    OR EXISTS (SELECT 1 FROM ingested_message_source_ids WHERE source_id = NULLIF(TRIM($1), ''))
 );
 
 -- name: record-ingested-message-source-id
 INSERT INTO ingested_message_source_ids (source_id)
-VALUES ($1)
+SELECT NULLIF(TRIM($1), '')
 ON CONFLICT (source_id) DO NOTHING;
 
 -- name: record-ingested-source-ids-for-conversations

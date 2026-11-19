@@ -128,3 +128,18 @@ func TestMessageIngestedExistsBySourceIDQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestMessageExistsTrimsSourceID(t *testing.T) {
+	db := testutil.NewDB(t, "ingested_source_id_trim")
+	lo := logf.New(logf.Opts{})
+	m := &Manager{db: db, lo: &lo, i18n: testutil.NewI18n(t)}
+	if err := dbutil.ScanSQLFile("queries.sql", &m.q, db, efs); err != nil {
+		t.Fatal(err)
+	}
+	db.MustExec(`INSERT INTO ingested_message_source_ids (source_id) VALUES ('trim-me@example.com')`)
+
+	exists, err := m.MessageExists("  trim-me@example.com  ")
+	if err != nil || !exists {
+		t.Fatalf("trimmed lookup: exists=%v err=%v", exists, err)
+	}
+}
