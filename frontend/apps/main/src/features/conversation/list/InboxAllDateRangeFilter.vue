@@ -1,6 +1,6 @@
 <template>
   <div class="desk-inbox-date-range flex flex-wrap items-center gap-1">
-    <span class="text-muted-foreground mr-1 text-xs">{{ $t('globals.terms.conversationDate') }}</span>
+    <span class="text-muted-foreground mr-1 text-xs">{{ dateFieldLabel }}</span>
     <Button
       v-for="option in rangeOptions"
       :key="option"
@@ -32,9 +32,21 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Button } from '@shared-ui/components/ui/button'
 import DateFilterValue from '@/components/filter/DateFilterValue.vue'
 import { useInboxAllDateRange } from '@/composables/useInboxAllDateRange'
+import { useConversationStore } from '@/stores/conversation'
+import { CONVERSATION_DEFAULT_STATUSES } from '@/constants/conversation'
+
+const { t } = useI18n()
+const conversationStore = useConversationStore()
+const dateFieldLabel = computed(() =>
+  conversationStore.getListStatus === CONVERSATION_DEFAULT_STATUSES.RESOLVED
+    ? t('globals.terms.resolvedAt')
+    : t('globals.terms.createdAt')
+)
 
 const {
   rangeOptions,

@@ -191,4 +191,11 @@ func TestViewFiltersValidateAgainstListFields(t *testing.T) {
 	}
 }
 
+func TestResolvedAtBetweenFilterValidates(t *testing.T) {
+	filters := `[{"model":"conversations","field":"resolved_at","operator":"between","value":"2026-01-01,2026-01-31"}]`
+	if err := dbutil.ValidateFilters(filters, ListFilterAllowedFields, ListFilterRenderers); err != nil {
+		t.Fatalf("expected valid filters, got %v", err)
+	}
+}
+
 func intPtr(v int) *int { return &v }

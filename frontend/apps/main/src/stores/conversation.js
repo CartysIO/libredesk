@@ -12,7 +12,12 @@ import { subscribeToConversation, sendTypingIndicator, subscribeListReplace } fr
 import { playNotificationSound } from '@shared-ui/composables/useNotificationSound'
 import MessageCache from '@main/utils/conversation-message-cache'
 import { getI18n } from '@main/i18n'
-import { CONVERSATION_LIST_TYPE, CONVERSATION_DEFAULT_STATUSES, CONVERSATION_ACTIVE_STATUS, TAG_ACTION } from '@/constants/conversation'
+import {
+  CONVERSATION_LIST_TYPE,
+  CONVERSATION_DEFAULT_STATUSES,
+  CONVERSATION_ACTIVE_STATUS,
+  TAG_ACTION
+} from '@/constants/conversation'
 import { listStatusFilter, isValidListStatus, matchesListStatus } from '@/utils/conversationStatusFilter'
 import { useThrottleFn, useStorage } from '@vueuse/core'
 import { useUserStore } from '@/stores/user'
@@ -21,7 +26,9 @@ import { useNotificationStore } from '@/stores/notification'
 import { delayedLoading } from '@/utils/delayed-loading'
 import {
   INBOX_ALL_DEFAULT_RANGE_DAYS,
-  inboxAllCreatedAtListFilter
+  inboxAllDateListFilter,
+  INBOX_ALL_DATE_FIELD_CREATED,
+  INBOX_ALL_DATE_FIELD_RESOLVED
 } from '@/utils/inboxAllDateRange'
 import api from '@main/api'
 import {
@@ -332,12 +339,22 @@ export const useConversationStore = defineStore('conversation', () => {
     reFetchConversationsList()
   }
 
-  function appendAllInboxDateFilters (filters, listType = conversations.listType) {
+  function appendAllInboxDateFilters (filters, listType = conversations.listType, listStatus = null) {
     if (listType !== CONVERSATION_LIST_TYPE.ALL) return filters
-    const withoutCreated = filters.filter(
-      (f) => !(f.model === 'conversations' && f.field === 'created_at' && f.operator === 'between')
+    const status = listStatus ?? conversations.status
+    const dateField =
+      status === CONVERSATION_DEFAULT_STATUSES.RESOLVED
+        ? INBOX_ALL_DATE_FIELD_RESOLVED
+        : INBOX_ALL_DATE_FIELD_CREATED
+    const withoutDate = filters.filter(
+      (f) =>
+        !(
+          f.model === 'conversations' &&
+          (f.field === INBOX_ALL_DATE_FIELD_CREATED || f.field === INBOX_ALL_DATE_FIELD_RESOLVED) &&
+          f.operator === 'between'
+        )
     )
-    return [...withoutCreated, inboxAllCreatedAtListFilter(allInboxDateRange)]
+    return [...withoutDate, inboxAllDateListFilter(allInboxDateRange, dateField)]
   }
 
   function applyAllInboxDateRange () {
