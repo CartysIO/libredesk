@@ -4,8 +4,14 @@ import { toast } from 'vue-sonner'
 /** Grace period before a bulk command commits to the server. */
 export const BULK_UNDO_WINDOW_MS = 8000
 
-/** True while a deferred bulk command is in its undo window (reactive for toolbar visibility). */
-export const bulkCommandPending = ref(false)
+const bulkCommandPending = ref(false)
+
+/** Reactive undo-window flag (e.g. tests, diagnostics). */
+export function useBulkCommandPending () {
+  return bulkCommandPending
+}
+
+export const isBulkUndoPending = () => bulkCommandPending.value
 
 /**
  * @typedef {object} BulkCommand
@@ -36,9 +42,16 @@ const clearCommitTimer = () => {
 export async function flushActiveBulkCommand () {
   clearCommitTimer()
   const cmd = activeCommand
-  clearActiveCommand()
-  if (!cmd) return
-  await cmd.commit()
+  if (!cmd) {
+    clearActiveCommand()
+    return
+  }
+  activeCommand = null
+  try {
+    await cmd.commit()
+  } finally {
+    bulkCommandPending.value = false
+  }
 }
 
 const scheduleCommit = (command) => {
@@ -46,12 +59,12 @@ const scheduleCommit = (command) => {
   commitTimer = setTimeout(async () => {
     commitTimer = null
     if (activeCommand !== command) return
-    clearActiveCommand()
     try {
       await command.commit()
     } catch {
       command.revert()
     }
+    clearActiveCommand()
   }, BULK_UNDO_WINDOW_MS)
 }
 
@@ -86,4 +99,10 @@ export function runDeferredBulkCommand (command, { undoLabel, onBlocked }) {
   })
 
   return true
+}
+
+/** Clears runner state (tests). */
+export function resetBulkCommandRunner () {
+  clearCommitTimer()
+  clearActiveCommand()
 }

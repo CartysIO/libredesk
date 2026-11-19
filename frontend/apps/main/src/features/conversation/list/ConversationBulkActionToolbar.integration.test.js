@@ -1,11 +1,22 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { computed, createApp, defineComponent, h, nextTick, ref } from 'vue'
+import { computed, createApp, defineComponent, h, ref } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
+import {
+  confirmBulkToolbarAction,
+  settleBulkToolbar
+} from './conversationBulkActionToolbar.test-helpers'
 
-const { api, toast } = vi.hoisted(() => ({
+const { api, toast, board } = vi.hoisted(() => ({
   api: { deleteConversation: vi.fn().mockResolvedValue({}) },
-  toast: vi.fn()
+  toast: vi.fn(),
+  board: {
+    active: false,
+    loadedCardUUIDs: [],
+    removeConversations: vi.fn(),
+    captureBoardSnapshots: vi.fn(() => []),
+    refreshAll: vi.fn()
+  }
 }))
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key) => key }) }))
@@ -19,11 +30,11 @@ vi.mock('@/stores/user', () => ({ useUserStore: () => ({ can: () => true }) }))
 vi.mock('@/composables/useEmitter', () => ({ useEmitter: () => ({ emit: vi.fn() }) }))
 vi.mock('@/stores/conversationBoard', () => ({
   useConversationBoardStore: () => ({
-    context: { active: false },
-    loadedCardUUIDs: [],
-    captureBoardSnapshots: () => [],
-    removeConversations: vi.fn(),
-    refreshAll: vi.fn()
+    context: { active: board.active },
+    loadedCardUUIDs: board.loadedCardUUIDs,
+    captureBoardSnapshots: board.captureBoardSnapshots,
+    removeConversations: board.removeConversations,
+    refreshAll: board.refreshAll
   })
 }))
 vi.mock('@main/components/combobox/SelectAgentCombobox.vue', () => ({
@@ -37,37 +48,32 @@ vi.mock('@main/components/combobox/SelectTagCombobox.vue', () => ({
 }))
 
 import { useConversationStore } from '@/stores/conversation'
-import { bulkCommandPending } from '@/features/conversation/bulk/bulkCommandRunner'
+import {
+  isBulkUndoPending,
+  resetBulkCommandRunner,
+  useBulkCommandPending
+} from '@/features/conversation/bulk/bulkCommandRunner'
 import ConversationBulkActionToolbar from './ConversationBulkActionToolbar.vue'
-
-const stub = { render: () => null }
-
-const settle = async () => {
-  for (let i = 0; i < 12; i++) await nextTick()
-}
 
 let app
 let root
+let pinia
+const bulkCommandPending = useBulkCommandPending()
 
 afterEach(async () => {
   app?.unmount()
   root?.remove()
-  bulkCommandPending.value = false
+  resetBulkCommandRunner()
   vi.clearAllMocks()
+  board.active = false
+  board.loadedCardUUIDs = []
 })
-
-let pinia
 
 beforeEach(() => {
   pinia = createPinia()
   setActivePinia(pinia)
   api.deleteConversation.mockResolvedValue({})
 })
-
-const confirmButton = () => {
-  const buttons = document.querySelectorAll('[role="alertdialog"] button')
-  return buttons[buttons.length - 1]
-}
 
 const mountWithParentVIf = async () => {
   const store = useConversationStore()
@@ -82,9 +88,7 @@ const mountWithParentVIf = async () => {
     name: 'BulkToolbarShell',
     setup () {
       const conversationStore = useConversationStore()
-      const show = computed(
-        () => conversationStore.selectedCount > 0 || bulkCommandPending.value
-      )
+      const show = computed(() => conversationStore.selectedCount > 0)
       return () =>
         h('div', show.value ? h(ConversationBulkActionToolbar) : null)
     }
@@ -95,23 +99,36 @@ const mountWithParentVIf = async () => {
   app = createApp(Shell)
   app.use(pinia)
   app.mount(root)
-  await settle()
+  await settleBulkToolbar(12)
   return store
 }
 
-describe('ConversationBulkActionToolbar integration', () => {
-  it('deletes selected rows when confirm runs on pointerdown while parent v-if can unmount', async () => {
-    const store = await mountWithParentVIf()
-    const deleteBtn = root.querySelector('[aria-label="conversation.bulkActions.delete"]')
-    deleteBtn.click()
-    await settle()
+const openDeleteConfirm = async () => {
+  const deleteBtn = root.querySelector('[aria-label="conversation.bulkActions.delete"]')
+  deleteBtn.click()
+  await settleBulkToolbar(12)
+}
 
-    const btn = confirmButton()
-    btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }))
-    await settle()
+describe('ConversationBulkActionToolbar integration', () => {
+  it('deletes selected list rows when confirm runs on pointerdown while parent v-if can unmount', async () => {
+    const store = await mountWithParentVIf()
+    await openDeleteConfirm()
+    await confirmBulkToolbarAction()
 
     expect(store.conversations.data.map((c) => c.uuid)).toEqual([])
     expect(toast).toHaveBeenCalled()
+    expect(isBulkUndoPending()).toBe(true)
     expect(bulkCommandPending.value).toBe(true)
+  })
+
+  it('removes board cards optimistically when board mode is active', async () => {
+    board.active = true
+    board.loadedCardUUIDs = ['a', 'b']
+    await mountWithParentVIf()
+    await openDeleteConfirm()
+    await confirmBulkToolbarAction()
+
+    expect(board.removeConversations).toHaveBeenCalledWith(['a', 'b'])
+    expect(toast).toHaveBeenCalled()
   })
 })

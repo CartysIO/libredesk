@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createApp, nextTick, ref } from 'vue'
+import { createApp, ref } from 'vue'
+import {
+  confirmBulkToolbarAction,
+  confirmBulkToolbarActionKeyboard,
+  settleBulkToolbar
+} from './conversationBulkActionToolbar.test-helpers'
 
 const { bulkDelete, bulkMarkSpam, stub } = vi.hoisted(() => ({
   bulkDelete: vi.fn(),
@@ -52,9 +57,7 @@ import ConversationBulkActionToolbar from './ConversationBulkActionToolbar.vue'
 
 let app
 let root
-const settle = async () => {
-  for (let i = 0; i < 10; i++) await nextTick()
-}
+
 afterEach(() => {
   app?.unmount()
   root?.remove()
@@ -66,25 +69,12 @@ const mount = async () => {
   document.body.appendChild(root)
   app = createApp(ConversationBulkActionToolbar)
   app.mount(root)
-  await settle()
+  await settleBulkToolbar()
 }
 
 const click = async (el) => {
   el.click()
-  await settle()
-}
-
-// Mirrors Radix AlertDialogAction: dialog closes on pointerdown, not click.
-const confirmDelete = async () => {
-  const btn = confirmButton()
-  btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }))
-  await settle()
-}
-
-// The confirm button is the dialog's last button; the first is Cancel.
-const confirmButton = () => {
-  const buttons = document.querySelectorAll('[role="alertdialog"] button')
-  return buttons[buttons.length - 1]
+  await settleBulkToolbar()
 }
 
 describe('ConversationBulkActionToolbar', () => {
@@ -94,7 +84,7 @@ describe('ConversationBulkActionToolbar', () => {
     expect(document.querySelector('[role="alertdialog"]').textContent).toContain(
       'conversation.bulkActions.markAsSpamConfirm'
     )
-    await confirmDelete()
+    await confirmBulkToolbarAction()
     expect(bulkMarkSpam).toHaveBeenCalledTimes(1)
     expect(bulkDelete).not.toHaveBeenCalled()
   })
@@ -102,9 +92,16 @@ describe('ConversationBulkActionToolbar', () => {
   it('runs delete when the delete confirmation is accepted', async () => {
     await mount()
     await click(root.querySelector('[aria-label="conversation.bulkActions.delete"]'))
-    await confirmDelete()
+    await confirmBulkToolbarAction()
     expect(bulkDelete).toHaveBeenCalledTimes(1)
     expect(bulkMarkSpam).not.toHaveBeenCalled()
+  })
+
+  it('runs delete when confirm is activated with Enter', async () => {
+    await mount()
+    await click(root.querySelector('[aria-label="conversation.bulkActions.delete"]'))
+    await confirmBulkToolbarActionKeyboard('Enter')
+    expect(bulkDelete).toHaveBeenCalledTimes(1)
   })
 
   it('runs nothing when the confirmation is cancelled', async () => {

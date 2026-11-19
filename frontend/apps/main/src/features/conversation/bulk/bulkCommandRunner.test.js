@@ -2,10 +2,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   BULK_UNDO_WINDOW_MS,
-  bulkCommandPending,
   flushActiveBulkCommand,
-  runDeferredBulkCommand
+  resetBulkCommandRunner,
+  runDeferredBulkCommand,
+  useBulkCommandPending
 } from './bulkCommandRunner'
+
+const bulkCommandPending = useBulkCommandPending()
 
 vi.mock('vue-sonner', () => ({
   toast: vi.fn()
@@ -18,6 +21,7 @@ describe('bulkCommandRunner', () => {
 
   afterEach(async () => {
     await flushActiveBulkCommand()
+    resetBulkCommandRunner()
     vi.useRealTimers()
     vi.clearAllMocks()
   })
