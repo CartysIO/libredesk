@@ -1,10 +1,11 @@
-import { format, differenceInMinutes, differenceInHours, differenceInDays, differenceInMonths, differenceInYears } from 'date-fns'
+import { format, differenceInMinutes, differenceInHours, differenceInCalendarDays, differenceInMonths, differenceInYears } from 'date-fns'
 
 export function getRelativeTime (timestamp, now = new Date()) {
   try {
     const mins = differenceInMinutes(now, timestamp)
     const hours = differenceInHours(now, timestamp)
-    const days = differenceInDays(now, timestamp)
+    // Calendar days align with Pylon-style "Nd" labels (not full 24h blocks).
+    const days = differenceInCalendarDays(now, timestamp)
     const months = differenceInMonths(now, timestamp)
     const years = differenceInYears(now, timestamp)
 
