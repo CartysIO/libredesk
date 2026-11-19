@@ -11,10 +11,13 @@ export function getRelativeTime (timestamp, now = new Date()) {
 
     if (mins === 0) return 'now'
     if (mins < 60) return `${mins}m`
+    if (days >= 1) {
+      if (days < 31) return `${days}d`
+      if (months < 12) return `${months}mo`
+      return `${years}y`
+    }
     if (hours < 24) return `${hours}h`
-    if (days < 31) return `${days}d`
-    if (months < 12) return `${months}mo`
-    return `${years}y`
+    return `${hours}h`
   } catch (error) {
     console.error('Error parsing time', error, 'timestamp', timestamp)
     return ''
