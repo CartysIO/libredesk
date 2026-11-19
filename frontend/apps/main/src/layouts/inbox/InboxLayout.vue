@@ -48,6 +48,10 @@
       </router-view>
     </ResizablePanel>
   </ResizablePanelGroup>
+
+  <Teleport to="body">
+    <ConversationBulkActionToolbar v-if="showBulkToolbar" />
+  </Teleport>
 </template>
 
 <script setup>
@@ -58,6 +62,9 @@ import BoardView from '@/features/conversation/board/BoardView.vue'
 import { shouldShowBoard } from '@main/utils/conversationBoard'
 import { useBoardMode } from '@/composables/useBoardMode'
 import ConversationList from '@/features/conversation/list/ConversationList.vue'
+import ConversationBulkActionToolbar from '@/features/conversation/list/ConversationBulkActionToolbar.vue'
+import { useConversationStore } from '@/stores/conversation'
+import { useBulkActionPermissions } from '@/composables/useBulkActionPermissions'
 import { useIsMobile } from '@shared-ui/composables'
 import {
   ResizablePanelGroup,
@@ -68,7 +75,12 @@ import {
 defineOptions({ name: 'InboxLayout' })
 
 const route = useRoute()
+const conversationStore = useConversationStore()
+const { canBulkAct } = useBulkActionPermissions()
 const isMobile = useIsMobile()
+const showBulkToolbar = computed(
+  () => !isSearchRoute.value && conversationStore.selectedCount > 0 && canBulkAct.value
+)
 const isSearchRoute = computed(() => route.name === 'search')
 const panelGroupRef = ref(null)
 const { width: panelGroupWidth } = useElementSize(panelGroupRef)

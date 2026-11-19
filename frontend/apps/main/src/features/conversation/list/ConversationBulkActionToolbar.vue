@@ -2,7 +2,7 @@
   <div
     role="toolbar"
     :aria-label="t('conversation.bulkActions.toolbar')"
-    class="desk-bulk-toolbar flex flex-wrap items-center gap-1 p-2.5"
+    class="desk-bulk-toolbar desk-bulk-toolbar-floating flex flex-wrap items-center gap-1.5 px-3 py-2.5 shadow-lg"
   >
     <Checkbox
       :checked="conversationStore.allSelected"
@@ -10,12 +10,27 @@
       :aria-label="t('conversation.bulkActions.selectAll')"
       class="ml-1 mr-1"
     />
-    <span
-      class="text-xs font-medium whitespace-nowrap tabular-nums inline-block min-w-20 mr-1"
-      aria-live="polite"
-    >
-      {{ t('conversation.bulkActions.selected', conversationStore.selectedCount, { count: conversationStore.selectedCount }) }}
-    </span>
+    <div class="flex min-w-0 flex-col gap-0.5 pr-1 mr-0.5 border-r border-border/60">
+      <span
+        class="text-sm font-semibold whitespace-nowrap tabular-nums"
+        aria-live="polite"
+      >
+        {{ t('conversation.bulkActions.selected', conversationStore.selectedCount, { count: conversationStore.selectedCount }) }}
+      </span>
+      <span class="text-[11px] text-muted-foreground whitespace-nowrap tabular-nums">
+        {{
+          isBoardActive
+            ? t('conversation.bulkActions.selectedOfBoard', {
+                selected: conversationStore.selectedCount,
+                total: boardLoadedCount
+              })
+            : t('conversation.bulkActions.selectedOfTotal', {
+                selected: conversationStore.selectedCount,
+                total: listLoadedCount
+              })
+        }}
+      </span>
+    </div>
 
     <!-- Assign Agent -->
     <SelectAgentCombobox
@@ -179,7 +194,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { UserPlus, Users, Tag, CircleDot, Loader2, X, ShieldBan, Trash2 } from 'lucide-vue-next'
 import { Button } from '@shared-ui/components/ui/button'
@@ -204,10 +219,15 @@ import SelectAgentCombobox from '@main/components/combobox/SelectAgentCombobox.v
 import SelectTeamCombobox from '@main/components/combobox/SelectTeamCombobox.vue'
 import SelectTagCombobox from '@main/components/combobox/SelectTagCombobox.vue'
 import { useConversationStore } from '@/stores/conversation'
+import { useConversationBoardStore } from '@/stores/conversationBoard'
 import { useBulkActionPermissions } from '@/composables/useBulkActionPermissions'
 import { useBulkActions } from '@/composables/useBulkActions'
 
 const conversationStore = useConversationStore()
+const boardStore = useConversationBoardStore()
+const isBoardActive = computed(() => boardStore.context.active)
+const boardLoadedCount = computed(() => boardStore.loadedCardUUIDs.length)
+const listLoadedCount = computed(() => conversationStore.conversationsList.length)
 const { t } = useI18n()
 const { bulkLoading, bulkAssign, bulkAddTag, bulkUpdateStatus, bulkDelete, bulkMarkSpam } =
   useBulkActions()

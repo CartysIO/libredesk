@@ -1,0 +1,1 @@
+export const cloneSnapshotRow = (row) => JSON.parse(JSON.stringify(row))

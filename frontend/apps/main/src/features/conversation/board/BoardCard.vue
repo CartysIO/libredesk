@@ -4,10 +4,11 @@
     tabindex="0"
     draggable="true"
     :data-uuid="conversation.uuid"
-    class="board-card rounded-md border border-border bg-card text-card-foreground px-3 py-2.5 cursor-pointer select-none transition-colors duration-150 hover:border-input hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+    class="board-card group rounded-md border border-border bg-card text-card-foreground px-3 py-2.5 cursor-pointer select-none transition-colors duration-150 hover:border-input hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     :class="{
       'opacity-50': isDragging,
-      'board-card--active border-input bg-accent/40': active
+      'board-card--active border-input bg-accent/40': active,
+      'border-primary/30 bg-primary/5': isItemSelected && !active
     }"
     :aria-current="active ? 'true' : undefined"
     @click="$emit('open', conversation)"
@@ -17,7 +18,31 @@
   >
     <!-- Line 1: whose-move swatch, reference, neutral unread dot (DESIGN.md board card). -->
     <div class="flex items-center gap-2 text-xs tabular-nums">
-      <StatusSwatch :status="conversation.status" />
+      <div
+        v-if="canBulkAct"
+        class="relative flex h-4 w-4 shrink-0 items-center justify-center"
+        @click.stop
+        @mousedown.stop
+      >
+        <StatusSwatch
+          class="absolute transition-opacity"
+          :class="showCheckbox ? 'opacity-0' : canBulkAct ? 'opacity-100 can-hover:group-hover:opacity-0' : 'opacity-100'"
+          :status="conversation.status"
+          :aria-hidden="showCheckbox"
+        />
+        <div
+          class="absolute inset-0 items-center justify-center"
+          :class="showCheckbox ? 'flex' : 'hidden can-hover:group-hover:flex'"
+          @click.stop.prevent="onCheckboxClick"
+        >
+          <Checkbox
+            :checked="isItemSelected"
+            :aria-label="t('conversation.bulkActions.selectConversation')"
+            class="h-4 w-4"
+          />
+        </div>
+      </div>
+      <StatusSwatch v-else :status="conversation.status" />
       <span class="font-display shrink-0 font-bold tabular-nums tracking-tight"
         >#{{ conversation.reference_number }}</span
       >
@@ -70,8 +95,11 @@ import { Mail } from 'lucide-vue-next'
 import { getRelativeTime } from '@shared-ui/utils/datetime.js'
 import { Avatar, AvatarFallback, AvatarImage } from '@shared-ui/components/ui/avatar'
 import StatusSwatch from '@main/components/brand/StatusSwatch.vue'
+import { Checkbox } from '@shared-ui/components/ui/checkbox'
 import { CHANNEL_ICONS } from '@main/constants/channelIcons.js'
 import { useUsersStore } from '@main/stores/users'
+import { useConversationStore } from '@main/stores/conversation'
+import { useBulkActionPermissions } from '@/composables/useBulkActionPermissions'
 
 const props = defineProps({
   conversation: { type: Object, required: true },
@@ -82,6 +110,18 @@ const emit = defineEmits(['open', 'dragstart', 'dragend'])
 
 const { t } = useI18n()
 const usersStore = useUsersStore()
+const conversationStore = useConversationStore()
+const { canBulkAct } = useBulkActionPermissions()
+
+const isItemSelected = computed(() => conversationStore.isSelected(props.conversation.uuid))
+const showCheckbox = computed(() => {
+  if (!canBulkAct.value) return false
+  return isItemSelected.value || conversationStore.selectedCount > 0
+})
+
+const onCheckboxClick = (event) => {
+  conversationStore.toggleSelect(props.conversation.uuid, event.shiftKey)
+}
 
 const contactName = computed(() => {
   const c = props.conversation.contact || {}

@@ -4,6 +4,13 @@
       <slot />
     </ContextMenuTrigger>
     <ContextMenuContent class="w-56">
+      <ContextMenuItem
+        v-if="canBulkAct && !showCheckbox"
+        @select="conversationStore.toggleSelect(conversation.uuid, false)"
+      >
+        <SquareCheck class="w-4 h-4 mr-2" />
+        {{ t('conversation.bulkActions.selectConversation') }}
+      </ContextMenuItem>
       <ContextMenuItem @select="emit('action', 'open')">
         <PanelRight class="w-4 h-4 mr-2" />
         {{ t('globals.terms.open') }}
@@ -178,6 +185,7 @@ import {
   Link2,
   Maximize2,
   PanelRight,
+  SquareCheck,
   ShieldBan,
   Trash2,
   UserCheck,
@@ -223,8 +231,11 @@ const userStore = useUserStore()
 const usersStore = useUsersStore()
 const teamStore = useTeamStore()
 const actions = useConversationActions()
-const { canAssignAgent, canAssignTeam, canUpdateStatus, canDelete, canMarkSpam } =
+const { canAssignAgent, canAssignTeam, canUpdateStatus, canDelete, canMarkSpam, canBulkAct } =
   useBulkActionPermissions()
+const showCheckbox = computed(
+  () => canBulkAct.value && conversationStore.selectedCount > 0
+)
 const canUpdatePriority = computed(() => userStore.can(perms.CONVERSATIONS_UPDATE_PRIORITY))
 
 // Statuses with a column show the column's name, as the board does.

@@ -1,11 +1,11 @@
 import { defineStore } from 'pinia'
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useThrottleFn } from '@vueuse/core'
 import { handleHTTPError } from '@shared-ui/utils/http.js'
 import { deepMerge } from '@shared-ui/utils/object.js'
 import { useEmitter } from '@main/composables/useEmitter'
 import { EMITTER_EVENTS } from '@main/constants/emitterEvents'
-import { CONVERSATION_LIST_TYPE, CONVERSATION_BOARD_STATUS_LIST } from '@main/constants/conversation'
+import { CONVERSATION_BOARD_STATUS_LIST, CONVERSATION_LIST_TYPE } from '@main/constants/conversation'
 import { subscribeListReplace } from '@main/websocket'
 import { useConversationStore } from '@main/stores/conversation'
 import { useUserStore } from '@main/stores/user'
@@ -20,7 +20,11 @@ import {
   undoBoardMove
 } from '@main/utils/conversationBoard'
 import api from '@main/api'
-
+import {
+  applyBulkStatusOnBoard,
+  captureBoardSnapshots as captureBoardRows,
+  restoreBoardSnapshots as restoreBoardRows
+} from '@/features/conversation/bulk/boardSnapshots'
 // A view cannot be filtered by status on the server, so its pages are split into columns here.
 const VIEW_INITIAL_PAGES = 4
 const REFRESH_THROTTLE_MS = 5000
@@ -257,6 +261,22 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
     }
   }
 
+  function captureBoardSnapshots(uuids) {
+    return captureBoardRows(columns, uuids)
+  }
+
+  function restoreBoardSnapshots(snapshots) {
+    restoreBoardRows(columns, snapshots)
+  }
+
+  function applyBulkStatusBoard(uuids, status) {
+    applyBulkStatusOnBoard(columns, uuids, status)
+  }
+
+  const loadedCardUUIDs = computed(() =>
+    CONVERSATION_BOARD_STATUS_LIST.flatMap((s) => columns[s].items.map((c) => c.uuid))
+  )
+
   const cardUUIDs = () => {
     if (!context.active) return []
     const uuids = CONVERSATION_BOARD_STATUS_LIST.flatMap((s) => columns[s].items.map((c) => c.uuid))
@@ -378,6 +398,10 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
     mergeConversationUpdate,
     mergeContactUpdate,
     removeConversations,
+    captureBoardSnapshots,
+    restoreBoardSnapshots,
+    applyBulkStatusBoard,
+    loadedCardUUIDs,
     cardUUIDs,
     incrementUnread,
     applyConversationRead

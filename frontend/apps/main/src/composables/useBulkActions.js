@@ -1,22 +1,28 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConversationStore } from '@/stores/conversation'
-import { useConversationBoardStore } from '@/stores/conversationBoard'
 import { useEmitter } from '@/composables/useEmitter'
 import { EMITTER_EVENTS } from '@/constants/emitterEvents'
 import { TAG_ACTION } from '@/constants/conversation'
 import api from '@/api'
+import { runDeferredBulkCommand } from '@/features/conversation/bulk/bulkCommandRunner'
+import {
+  createBulkDeleteCommand,
+  createBulkSpamCommand,
+  createBulkStatusCommand
+} from '@/features/conversation/bulk/bulkCommands'
 
 const bulkLoading = ref(false)
 
-export function useBulkActions() {
+export function useBulkActions () {
   const conversationStore = useConversationStore()
-  const boardStore = useConversationBoardStore()
   const emitter = useEmitter()
   const { t } = useI18n()
 
+  const selectedUUIDs = () => [...conversationStore.selectedUUIDs]
+
   const runBulkAction = async (actionFn) => {
-    const uuids = [...conversationStore.selectedUUIDs]
+    const uuids = selectedUUIDs()
     bulkLoading.value = true
     const results = await Promise.allSettled(uuids.map((uuid) => actionFn(uuid)))
     bulkLoading.value = false
@@ -24,7 +30,7 @@ export function useBulkActions() {
     const hasFailures = results.some((r) => r.status === 'rejected')
 
     conversationStore.clearSelection()
-    conversationStore.fetchFirstPageConversations()
+    conversationStore.refreshInboxSurface()
     conversationStore.fetchSidebarCounts({ force: true })
 
     if (hasFailures) {
@@ -40,6 +46,21 @@ export function useBulkActions() {
     }
   }
 
+  const runDeferred = (buildCommand) => {
+    const uuids = selectedUUIDs()
+    if (!uuids.length) return
+    const started = runDeferredBulkCommand(buildCommand(uuids), {
+      undoLabel: t('globals.messages.undo'),
+      onBlocked: () => {
+        emitter.emit(EMITTER_EVENTS.SHOW_TOAST, {
+          variant: 'warning',
+          description: t('conversation.bulkActions.pendingUndo')
+        })
+      }
+    })
+    if (!started) return
+  }
+
   const bulkAssign = (assigneeType, assigneeValue) => {
     if (assigneeValue === 'none') {
       return runBulkAction((uuid) => api.removeAssignee(uuid, assigneeType))
@@ -53,34 +74,11 @@ export function useBulkActions() {
   const bulkAddTag = (tag) =>
     runBulkAction((uuid) => conversationStore.updateConversationTags(uuid, TAG_ACTION.ADD, [tag]))
 
-  const bulkUpdateStatus = (status) =>
-    runBulkAction((uuid) => api.updateConversationStatus(uuid, { status }))
+  const bulkUpdateStatus = (status) => runDeferred((uuids) => createBulkStatusCommand(uuids, status))
 
-  // runRemovingAction runs a bulk delete action, then drops the deleted conversations from the store.
-  const runRemovingAction = async (actionFn) => {
-    const removed = []
-    await runBulkAction(async (uuid) => removed.push(...(await actionFn(uuid))))
-    conversationStore.removeConversations(removed)
-    boardStore.removeConversations(removed)
-  }
+  const bulkDelete = () => runDeferred((uuids) => createBulkDeleteCommand(uuids))
 
-  const bulkDelete = () =>
-    runRemovingAction(async (uuid) => {
-      await api.deleteConversation(uuid)
-      return [uuid]
-    })
-
-  // Marking one conversation as spam also deletes the contact's other selected conversations, so a 404 is not a failure.
-  const bulkMarkSpam = () =>
-    runRemovingAction(async (uuid) => {
-      try {
-        const response = await api.markConversationSpam(uuid)
-        return response.data.data.deleted_uuids
-      } catch (error) {
-        if (error.response?.status !== 404) throw error
-        return []
-      }
-    })
+  const bulkMarkSpam = () => runDeferred((uuids) => createBulkSpamCommand(uuids))
 
   return {
     bulkLoading,
