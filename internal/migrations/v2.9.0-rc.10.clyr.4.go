@@ -1,9 +1,7 @@
 package migrations
 
 import (
-	"os"
-	"path/filepath"
-	"runtime"
+	_ "embed"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
@@ -11,16 +9,11 @@ import (
 	"github.com/knadh/stuffbin"
 )
 
+//go:embed pylon_workforce_functions.sql
+var pylonWorkforceFunctionsSQL string
+
 // V2_9_0_RC10_CLYR4 adds SQL helpers for Pylon Workforce SLA parity in report queries.
 func V2_9_0_RC10_CLYR4(db *sqlx.DB, fs stuffbin.FileSystem, ko *koanf.Koanf) error {
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		return nil
-	}
-	b, err := os.ReadFile(filepath.Join(filepath.Dir(file), "pylon_workforce_functions.sql"))
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(strings.TrimSpace(string(b)))
+	_, err := db.Exec(strings.TrimSpace(pylonWorkforceFunctionsSQL))
 	return err
 }
