@@ -34,6 +34,20 @@ func Put(err error) bool {
 	return false
 }
 
+// SlowDown reports bucket rate-limit responses that need a longer quiet period before retry.
+func SlowDown(err error) bool {
+	for err != nil {
+		if strings.EqualFold(s3ErrorCode(err), "SlowDown") {
+			return true
+		}
+		if code := httpStatus(err); code == http.StatusServiceUnavailable || code == http.StatusTooManyRequests {
+			return strings.Contains(strings.ToLower(err.Error()), "slowdown")
+		}
+		err = errors.Unwrap(err)
+	}
+	return false
+}
+
 func httpStatus(err error) int {
 	m := statusCodeRE.FindStringSubmatch(err.Error())
 	if len(m) < 2 {

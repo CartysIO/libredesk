@@ -13,6 +13,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/abhinavxd/libredesk/internal/dbutil"
@@ -63,6 +64,10 @@ type Manager struct {
 	i18n    *i18n.I18n
 	rootURL func() string
 	queries queries
+
+	bulkPutMu     sync.Mutex
+	bulkPutMinGap time.Duration
+	bulkPutLast   time.Time
 }
 
 // Opts provides options for configuring the Manager.

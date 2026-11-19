@@ -24,6 +24,13 @@ func TestPutS3Code(t *testing.T) {
 	}
 }
 
+func TestSlowDown(t *testing.T) {
+	err := fmt.Errorf(`status code: 503 Service Unavailable: %q`, `<Error><Code>SlowDown</Code></Error>`)
+	if !SlowDown(err) {
+		t.Fatal("expected SlowDown")
+	}
+}
+
 func TestPutNetTimeout(t *testing.T) {
 	if !Put(&net.DNSError{IsTimeout: true}) {
 		t.Fatal("expected timeout retriable")
