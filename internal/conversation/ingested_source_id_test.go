@@ -4,18 +4,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/abhinavxd/libredesk/internal/conversation/models"
 	"github.com/abhinavxd/libredesk/internal/dbutil"
 	"github.com/abhinavxd/libredesk/internal/testutil"
 	"github.com/lib/pq"
-	"github.com/volatiletech/null/v9"
 	"github.com/zerodha/logf"
 )
 
 func TestMessageExistsAfterConversationDelete(t *testing.T) {
 	db := testutil.NewDB(t, "ingested_source_id")
 	lo := logf.New(logf.Opts{})
-	m := &Manager{db: db, lo: &lo, i18n: testutil.NewI18n(t), mediaStore: noopMessageMedia{}}
+	m := &Manager{db: db, lo: &lo, i18n: testutil.NewI18n(t)}
 	if err := dbutil.ScanSQLFile("queries.sql", &m.q, db, efs); err != nil {
 		t.Fatal(err)
 	}
@@ -33,20 +31,9 @@ func TestMessageExistsAfterConversationDelete(t *testing.T) {
 	}
 
 	const sourceID = "<dedup-test@example.com>"
-	msg := models.Message{
-		Type:             models.MessageIncoming,
-		Status:           models.MessageStatusReceived,
-		ConversationID:   convID,
-		ConversationUUID: convUUID,
-		Content:          "hello",
-		TextContent:      "hello",
-		SenderID:         contactID,
-		SenderType:       models.SenderTypeContact,
-		SourceID:         null.StringFrom(sourceID),
-	}
-	if err := m.InsertMessage(&msg); err != nil {
-		t.Fatal(err)
-	}
+	db.MustExec(`DELETE FROM ingested_message_source_ids WHERE source_id = $1`, sourceID)
+	db.MustExec(`INSERT INTO conversation_messages (type, status, conversation_id, content, text_content, sender_id, sender_type, source_id)
+		VALUES ('incoming', 'received', $1, 'hello', 'hello', $2, 'contact', $3)`, convID, contactID, sourceID)
 
 	exists, err := m.MessageExists(sourceID)
 	if err != nil || !exists {
