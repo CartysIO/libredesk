@@ -18,7 +18,7 @@ func TestV2_9_0_RC10_CLYR5IngestedMessageSourceIDs(t *testing.T) {
 	}
 	if err := db.Get(&convID, `
 		INSERT INTO conversations (contact_id, inbox_id, status_id, subject)
-		VALUES ($1, $2, 1, 'backfill')`, contactID, inboxID); err != nil {
+		VALUES ($1, $2, 1, 'backfill') RETURNING id`, contactID, inboxID); err != nil {
 		t.Fatal(err)
 	}
 	db.MustExec(`DELETE FROM ingested_message_source_ids`)
