@@ -97,9 +97,9 @@ import { handleHTTPError } from '@shared-ui/utils/http.js'
 import {
   formatReportDateTime,
   formatReportDateTimeReadable,
-  formatReportDurationSeconds,
-  reportDateFnsLocale
+  formatReportDurationSeconds
 } from '@/features/reports/issuesFormat.js'
+import { useReportLocale } from '@/features/reports/useReportLocale.js'
 import { REPORT_RANGE_OPTIONS, useReportDateRange } from '@main/composables/useReportDateRange.js'
 import { useReportPolling } from '@main/composables/useReportPolling.js'
 import IssuesReportDateRange from '@/features/reports/IssuesReportDateRange.vue'
@@ -116,7 +116,8 @@ const rangeOptions = REPORT_RANGE_OPTIONS
 const sortAscKeys = ['reference_number', 'subject', 'organization_name']
 
 const emitter = useEmitter()
-const { t, locale } = useI18n()
+const { t } = useI18n()
+const dateLocale = useReportLocale()
 const isLoading = ref(false)
 const lastUpdate = ref(new Date())
 const search = ref('')
@@ -133,8 +134,6 @@ const conversationLink = {
   prefix: '#',
   to: (row) => ({ name: 'inbox-conversation', params: { type: 'all', uuid: row.uuid } })
 }
-
-const dateLocale = computed(() => reportDateFnsLocale(locale.value))
 
 const columns = computed(() => [
   { key: 'reference_number', label: t('report.slaBreaches.conversationNumber') },

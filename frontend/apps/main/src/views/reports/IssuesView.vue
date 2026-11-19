@@ -207,11 +207,11 @@ import { handleHTTPError } from '@shared-ui/utils/http.js'
 import { subDays, format } from 'date-fns'
 import {
   formatReportDateTime,
-  formatReportDayOfWeek,
+  formatReportDowRow,
   formatReportHour24,
-  formatResolutionDaysHours,
-  reportDateFnsLocale
+  formatResolutionDaysHours
 } from '@/features/reports/issuesFormat.js'
+import { useReportLocale } from '@/features/reports/useReportLocale.js'
 import IssuesBarChart from '@/features/reports/IssuesBarChart.vue'
 import IssuesLineChart from '@/features/reports/IssuesLineChart.vue'
 import IssuesDonutChart from '@/features/reports/IssuesDonutChart.vue'
@@ -225,7 +225,8 @@ import { useI18n } from 'vue-i18n'
 import api from '@main/api'
 
 const emitter = useEmitter()
-const { t, locale } = useI18n()
+const { t } = useI18n()
+const reportLocale = useReportLocale()
 const isLoading = ref(false)
 const accountsLoading = ref(false)
 const lastUpdate = ref(new Date())
@@ -319,8 +320,6 @@ const volumeByDayChart = computed(() => {
   }))
 })
 
-const reportLocale = computed(() => reportDateFnsLocale(locale.value))
-
 const byHourChart = computed(() => {
   const rows = charts.value.by_hour || []
   return rows.map((row) => ({
@@ -332,10 +331,7 @@ const byHourChart = computed(() => {
 const byDowChart = computed(() => {
   const rows = charts.value.by_dow || []
   return rows.map((row) => ({
-    label:
-      row.dow != null
-        ? formatReportDayOfWeek(row.dow, reportLocale.value)
-        : row.label,
+    label: formatReportDowRow(row, reportLocale.value),
     [countLabel.value]: row.count
   }))
 })

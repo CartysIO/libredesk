@@ -37,12 +37,15 @@ const props = defineProps({
   valueFormatter: { type: Function, default: null },
   formatIndexAsDate: { type: Boolean, default: false },
   formatIndexAsWeek: { type: Boolean, default: false },
+  durationAxis: { type: Boolean, default: false },
   durationYAxis: { type: Boolean, default: false },
   margin: {
     type: Object,
     default: () => ({ top: 10, bottom: 30, left: 10, right: 10 })
   }
 })
+
+const durationValues = computed(() => props.durationAxis || props.durationYAxis)
 
 const { formatIndexAxisValue, formatIndexTitleValue } = useReportChartIndexFormatters(props)
 
@@ -63,7 +66,7 @@ const resolvedTitleFormatter = computed(() => {
 
 const resolvedYFormatter = computed(() => {
   if (props.yFormatter) return props.yFormatter
-  if (props.durationYAxis) return (tick) => formatCompactDuration(tick)
+  if (durationValues.value) return (tick) => formatCompactDuration(tick)
   return (tick) => {
     if (typeof tick !== 'number' || !Number.isFinite(tick)) return ''
     return formatChartCount(tick)
@@ -72,7 +75,7 @@ const resolvedYFormatter = computed(() => {
 
 const resolvedValueFormatter = computed(() => {
   if (props.valueFormatter) return props.valueFormatter
-  if (props.durationYAxis) return formatResolutionDaysHours
+  if (durationValues.value) return formatResolutionDaysHours
   return formatChartCount
 })
 </script>

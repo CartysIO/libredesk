@@ -8,7 +8,7 @@ import {
 
 /** Shared X-axis / crosshair title formatters for report charts. */
 export function useReportChartIndexFormatters(props) {
-  const { locale, t } = useI18n()
+  const { t, locale } = useI18n()
   const dateLocale = computed(() => reportDateFnsLocale(locale.value))
 
   const formatIndexAxisValue = (raw) => {
@@ -28,5 +28,5 @@ export function useReportChartIndexFormatters(props) {
     return String(raw ?? '')
   }
 
-  return { dateLocale, formatIndexAxisValue, formatIndexTitleValue }
+  return { formatIndexAxisValue, formatIndexTitleValue }
 }

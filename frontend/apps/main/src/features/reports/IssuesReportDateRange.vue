@@ -32,6 +32,7 @@ import { Button } from '@shared-ui/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@shared-ui/components/ui/popover'
 import { RangeCalendar } from '@shared-ui/components/ui/range-calendar'
 import { formatReportDate } from '@/features/reports/issuesFormat.js'
+import { useReportLocale } from '@/features/reports/useReportLocale.js'
 
 const props = defineProps({
   disabled: { type: Boolean, default: false }
@@ -41,6 +42,7 @@ const start = defineModel('start', { type: String, default: '' })
 const end = defineModel('end', { type: String, default: '' })
 
 const open = ref(false)
+const reportLocale = useReportLocale()
 
 const toCalendarDate = (v) => {
   if (!v) return undefined
@@ -57,11 +59,12 @@ const calendarRange = computed(() => ({
 }))
 
 const rangeLabel = computed(() => {
+  const loc = reportLocale.value
   if (!start.value && !end.value) return ''
   if (start.value && end.value) {
-    return `${formatReportDate(start.value)} – ${formatReportDate(end.value)}`
+    return `${formatReportDate(start.value, loc)} – ${formatReportDate(end.value, loc)}`
   }
-  return formatReportDate(start.value || end.value)
+  return formatReportDate(start.value || end.value, loc)
 })
 
 const onRangePick = (v) => {

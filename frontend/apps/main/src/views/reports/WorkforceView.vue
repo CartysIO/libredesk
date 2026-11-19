@@ -136,7 +136,7 @@
               :data="firstResponseByAssigneeChart"
               :categories="[medianFrLabel]"
               index="assignee_name"
-              duration-y-axis
+              duration-axis
             />
           </div>
           <div class="flex-1 box p-5">
@@ -145,7 +145,7 @@
               :data="resolutionByAssigneeChart"
               :categories="[medianResLabel]"
               index="assignee_name"
-              duration-y-axis
+              duration-axis
             />
           </div>
         </div>
@@ -179,11 +179,11 @@ import { EMITTER_EVENTS } from '@main/constants/emitterEvents.js'
 import { handleHTTPError } from '@shared-ui/utils/http.js'
 import {
   formatReportDateTime,
-  formatReportDayOfWeek,
+  formatReportDowRow,
   formatReportHour24,
-  formatResolutionDaysHours,
-  reportDateFnsLocale
+  formatResolutionDaysHours
 } from '@/features/reports/issuesFormat.js'
+import { useReportLocale } from '@/features/reports/useReportLocale.js'
 import IssuesBarChart from '@/features/reports/IssuesBarChart.vue'
 import IssuesLineChart from '@/features/reports/IssuesLineChart.vue'
 import IssuesReportDateRange from '@/features/reports/IssuesReportDateRange.vue'
@@ -199,8 +199,8 @@ const REFRESH_INTERVAL_MS = 5 * 60 * 1000
 const MAX_POLL_DURATION_MS = 60 * 60 * 1000
 
 const emitter = useEmitter()
-const { t, locale } = useI18n()
-const reportLocale = computed(() => reportDateFnsLocale(locale.value))
+const { t } = useI18n()
+const reportLocale = useReportLocale()
 const isLoading = ref(false)
 const lastUpdate = ref(new Date())
 const rangeOptions = [7, 30, 90, 120]
@@ -332,10 +332,7 @@ const breachRateByHourChart = computed(() =>
 
 const breachRateByDowChart = computed(() =>
   (charts.value.breach_rate_by_dow || []).map((row) => ({
-    label:
-      row.dow != null
-        ? formatReportDayOfWeek(row.dow, reportLocale.value)
-        : row.label,
+    label: formatReportDowRow(row, reportLocale.value),
     [breachRateLabel.value]: Number(row.breach_rate) || 0
   }))
 )

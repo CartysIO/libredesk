@@ -8,13 +8,18 @@ import {
   formatReportHour24,
   formatReportDateTimeReadable,
   formatReportDurationSeconds,
-  formatReportDayOfWeek
+  formatReportDayOfWeek,
+  parseReportDay
 } from './issuesFormat.js'
 
 describe('issuesFormat', () => {
-  it('formats localized chart dates', () => {
+  it('formats localized chart dates without UTC day shift', () => {
     expect(formatReportDate('2026-08-05', enUS)).toBe('08/05/2026')
     expect(formatReportDate('2026-08-05', es)).toMatch(/2026/)
+    const d = parseReportDay('2026-08-05')
+    expect(d.getFullYear()).toBe(2026)
+    expect(d.getMonth()).toBe(7)
+    expect(d.getDate()).toBe(5)
   })
 
   it('formats week tooltip with range', () => {

@@ -1,5 +1,5 @@
-import { addDays, format, parseISO, isValid, setISODay } from 'date-fns'
-import { enUS, es, fr, ptBR, ja } from 'date-fns/locale'
+import { addDays, format, isValid, setISODay } from 'date-fns'
+import { enUS, es, fr, ptBR, pt, ja, de, it, nl, zhCN, da, faIR } from 'date-fns/locale'
 
 const REPORT_DATE_LOCALES = {
   'en-US': enUS,
@@ -9,9 +9,22 @@ const REPORT_DATE_LOCALES = {
   'fr-FR': fr,
   fr,
   'pt-BR': ptBR,
+  'pt-PT': pt,
   pt: ptBR,
   'ja-JP': ja,
-  ja
+  ja,
+  'de-DE': de,
+  de,
+  'it-IT': it,
+  it,
+  'nl-NL': nl,
+  nl,
+  'zh-CN': zhCN,
+  zh: zhCN,
+  'da-DK': da,
+  da,
+  'fa-IR': faIR,
+  fa: faIR
 }
 
 export function reportDateFnsLocale(i18nLocale) {
@@ -19,10 +32,16 @@ export function reportDateFnsLocale(i18nLocale) {
   return REPORT_DATE_LOCALES[i18nLocale] ?? enUS
 }
 
-function parseReportDay(value) {
+/** Parse API `YYYY-MM-DD` as a civil date (no UTC day shift). */
+export function parseReportDay(value) {
   if (value == null || value === '') return null
   try {
-    const d = typeof value === 'string' ? parseISO(value.slice(0, 10)) : new Date(value)
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+      const [y, m, d] = value.slice(0, 10).split('-').map(Number)
+      const civil = new Date(y, m - 1, d)
+      return isValid(civil) ? civil : null
+    }
+    const d = value instanceof Date ? value : new Date(value)
     return isValid(d) ? d : null
   } catch {
     return null
@@ -73,7 +92,7 @@ export function formatReportDateTimeReadable(value, locale = enUS) {
   }
 }
 
-/** Duration for report tables: null/absent → em dash; zero → 0s. */
+/** Tables: null → —; otherwise same rules as chart value tooltips. */
 export function formatReportDurationSeconds(seconds) {
   if (seconds == null || seconds === '') return '—'
   const total = Math.floor(Number(seconds))
@@ -82,13 +101,18 @@ export function formatReportDurationSeconds(seconds) {
   return formatResolutionDaysHours(total)
 }
 
-/** Hour-of-day bucket label; always 12-hour clock with AM/PM. */
-export function formatReportHour24(hour, locale = enUS) {
+/** Hour-of-day bucket; 12-hour clock (meridiem localized with locale). */
+export function formatReportHour12(hour, locale = enUS) {
   const h = Number(hour)
   if (!Number.isFinite(h)) return ''
   const d = new Date()
   d.setHours(h, 0, 0, 0)
   return format(d, 'h:mm a', { locale })
+}
+
+/** @deprecated use formatReportHour12 */
+export function formatReportHour24(hour, locale = enUS) {
+  return formatReportHour12(hour, locale)
 }
 
 /** ISO day-of-week 1 (Mon) … 7 (Sun). */
@@ -97,6 +121,11 @@ export function formatReportDayOfWeek(isoDow, locale = enUS) {
   if (!Number.isFinite(n) || n < 1 || n > 7) return ''
   const ref = setISODay(new Date(2024, 0, 1), n)
   return format(ref, 'EEE', { locale })
+}
+
+export function formatReportDowRow(row, locale = enUS) {
+  if (row?.dow != null) return formatReportDayOfWeek(row.dow, locale)
+  return row?.label ?? ''
 }
 
 export function formatCompactDuration(seconds) {

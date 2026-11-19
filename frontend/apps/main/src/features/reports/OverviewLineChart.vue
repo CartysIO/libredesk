@@ -13,7 +13,8 @@
 <script setup>
 import { LineChart } from '@shared-ui/components/ui/chart-line'
 import { useI18n } from 'vue-i18n'
-import { formatChartCount, formatReportDate, reportDateFnsLocale } from '@/features/reports/issuesFormat.js'
+import { formatChartCount } from '@/features/reports/issuesFormat.js'
+import { useReportChartIndexFormatters } from '@/features/reports/useReportChartIndexFormatters.js'
 
 const props = defineProps({
   data: {
@@ -21,16 +22,18 @@ const props = defineProps({
     default: () => []
   }
 })
-const { t, locale } = useI18n()
+const { t } = useI18n()
 
-const dateLocale = () => reportDateFnsLocale(locale.value)
+const indexFormatProps = { formatIndexAsDate: true, formatIndexAsWeek: false }
+const { formatIndexAxisValue, formatIndexTitleValue } =
+  useReportChartIndexFormatters(indexFormatProps)
 
 const xFormatter = (tick) => {
   const raw = props.data[tick]?.date ?? ''
-  return formatReportDate(raw, dateLocale())
+  return formatIndexAxisValue(raw)
 }
 
-const titleFormatter = (title) => formatReportDate(title, dateLocale())
+const titleFormatter = (title) => formatIndexTitleValue(title)
 
 const yFormatter = (tick) => {
   if (typeof tick !== 'number' || !Number.isFinite(tick)) return ''
