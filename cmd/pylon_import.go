@@ -33,6 +33,7 @@ func runPylonImport(ctx context.Context, db *sqlx.DB, fs stuffbin.FileSystem, se
 		AllowMissingFiles:   ko.Bool("pylon-allow-missing-files"),
 		Reconcile:           ko.Bool("pylon-reconcile"),
 		VerifyIssuesInPylon: ko.Bool("pylon-verify-live"),
+		ImportThumbnails:    ko.Bool("pylon-import-thumbnails"),
 	}
 	if s := ko.String("since"); s != "" {
 		t, err := time.Parse("2006-01-02", s)

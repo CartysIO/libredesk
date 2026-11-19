@@ -76,6 +76,8 @@ type Options struct {
 	Reconcile bool
 	// VerifyIssuesInPylon requires each issue to exist in Pylon (GET /issues/{id}) before import.
 	VerifyIssuesInPylon bool
+	// ImportThumbnails uploads image thumbnails during import (doubles PUT volume; off by default).
+	ImportThumbnails bool
 	// SkippedNotInPylon lists issues dropped by live verification (numbers and titles for the report).
 	SkippedNotInPylon []string
 }
@@ -1563,7 +1565,7 @@ func (im *Importer) uploadFiles(m Message, content *string) ([]uploaded, []strin
 		}
 		im.convUploads = append(im.convUploads, id)
 		ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(name)), ".")
-		if slices.Contains(image.Exts, ext) && image.IsImageByContent(bytes.NewReader(b)) {
+		if im.Opt.ImportThumbnails && slices.Contains(image.Exts, ext) && image.IsImageByContent(bytes.NewReader(b)) {
 			if thumb, err := image.CreateThumb(image.DefThumbSize, bytes.NewReader(b)); err == nil {
 				if _, _, err := im.uploadMedia(image.ThumbPrefix+id, contentType, thumb); err == nil {
 					im.convUploads = append(im.convUploads, image.ThumbPrefix+id)

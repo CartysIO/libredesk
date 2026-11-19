@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	bulkPutMaxAttempts = 8
-	bulkPutMaxBackoff  = 60 * time.Second
-	defaultBulkPutGap  = 350 * time.Millisecond
-	maxBulkPutGap      = 2 * time.Second
+	bulkPutMaxAttempts = 6
+	bulkPutMaxBackoff  = 30 * time.Second
+	initialBulkPutGap  = 200 * time.Millisecond
+	maxBulkPutGap      = 1 * time.Second
 )
 
 // UploadBulk saves a file during bulk import jobs (e.g. Pylon) and retries transient object-store rate limits.
@@ -55,11 +55,8 @@ func (m *Manager) UploadBulk(fileName, contentType string, content io.ReadSeeker
 
 func bulkPutBackoff(attempt int, err error) time.Duration {
 	wait := time.Duration(1<<attempt) * time.Second
-	if retriable.SlowDown(err) {
-		wait *= 2
-		if wait < 2*time.Second {
-			wait = 2 * time.Second
-		}
+	if retriable.SlowDown(err) && wait < time.Second {
+		wait = time.Second
 	}
 	if wait > bulkPutMaxBackoff {
 		wait = bulkPutMaxBackoff
@@ -73,11 +70,10 @@ func (m *Manager) paceBulkPut() {
 	}
 	m.bulkPutMu.Lock()
 	defer m.bulkPutMu.Unlock()
-	gap := m.bulkPutMinGap
-	if gap == 0 {
-		gap = defaultBulkPutGap
+	if m.bulkPutMinGap == 0 {
+		return
 	}
-	if d := gap - time.Since(m.bulkPutLast); d > 0 {
+	if d := m.bulkPutMinGap - time.Since(m.bulkPutLast); d > 0 {
 		time.Sleep(d)
 	}
 	m.bulkPutLast = time.Now()
@@ -87,9 +83,10 @@ func (m *Manager) widenBulkPutGap() {
 	m.bulkPutMu.Lock()
 	defer m.bulkPutMu.Unlock()
 	if m.bulkPutMinGap == 0 {
-		m.bulkPutMinGap = defaultBulkPutGap
+		m.bulkPutMinGap = initialBulkPutGap
+		return
 	}
-	m.bulkPutMinGap += 150 * time.Millisecond
+	m.bulkPutMinGap += 100 * time.Millisecond
 	if m.bulkPutMinGap > maxBulkPutGap {
 		m.bulkPutMinGap = maxBulkPutGap
 	}
@@ -109,5 +106,5 @@ func MaxBulkPutWait() time.Duration {
 
 // UploadBulkTimeout returns a deadline that fits UploadBulk retries plus one slow Put.
 func UploadBulkTimeout() time.Duration {
-	return 2*MaxBulkPutWait() + 3*time.Minute
+	return 2*MaxBulkPutWait() + 2*time.Minute
 }
