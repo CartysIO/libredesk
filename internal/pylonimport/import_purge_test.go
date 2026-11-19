@@ -2,10 +2,15 @@ package pylonimport
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/abhinavxd/libredesk/internal/media"
+	localfs "github.com/abhinavxd/libredesk/internal/media/stores/localfs"
 	"github.com/abhinavxd/libredesk/internal/testutil"
+	"github.com/jmoiron/sqlx"
+	"github.com/zerodha/logf"
 )
 
 // TestImportThenPurgeNonImported mirrors runPylonImport with --pylon-purge-non-imported:
@@ -13,6 +18,7 @@ import (
 func TestImportThenPurgeNonImported(t *testing.T) {
 	t0 := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
 	db := testutil.NewDB(t, "pylon_import_then_purge")
+	mm := testMediaManager(t, db)
 
 	var inbox, cust int
 	db.Get(&inbox, `INSERT INTO inboxes (name, channel, enabled) VALUES ('Support', 'email', FALSE) RETURNING id`)
@@ -41,7 +47,7 @@ func TestImportThenPurgeNonImported(t *testing.T) {
 		},
 	}
 
-	im := &Importer{DB: db, Opt: Options{ReferenceFloor: 4000, MediaStore: "fs"}}
+	im := &Importer{DB: db, Media: mm, Opt: Options{ReferenceFloor: 4000, MediaStore: "fs"}}
 	if _, err := im.Run(context.Background(), d); err != nil {
 		t.Fatal(err)
 	}
@@ -66,4 +72,21 @@ func TestImportThenPurgeNonImported(t *testing.T) {
 	if n := count(t, db, `SELECT COUNT(*) FROM conversations WHERE meta ? '`+MetaIssueID+`'`); n != 1 {
 		t.Fatalf("imported conversation should remain, count %d", n)
 	}
+}
+
+func testMediaManager(t *testing.T, db *sqlx.DB) *media.Manager {
+	t.Helper()
+	lo := logf.New(logf.Opts{})
+	store, err := localfs.New(localfs.Opts{
+		UploadPath: t.TempDir(), UploadURI: media.PublicURI,
+		RootURL: func() string { return "http://x" }, SigningKey: strings.Repeat("k", 32),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mm, err := media.New(media.Opts{Store: store, Lo: &lo, DB: db, I18n: testutil.NewI18n(t), RootURL: func() string { return "http://x" }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return mm
 }

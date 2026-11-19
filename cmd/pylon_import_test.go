@@ -3,12 +3,17 @@ package main
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/abhinavxd/libredesk/internal/media"
+	localfs "github.com/abhinavxd/libredesk/internal/media/stores/localfs"
 	"github.com/abhinavxd/libredesk/internal/pylonimport"
 	"github.com/abhinavxd/libredesk/internal/testutil"
+	"github.com/jmoiron/sqlx"
 	"github.com/knadh/stuffbin"
+	"github.com/zerodha/logf"
 )
 
 // TestRunPylonPurgeNonImportedAfterImport exercises runPylonPurgeNonImported, the hook used
@@ -41,7 +46,8 @@ func TestRunPylonPurgeNonImportedAfterImport(t *testing.T) {
 			"i2": {{ID: "m1", MessageHTML: "hi", Timestamp: t0, Author: &pylonimport.MessageAuthor{Contact: &pylonimport.Ref{ID: "c1"}}}},
 		},
 	}
-	im := &pylonimport.Importer{DB: db, Opt: pylonimport.Options{ReferenceFloor: 4000, MediaStore: "fs"}}
+	mm := testPylonImportMedia(t, db)
+	im := &pylonimport.Importer{DB: db, Media: mm, Opt: pylonimport.Options{ReferenceFloor: 4000, MediaStore: "fs"}}
 	if _, err := im.Run(context.Background(), d); err != nil {
 		t.Fatal(err)
 	}
@@ -69,6 +75,23 @@ func TestRunPylonPurgeNonImportedAfterImport(t *testing.T) {
 	if n := countConversationsWithMeta(t, db, pylonimport.MetaIssueID); n != 1 {
 		t.Fatalf("imported conversation should remain, count %d", n)
 	}
+}
+
+func testPylonImportMedia(t *testing.T, db *sqlx.DB) *media.Manager {
+	t.Helper()
+	lo := logf.New(logf.Opts{})
+	store, err := localfs.New(localfs.Opts{
+		UploadPath: t.TempDir(), UploadURI: media.PublicURI,
+		RootURL: func() string { return "http://x" }, SigningKey: strings.Repeat("k", 32),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mm, err := media.New(media.Opts{Store: store, Lo: &lo, DB: db, I18n: testutil.NewI18n(t), RootURL: func() string { return "http://x" }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return mm
 }
 
 func setPylonPurgeTestConfig(t *testing.T) {

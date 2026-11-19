@@ -13,6 +13,9 @@ import (
 
 // deleteStoredMessageMedia removes message attachment blobs from the upload store (and image thumbs).
 func deleteStoredMessageMedia(ctx context.Context, mgr *media.Manager, out io.Writer, files []mmodels.Media) (deleted, deleteErrors int, err error) {
+	if len(files) == 0 {
+		return 0, 0, nil
+	}
 	if mgr == nil {
 		return 0, 0, fmt.Errorf("a media manager is required to delete message attachments")
 	}
