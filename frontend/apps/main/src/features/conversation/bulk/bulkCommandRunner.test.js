@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { BULK_UNDO_WINDOW_MS, flushActiveBulkCommand, runDeferredBulkCommand } from './bulkCommandRunner'
+import {
+  BULK_UNDO_WINDOW_MS,
+  bulkCommandPending,
+  flushActiveBulkCommand,
+  runDeferredBulkCommand
+} from './bulkCommandRunner'
 
 vi.mock('vue-sonner', () => ({
   toast: vi.fn()
@@ -27,9 +32,11 @@ describe('bulkCommandRunner', () => {
       { undoLabel: 'Undo' }
     )
     expect(apply).toHaveBeenCalledTimes(1)
+    expect(bulkCommandPending.value).toBe(true)
     expect(commit).not.toHaveBeenCalled()
 
     await vi.advanceTimersByTimeAsync(BULK_UNDO_WINDOW_MS)
+    expect(bulkCommandPending.value).toBe(false)
     expect(commit).toHaveBeenCalledTimes(1)
     expect(revert).not.toHaveBeenCalled()
   })
@@ -71,5 +78,6 @@ describe('bulkCommandRunner', () => {
     await vi.advanceTimersByTimeAsync(BULK_UNDO_WINDOW_MS)
     expect(revert).toHaveBeenCalledTimes(1)
     expect(commit).not.toHaveBeenCalled()
+    expect(bulkCommandPending.value).toBe(false)
   })
 })

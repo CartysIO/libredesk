@@ -9,7 +9,7 @@ import { createBulkRemovalCommand } from './bulkRemovalCommand'
  * @returns {BulkCommand}
  */
 export function createBulkDeleteCommand (uuids) {
-  const { t } = getI18n()
+  const t = getI18n().global.t
   return createBulkRemovalCommand(
     uuids,
     t('conversation.bulkActions.deletedPending', { count: uuids.length }),
@@ -27,7 +27,7 @@ export function createBulkDeleteCommand (uuids) {
 export function createBulkSpamCommand (uuids) {
   const conversationStore = useConversationStore()
   const boardStore = useConversationBoardStore()
-  const { t } = getI18n()
+  const t = getI18n().global.t
   const deletedUUIDs = new Set()
 
   return createBulkRemovalCommand(
@@ -62,7 +62,7 @@ export function createBulkSpamCommand (uuids) {
 export function createBulkStatusCommand (uuids, status) {
   const conversationStore = useConversationStore()
   const boardStore = useConversationBoardStore()
-  const { t } = getI18n()
+  const t = getI18n().global.t
   let listSnapshots = []
   let boardSnapshots = []
 

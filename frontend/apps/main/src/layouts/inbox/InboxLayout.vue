@@ -65,6 +65,7 @@ import ConversationList from '@/features/conversation/list/ConversationList.vue'
 import ConversationBulkActionToolbar from '@/features/conversation/list/ConversationBulkActionToolbar.vue'
 import { useConversationStore } from '@/stores/conversation'
 import { useBulkActionPermissions } from '@/composables/useBulkActionPermissions'
+import { bulkCommandPending } from '@/features/conversation/bulk/bulkCommandRunner'
 import { useIsMobile } from '@shared-ui/composables'
 import {
   ResizablePanelGroup,
@@ -79,7 +80,10 @@ const conversationStore = useConversationStore()
 const { canBulkAct } = useBulkActionPermissions()
 const isMobile = useIsMobile()
 const showBulkToolbar = computed(
-  () => !isSearchRoute.value && conversationStore.selectedCount > 0 && canBulkAct.value
+  () =>
+    !isSearchRoute.value &&
+    canBulkAct.value &&
+    (conversationStore.selectedCount > 0 || bulkCommandPending.value)
 )
 const isSearchRoute = computed(() => route.name === 'search')
 const panelGroupRef = ref(null)

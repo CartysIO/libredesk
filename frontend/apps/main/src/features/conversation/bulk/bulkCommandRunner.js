@@ -1,7 +1,11 @@
+import { ref } from 'vue'
 import { toast } from 'vue-sonner'
 
 /** Grace period before a bulk command commits to the server. */
 export const BULK_UNDO_WINDOW_MS = 8000
+
+/** True while a deferred bulk command is in its undo window (reactive for toolbar visibility). */
+export const bulkCommandPending = ref(false)
 
 /**
  * @typedef {object} BulkCommand
@@ -13,6 +17,11 @@ export const BULK_UNDO_WINDOW_MS = 8000
 
 let activeCommand = null
 let commitTimer = null
+
+const clearActiveCommand = () => {
+  activeCommand = null
+  bulkCommandPending.value = false
+}
 
 export const hasActiveBulkCommand = () => activeCommand !== null
 
@@ -27,7 +36,7 @@ const clearCommitTimer = () => {
 export async function flushActiveBulkCommand () {
   clearCommitTimer()
   const cmd = activeCommand
-  activeCommand = null
+  clearActiveCommand()
   if (!cmd) return
   await cmd.commit()
 }
@@ -37,7 +46,7 @@ const scheduleCommit = (command) => {
   commitTimer = setTimeout(async () => {
     commitTimer = null
     if (activeCommand !== command) return
-    activeCommand = null
+    clearActiveCommand()
     try {
       await command.commit()
     } catch {
@@ -59,6 +68,7 @@ export function runDeferredBulkCommand (command, { undoLabel, onBlocked }) {
   }
 
   activeCommand = command
+  bulkCommandPending.value = true
   command.apply()
   scheduleCommit(command)
 
@@ -69,7 +79,7 @@ export function runDeferredBulkCommand (command, { undoLabel, onBlocked }) {
       onClick: () => {
         if (activeCommand !== command) return
         clearCommitTimer()
-        activeCommand = null
+        clearActiveCommand()
         command.revert()
       }
     }

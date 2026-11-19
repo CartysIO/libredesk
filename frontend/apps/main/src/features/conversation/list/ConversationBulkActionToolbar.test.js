@@ -74,6 +74,13 @@ const click = async (el) => {
   await settle()
 }
 
+// Mirrors Radix AlertDialogAction: dialog closes on pointerdown, not click.
+const confirmDelete = async () => {
+  const btn = confirmButton()
+  btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }))
+  await settle()
+}
+
 // The confirm button is the dialog's last button; the first is Cancel.
 const confirmButton = () => {
   const buttons = document.querySelectorAll('[role="alertdialog"] button')
@@ -87,7 +94,7 @@ describe('ConversationBulkActionToolbar', () => {
     expect(document.querySelector('[role="alertdialog"]').textContent).toContain(
       'conversation.bulkActions.markAsSpamConfirm'
     )
-    await click(confirmButton())
+    await confirmDelete()
     expect(bulkMarkSpam).toHaveBeenCalledTimes(1)
     expect(bulkDelete).not.toHaveBeenCalled()
   })
@@ -95,7 +102,7 @@ describe('ConversationBulkActionToolbar', () => {
   it('runs delete when the delete confirmation is accepted', async () => {
     await mount()
     await click(root.querySelector('[aria-label="conversation.bulkActions.delete"]'))
-    await click(confirmButton())
+    await confirmDelete()
     expect(bulkDelete).toHaveBeenCalledTimes(1)
     expect(bulkMarkSpam).not.toHaveBeenCalled()
   })
