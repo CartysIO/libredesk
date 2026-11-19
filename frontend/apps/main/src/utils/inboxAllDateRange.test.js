@@ -1,9 +1,12 @@
 import { describe, expect, it, vi, afterEach } from 'vitest'
 import { reactive, ref } from 'vue'
 import {
+  conversationDateBetweenFilter,
   createdAtBetweenFilter,
   resolveInboxAllDateBounds,
-  inboxAllCreatedAtListFilter
+  inboxAllCreatedAtListFilter,
+  inboxAllDateListFilter,
+  INBOX_ALL_DATE_FIELD_RESOLVED
 } from './inboxAllDateRange'
 
 afterEach(() => {
@@ -32,8 +35,33 @@ describe('resolveInboxAllDateBounds', () => {
   })
 })
 
-describe('createdAtBetweenFilter', () => {
+describe('conversationDateBetweenFilter', () => {
   it('builds a conversations created_at between filter', () => {
+    expect(conversationDateBetweenFilter('created_at', '2026-01-01', '2026-01-31')).toEqual({
+      model: 'conversations',
+      field: 'created_at',
+      operator: 'between',
+      value: '2026-01-01,2026-01-31'
+    })
+  })
+
+  it('builds a conversations resolved_at between filter', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-15T12:00:00Z'))
+    expect(inboxAllDateListFilter(
+      { presetDays: 7, isCustom: false, customStart: '', customEnd: '' },
+      INBOX_ALL_DATE_FIELD_RESOLVED
+    )).toEqual({
+      model: 'conversations',
+      field: 'resolved_at',
+      operator: 'between',
+      value: '2026-03-08,2026-03-15'
+    })
+  })
+})
+
+describe('createdAtBetweenFilter', () => {
+  it('aliases created_at', () => {
     expect(createdAtBetweenFilter('2026-01-01', '2026-01-31')).toEqual({
       model: 'conversations',
       field: 'created_at',

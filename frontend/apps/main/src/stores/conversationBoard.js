@@ -61,7 +61,7 @@ export const useConversationBoardStore = defineStore('conversationBoard', () => 
     }
     let filters = boardStatusFilter(status)
     if (context.listType === CONVERSATION_LIST_TYPE.ALL) {
-      filters = conversationStore.appendAllInboxDateFilters(filters, CONVERSATION_LIST_TYPE.ALL)
+      filters = conversationStore.appendAllInboxDateFilters(filters, CONVERSATION_LIST_TYPE.ALL, status)
     }
     const withFilters = { ...params, filters: JSON.stringify(filters) }
     switch (context.listType) {
