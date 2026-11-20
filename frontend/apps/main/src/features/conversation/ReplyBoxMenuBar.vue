@@ -1,6 +1,6 @@
 <template>
   <div
-    class="relative flex min-h-14 shrink-0 flex-wrap justify-between gap-y-2"
+    class="relative flex min-h-10 shrink-0 flex-wrap justify-between gap-x-1 gap-y-1.5"
     @keydown.capture="emojiPickerPointerOpened = false"
     :class="{ 'items-end': isFullscreen, 'items-center': !isFullscreen }"
   >
@@ -17,7 +17,7 @@
         ref="emojiPickerRef"
         :native="true"
         @select="onSelectEmoji"
-        class="origin-bottom-left absolute bottom-14 left-0 md:left-14 z-20"
+        class="origin-bottom-left absolute bottom-11 left-0 md:left-12 z-20"
         v-if="isEmojiPickerVisible"
       />
     </Transition>
@@ -148,7 +148,7 @@
 
 <script setup>
 const ICON_BUTTON_CLASS =
-  'border-border/70 bg-background px-2 py-2 text-muted-foreground shadow-none max-md:min-h-11 max-md:min-w-11'
+  'h-8 w-8 border-border/70 bg-background p-0 text-muted-foreground shadow-none max-md:min-h-11 max-md:min-w-11'
 
 import { ref, computed, defineAsyncComponent } from 'vue'
 import { onClickOutside } from '@vueuse/core'

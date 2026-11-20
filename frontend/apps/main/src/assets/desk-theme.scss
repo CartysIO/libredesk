@@ -598,6 +598,11 @@ html[data-app='desk'] .desk-reply-surface.box {
   box-shadow: var(--desk-shadow-md);
 }
 
+html[data-app='desk'] .board-drawer .desk-reply-surface.box {
+  margin: 0.35rem 0.5rem 0.5rem;
+  box-shadow: var(--desk-shadow-sm, var(--desk-shadow-md));
+}
+
 html[data-app='desk'] .desk-empty-list {
   background: hsl(var(--card) / 0.6);
   border-radius: var(--radius);

@@ -1,46 +1,50 @@
 <template>
   <!-- Set fixed width only when not in fullscreen. -->
   <div class="flex flex-col h-full" :class="{ 'max-h-[600px]': !isFullscreen }">
-    <!-- Message type toggle -->
+    <!-- Message type + window controls -->
     <div
-      class="flex items-center justify-between"
-      :class="{ 'mb-4': !isFullscreen, 'border-b border-border pb-4': isFullscreen }"
+      class="flex shrink-0 items-center justify-between gap-2"
+      :class="{ 'mb-2': !isFullscreen, 'border-b border-border pb-3 mb-3': isFullscreen }"
     >
-      <Tabs v-model="messageType" class="rounded-lg">
-        <TabsList>
+      <Tabs v-model="messageType" class="min-w-0 rounded-lg">
+        <TabsList :class="isFullscreen ? '' : 'h-8 p-0.5'">
           <TabsTrigger
             v-if="canSendReply"
             value="reply"
-            class="max-md:py-2.5"
+            :class="isFullscreen ? 'max-md:py-2.5' : 'px-2.5 py-0.5 text-xs max-md:py-2 max-md:text-sm'"
           >
             {{ $t('globals.terms.reply') }}
           </TabsTrigger>
           <TabsTrigger
             v-if="canSendPrivateNote"
             value="private_note"
-            class="max-md:py-2.5"
+            :class="isFullscreen ? 'max-md:py-2.5' : 'px-2.5 py-0.5 text-xs max-md:py-2 max-md:text-sm'"
           >
             {{ $t('globals.terms.privateNote') }}
           </TabsTrigger>
         </TabsList>
       </Tabs>
-      <div class="flex items-center">
+      <div class="flex shrink-0 items-center gap-0.5">
         <Button
           v-if="!isFullscreen"
           type="button"
-          class="text-muted-foreground"
           variant="ghost"
+          size="icon"
+          class="h-8 w-8 text-muted-foreground"
           :aria-label="t('globals.terms.collapse')"
           @click="emit('minimize')"
         >
-          <Minus class="translate-y-1" />
+          <Minus class="h-4 w-4" />
         </Button>
         <Button
-          class="text-muted-foreground max-md:h-11 max-md:w-11 max-md:p-0"
+          type="button"
           variant="ghost"
+          size="icon"
+          class="h-8 w-8 text-muted-foreground max-md:h-11 max-md:w-11"
+          :aria-label="isFullscreen ? t('kanban.collapseDrawer') : t('kanban.expandDrawer')"
           @click="toggleFullscreen"
         >
-          <component :is="isFullscreen ? Minimize2 : Maximize2" />
+          <component :is="isFullscreen ? Minimize2 : Maximize2" class="h-4 w-4" />
         </Button>
       </div>
     </div>
@@ -48,109 +52,162 @@
     <!-- To, CC, and BCC fields -->
     <div v-if="conversationStore.current.inbox_channel === 'email'">
       <div
-        :class="['grid grid-cols-[max-content_minmax(0,1fr)] gap-x-2 gap-y-3', isFullscreen ? 'border-b border-border p-4' : 'mb-3']"
-        v-if="messageType === 'reply'"
+        v-if="messageType === 'reply' && !isFullscreen && !recipientsExpanded"
+        class="mb-2 flex w-full items-center gap-1 rounded-md border border-border/60 bg-muted/25 px-1 py-0.5"
       >
+        <button
+          type="button"
+          class="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm px-1.5 py-1 text-left transition-colors hover:bg-muted/40"
+          :aria-expanded="false"
+          @click="recipientsExpanded = true"
+        >
+          <span class="shrink-0 text-xs font-medium text-muted-foreground">{{ $t('globals.terms.to') }}</span>
+          <span class="min-w-0 flex-1 truncate text-sm">{{ to || $t('replyBox.emailAddresess') }}</span>
+          <ChevronDown class="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        </button>
+        <Button
+          v-if="!showCc"
+          type="button"
+          variant="ghost"
+          size="sm"
+          class="h-7 shrink-0 px-1.5 text-xs text-muted-foreground"
+          @click="expandRecipients('cc')"
+        >
+          {{ $t('replyBox.cc') }}
+        </Button>
+        <Button
+          v-if="!showBcc"
+          type="button"
+          variant="ghost"
+          size="sm"
+          class="h-7 shrink-0 px-1.5 text-xs text-muted-foreground"
+          @click="expandRecipients('bcc')"
+        >
+          {{ $t('replyBox.bcc') }}
+        </Button>
+      </div>
+
+      <div
+        :class="[
+          'flex flex-col gap-1.5',
+          isFullscreen ? 'border-b border-border p-4 gap-2' : 'mb-2',
+          messageType !== 'reply' ? 'hidden' : ''
+        ]"
+        v-show="messageType === 'reply' && (isFullscreen || recipientsExpanded)"
+      >
+        <div
+          v-if="
+            !isFullscreen &&
+            !showCc &&
+            !showBcc &&
+            conversationStore.currentFromOptions.length <= 1
+          "
+          class="flex items-center justify-end"
+        >
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            class="h-7 gap-1 px-2 text-xs text-muted-foreground"
+            :aria-expanded="true"
+            @click="recipientsExpanded = false"
+          >
+            <ChevronUp class="h-3.5 w-3.5" aria-hidden="true" />
+            {{ $t('globals.terms.collapse') }}
+          </Button>
+        </div>
         <div v-if="conversationStore.currentFromOptions.length > 1" :class="RECIPIENT_ROW_CLASS">
           <label :for="`${recipientId}-from`" :class="RECIPIENT_LABEL_CLASS">{{ $t('globals.terms.from') }}</label>
-          <div class="flex min-w-0 items-center gap-2">
-            <Select v-model="sendFrom">
-              <SelectTrigger :id="`${recipientId}-from`" :class="RECIPIENT_INPUT_CLASS"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="address in conversationStore.currentFromOptions" :key="address" :value="address">
-                  {{ address }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Select v-model="sendFrom" class="min-w-0 flex-1">
+            <SelectTrigger :id="`${recipientId}-from`" :class="RECIPIENT_INPUT_CLASS"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="address in conversationStore.currentFromOptions" :key="address" :value="address">
+                {{ address }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div :class="RECIPIENT_ROW_CLASS">
           <label :for="`${recipientId}-to`" :class="RECIPIENT_LABEL_CLASS">{{ $t('globals.terms.to') }}</label>
-          <div class="flex min-w-0 items-center gap-2">
-            <Input
-              :id="`${recipientId}-to`"
-              type="text"
-              :placeholder="t('replyBox.emailAddresess')"
-              v-model="to"
-              :class="RECIPIENT_INPUT_CLASS"
-              @blur="validateEmails"
-            />
-            <Button
-              v-if="!showCc"
-              type="button"
-              size="sm"
-              variant="ghost"
-              :class="RECIPIENT_TOGGLE_CLASS"
-              @click="showRecipientField('cc')"
-            >
-              {{ $t('replyBox.cc') }}
-            </Button>
-            <Button
-              v-if="!showBcc"
-              type="button"
-              size="sm"
-              variant="ghost"
-              :class="RECIPIENT_TOGGLE_CLASS"
-              @click="showRecipientField('bcc')"
-            >
-              {{ $t('replyBox.bcc') }}
-            </Button>
-          </div>
+          <Input
+            :id="`${recipientId}-to`"
+            type="text"
+            :placeholder="t('replyBox.emailAddresess')"
+            v-model="to"
+            :class="[RECIPIENT_INPUT_CLASS, 'flex-1']"
+            @blur="validateEmails"
+          />
+          <Button
+            v-if="!showCc"
+            type="button"
+            size="sm"
+            variant="ghost"
+            :class="RECIPIENT_TOGGLE_CLASS"
+            @click="showRecipientField('cc')"
+          >
+            {{ $t('replyBox.cc') }}
+          </Button>
+          <Button
+            v-if="!showBcc"
+            type="button"
+            size="sm"
+            variant="ghost"
+            :class="RECIPIENT_TOGGLE_CLASS"
+            @click="showRecipientField('bcc')"
+          >
+            {{ $t('replyBox.bcc') }}
+          </Button>
         </div>
         <div v-if="showCc" :class="RECIPIENT_ROW_CLASS">
           <label :for="`${recipientId}-cc`" :class="RECIPIENT_LABEL_CLASS">{{ $t('replyBox.cc') }}</label>
-          <div class="flex min-w-0 items-center gap-2">
-            <Input
-              ref="ccInputRef"
-              :id="`${recipientId}-cc`"
-              type="text"
-              :placeholder="t('replyBox.emailAddresess')"
-              v-model="cc"
-              :class="RECIPIENT_INPUT_CLASS"
-              @blur="validateEmails"
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              :class="RECIPIENT_TOGGLE_CLASS"
-              :aria-label="t('replyBox.removeCC')"
-              @click="hideRecipientField('cc')"
-            >
-              <X class="w-4 h-4" />
-            </Button>
-          </div>
+          <Input
+            ref="ccInputRef"
+            :id="`${recipientId}-cc`"
+            type="text"
+            :placeholder="t('replyBox.emailAddresess')"
+            v-model="cc"
+            :class="[RECIPIENT_INPUT_CLASS, 'flex-1']"
+            @blur="validateEmails"
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            :class="RECIPIENT_TOGGLE_CLASS"
+            :aria-label="t('replyBox.removeCC')"
+            @click="hideRecipientField('cc')"
+          >
+            <X class="h-4 w-4" />
+          </Button>
         </div>
         <div v-if="showBcc" :class="RECIPIENT_ROW_CLASS">
           <label :for="`${recipientId}-bcc`" :class="RECIPIENT_LABEL_CLASS">{{ $t('replyBox.bcc') }}</label>
-          <div class="flex min-w-0 items-center gap-2">
-            <Input
-              ref="bccInputRef"
-              :id="`${recipientId}-bcc`"
-              type="text"
-              :placeholder="t('replyBox.emailAddresess')"
-              v-model="bcc"
-              :class="RECIPIENT_INPUT_CLASS"
-              @blur="validateEmails"
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              :class="RECIPIENT_TOGGLE_CLASS"
-              :aria-label="t('replyBox.removeBCC')"
-              @click="hideRecipientField('bcc')"
-            >
-              <X class="w-4 h-4" />
-            </Button>
-          </div>
+          <Input
+            ref="bccInputRef"
+            :id="`${recipientId}-bcc`"
+            type="text"
+            :placeholder="t('replyBox.emailAddresess')"
+            v-model="bcc"
+            :class="[RECIPIENT_INPUT_CLASS, 'flex-1']"
+            @blur="validateEmails"
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            :class="RECIPIENT_TOGGLE_CLASS"
+            :aria-label="t('replyBox.removeBCC')"
+            @click="hideRecipientField('bcc')"
+          >
+            <X class="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
       <!-- email errors -->
       <div
         v-if="emailErrors.length > 0"
-        class="mb-3 rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-destructive"
+        class="mb-2 rounded-md border border-destructive bg-destructive/10 px-2 py-1.5 text-destructive"
       >
         <p v-for="error in emailErrors" :key="error" class="text-sm">{{ error }}</p>
       </div>
@@ -185,7 +242,7 @@
       v-if="conversationStore.getMacro(MACRO_CONTEXT.REPLY)?.actions?.length > 0"
       :actions="conversationStore.getMacro(MACRO_CONTEXT.REPLY).actions"
       :onRemove="(action) => conversationStore.removeMacroAction(action, MACRO_CONTEXT.REPLY)"
-      class="mt-2"
+      class="mt-1.5"
     />
 
     <!-- Attachments preview -->
@@ -194,12 +251,12 @@
       :uploadingFiles="uploadingFiles"
       :onDelete="handleOnFileDelete"
       v-if="uploadedFiles.length > 0 || uploadingFiles.length > 0"
-      class="mt-2"
+      class="mt-1.5"
     />
 
     <!-- Editor menu bar with send button -->
     <ReplyBoxMenuBar
-      class="mt-2"
+      class="mt-1 border-t border-border/50 pt-1.5"
       :isFullscreen="isFullscreen"
       :isWhatsApp="isWhatsAppReply"
       :showWhatsAppTemplate="isWhatsAppReply"
@@ -217,17 +274,18 @@
 </template>
 
 <script setup>
-const RECIPIENT_ROW_CLASS = 'col-span-2 grid grid-cols-subgrid items-center gap-x-2'
-const RECIPIENT_LABEL_CLASS = 'whitespace-nowrap text-right text-sm text-muted-foreground'
+const RECIPIENT_ROW_CLASS = 'flex min-w-0 items-center gap-2'
+const RECIPIENT_LABEL_CLASS =
+  'w-9 shrink-0 text-right text-xs font-medium text-muted-foreground'
 const RECIPIENT_INPUT_CLASS =
-  'min-w-0 flex-1 border-input bg-card px-2 py-2 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-ring'
-const RECIPIENT_TOGGLE_CLASS = 'shrink-0 px-2 text-muted-foreground'
+  'h-8 min-w-0 flex-1 border-input bg-card px-2 py-1 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-ring'
+const RECIPIENT_TOGGLE_CLASS = 'h-7 shrink-0 px-1.5 text-xs text-muted-foreground'
 
 import { ref, computed, nextTick, watch, useId } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { EMITTER_EVENTS } from '@main/constants/emitterEvents.js'
 import { MACRO_CONTEXT } from '@main/constants/conversation'
-import { Maximize2, Minimize2, Minus, X } from 'lucide-vue-next'
+import { Maximize2, Minimize2, Minus, X, ChevronDown, ChevronUp } from 'lucide-vue-next'
 import Editor from '@main/components/editor/ConversationEditor.vue'
 import { hasInlineImage, hasPendingInlineUpload } from '@main/composables/useInlineImageUpload'
 import { useConversationStore } from '@main/stores/conversation'
@@ -385,6 +443,46 @@ const insertContent = ref(null)
 const editorRef = ref(null)
 const ccInputRef = ref(null)
 const bccInputRef = ref(null)
+const recipientsExpanded = ref(false)
+
+const syncRecipientsExpanded = () => {
+  if (
+    props.isFullscreen ||
+    showCc.value ||
+    showBcc.value ||
+    conversationStore.currentFromOptions.length > 1
+  ) {
+    recipientsExpanded.value = true
+  }
+}
+
+watch(
+  [
+    () => props.isFullscreen,
+    showCc,
+    showBcc,
+    () => conversationStore.currentFromOptions.length,
+    emailErrors
+  ],
+  () => {
+    if (emailErrors.value.length > 0) recipientsExpanded.value = true
+    else syncRecipientsExpanded()
+  },
+  { immediate: true }
+)
+
+watch(
+  () => conversationStore.current?.uuid,
+  () => {
+    recipientsExpanded.value = false
+    syncRecipientsExpanded()
+  }
+)
+
+const expandRecipients = async (field) => {
+  recipientsExpanded.value = true
+  await showRecipientField(field)
+}
 
 const showRecipientField = async (field) => {
   if (field === 'cc') showCc.value = true
