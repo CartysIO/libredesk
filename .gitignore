@@ -12,3 +12,7 @@ static/widget.min.js
 
 .playwright-mcp/
 .scratch/
+
+# Python cache
+__pycache__/
+*.py[cod]
