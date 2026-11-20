@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-row flex-wrap gap-2 break-all">
+  <div class="desk-bubble-attachments flex flex-row flex-wrap gap-2 break-all">
     <BubbleAttachmentItem
       v-for="attachment in attachments"
       :key="attachment.uuid"

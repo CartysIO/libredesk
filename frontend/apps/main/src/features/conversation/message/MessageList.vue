@@ -1,10 +1,10 @@
 <template>
-  <div class="flex flex-col relative h-full">
+  <div class="desk-message-list flex flex-col relative h-full">
     <div ref="threadEl" class="flex-1 overflow-y-auto overscroll-contain [overflow-anchor:none]" @scroll="handleScroll">
       <div
         ref="contentEl"
         class="desk-thread min-h-full relative"
-        :class="isEmailThread ? 'desk-thread--email pb-8' : 'desk-thread--chat px-3 pb-12 sm:px-5'"
+        :class="isEmailThread ? 'desk-thread--email pb-6' : 'desk-thread--chat px-4 pb-10'"
       >
         <MessagesSkeleton
           v-if="conversationStore.messages.loading"
@@ -79,7 +79,7 @@
       </div>
 
       <!-- Typing indicator -->
-      <div v-if="conversationStore.conversation.isTyping" class="px-4 pb-4">
+      <div v-if="conversationStore.conversation.isTyping" class="desk-thread-typing px-4 pb-4">
         <TypingIndicator />
       </div>
     </div>

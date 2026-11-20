@@ -6,7 +6,7 @@
     :aria-expanded="false"
     @click="$emit('expand')"
   >
-    <Avatar class="desk-fold-row__avatar">
+    <Avatar class="desk-fold-row__avatar h-6 w-6 shrink-0 text-[10px]">
       <AvatarImage :src="message.author?.avatar_url || ''" />
       <AvatarFallback class="font-semibold">{{ initials }}</AvatarFallback>
     </Avatar>

@@ -1,5 +1,5 @@
 <template>
-  <div class="desk-activity" role="status">
+  <div class="desk-activity">
     <span class="desk-activity__text">{{ message.content }}</span>
     <Tooltip>
       <TooltipTrigger as-child>
