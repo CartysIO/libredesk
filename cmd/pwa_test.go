@@ -11,6 +11,7 @@ import (
 
 func TestServePWAFiles(t *testing.T) {
 	fs, err := stuffbin.NewLocalFS("/",
+		"../frontend/public/favicon.ico:frontend/dist/main/favicon.ico",
 		"../frontend/public/manifest.webmanifest:frontend/dist/main/manifest.webmanifest",
 		"../frontend/public/sw.js:frontend/dist/main/sw.js",
 	)
@@ -22,10 +23,12 @@ func TestServePWAFiles(t *testing.T) {
 		name                 string
 		handler              fastglue.FastRequestHandler
 		contentType          string
+		cacheControl         string
 		wantServiceWorkerHdr bool
 	}{
-		{"manifest", serveManifest, "application/manifest+json", false},
-		{"service worker", serveServiceWorker, "application/javascript", true},
+		{"favicon", serveFavicon, "image/x-icon", "public, max-age=86400", false},
+		{"manifest", serveManifest, "application/manifest+json", "no-cache", false},
+		{"service worker", serveServiceWorker, "application/javascript", "no-cache", true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -37,8 +40,8 @@ func TestServePWAFiles(t *testing.T) {
 			if got := string(ctx.Response.Header.ContentType()); got != tc.contentType {
 				t.Errorf("content type = %q, want %q", got, tc.contentType)
 			}
-			if got := string(ctx.Response.Header.Peek("Cache-Control")); got != "no-cache" {
-				t.Errorf("cache control = %q, want no-cache", got)
+			if got := string(ctx.Response.Header.Peek("Cache-Control")); got != tc.cacheControl {
+				t.Errorf("cache control = %q, want %q", got, tc.cacheControl)
 			}
 			if tc.wantServiceWorkerHdr && string(ctx.Response.Header.Peek("Service-Worker-Allowed")) != "/" {
 				t.Error("service worker scope header is missing")
