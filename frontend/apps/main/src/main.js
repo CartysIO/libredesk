@@ -12,10 +12,16 @@ import '@shared-ui/utils/string.js'
 import Root from './Root.vue'
 
 const setFavicon = (url) => {
-  let link = document.createElement("link")
-  link.rel = "icon"
-  document.head.appendChild(link)
+  const links = document.querySelectorAll('link[rel="icon"]')
+  links.forEach((link) => link.remove())
+
+  const link = document.createElement('link')
+  link.rel = 'icon'
   link.href = url
+  if (url.endsWith('.svg')) {
+    link.type = 'image/svg+xml'
+  }
+  document.head.appendChild(link)
 }
 
 async function initApp () {

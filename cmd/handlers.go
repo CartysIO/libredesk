@@ -467,6 +467,7 @@ func initHandlers(g *fastglue.Fastglue, hub *ws.Hub) {
 	g.GET("/assets/{all:*}", serveFrontendStaticFiles)
 	g.GET("/widget/assets/{all:*}", serveWidgetStaticFiles)
 	g.GET("/images/{all:*}", serveFrontendStaticFiles)
+	g.GET("/favicon.ico", serveFavicon)
 	g.GET("/manifest.webmanifest", serveManifest)
 	g.GET("/sw.js", serveServiceWorker)
 	g.GET("/static/public/{all:*}", serveStaticFiles)
@@ -589,6 +590,10 @@ func serveFrontendStaticFiles(r *fastglue.Request) error {
 	r.RequestCtx.Response.Header.Set("Content-Type", contentType)
 	r.RequestCtx.Response.SetBodyRaw(body)
 	return nil
+}
+
+func serveFavicon(r *fastglue.Request) error {
+	return serveMainFrontendFile(r, "favicon.ico", "image/x-icon", "public, max-age=86400")
 }
 
 func serveManifest(r *fastglue.Request) error {
