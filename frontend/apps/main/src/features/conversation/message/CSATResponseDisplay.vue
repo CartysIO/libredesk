@@ -1,5 +1,5 @@
 <template>
-  <div v-if="isCsatMessage" class="mt-3 pt-3 border-t border-border">
+  <div v-if="isCsatMessage" class="desk-bubble-csat mt-3 pt-3 border-t border-border">
     <!-- Submitted CSAT -->
     <div v-if="isSubmitted && hasResponse">
       <div class="text-xs text-muted-foreground mb-2">

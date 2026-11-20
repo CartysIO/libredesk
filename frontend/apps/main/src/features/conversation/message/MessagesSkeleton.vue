@@ -1,16 +1,16 @@
 <template>
-  <div v-if="variant === 'thread'" class="py-0">
+  <div v-if="variant === 'thread'" class="desk-thread-skeleton desk-thread--email">
     <div
       v-for="idx in threadFoldCount"
       :key="idx"
-      class="flex items-center gap-3 border-b border-border/70 px-4 py-2"
+      class="desk-thread-skeleton__fold flex items-center gap-3 px-4 py-2"
     >
       <div class="skel-bar h-6 w-6 shrink-0 rounded-full" />
       <div class="skel-bar h-3 w-20 shrink-0 rounded-sm sm:w-28" />
       <div class="skel-bar h-3 min-w-0 flex-1 rounded-sm" :style="{ maxWidth: threadSnippetWidth(idx) }" />
       <div class="skel-bar h-3 w-10 shrink-0 rounded-sm" />
     </div>
-    <div class="border-b border-border/70 px-4 py-3">
+    <div class="desk-thread-skeleton__open border-b border-border/70 px-4 py-3">
       <div class="mb-3 flex items-center gap-2">
         <div class="skel-bar h-6 w-6 shrink-0 rounded-full" />
         <div class="skel-bar h-3 w-24 rounded-sm" />
@@ -21,7 +21,7 @@
       </div>
     </div>
   </div>
-  <div v-else class="py-2 space-y-5">
+  <div v-else class="desk-thread-skeleton desk-thread--chat space-y-5 py-2">
     <div v-for="(row, idx) in rows" :key="idx">
       <div
         v-if="row.showName"
@@ -34,13 +34,13 @@
 
       <div class="flex flex-row gap-2 w-full" :class="{ 'justify-end': row.outgoing }">
         <template v-if="!row.outgoing">
-          <div v-if="row.showAvatar" class="skel-bar w-8 h-8 rounded-full flex-shrink-0" />
+          <div v-if="row.showAvatar" class="skel-bar h-8 w-8 flex-shrink-0 rounded-full" />
           <div v-else class="w-8 flex-shrink-0" />
         </template>
 
         <div class="w-4/5" :class="{ 'flex justify-end': row.outgoing }">
           <div
-            class="skel-bubble flex flex-col gap-2 px-4 pt-3 pb-3 rounded-md border border-border"
+            class="skel-bubble desk-skel-bubble flex flex-col gap-2 px-4 pt-3 pb-3"
             :style="{ width: row.width }"
           >
             <div
@@ -53,7 +53,7 @@
         </div>
 
         <template v-if="row.outgoing">
-          <div v-if="row.showAvatar" class="skel-bar w-8 h-8 rounded-full flex-shrink-0" />
+          <div v-if="row.showAvatar" class="skel-bar h-8 w-8 flex-shrink-0 rounded-full" />
           <div v-else class="w-8 flex-shrink-0" />
         </template>
       </div>

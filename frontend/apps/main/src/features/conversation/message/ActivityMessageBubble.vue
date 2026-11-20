@@ -1,18 +1,18 @@
 <template>
-  <div class="text-center">
-    <div class="text-muted-foreground text-sm">
-      {{ message.content }}
-      <Tooltip>
-        <TooltipTrigger>
-          <span class="text-xs ml-1">{{ format(message.updated_at, 'h:mm a') }}</span>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>
-            {{ format(message.updated_at, "MMMM dd, yyyy 'at' HH:mm") }}
-          </p>
-        </TooltipContent>
-      </Tooltip>
-    </div>
+  <div class="desk-activity">
+    <span class="desk-activity__text">{{ message.content }}</span>
+    <Tooltip>
+      <TooltipTrigger as-child>
+        <time class="desk-activity__time" :datetime="message.updated_at">
+          {{ format(message.updated_at, 'h:mm a') }}
+        </time>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>
+          {{ format(message.updated_at, "MMMM dd, yyyy 'at' HH:mm") }}
+        </p>
+      </TooltipContent>
+    </Tooltip>
   </div>
 </template>
 

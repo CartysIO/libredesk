@@ -1,24 +1,24 @@
 <template>
   <button
     type="button"
-    class="desk-fold-row group/fold flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    :class="{ 'bg-private/60': message.private }"
+    class="desk-fold-row group/fold"
+    :class="{ 'desk-fold-row--private': message.private }"
     :aria-expanded="false"
     @click="$emit('expand')"
   >
-    <Avatar class="h-6 w-6 shrink-0 text-[10px]">
+    <Avatar class="desk-fold-row__avatar h-6 w-6 shrink-0 text-[10px]">
       <AvatarImage :src="message.author?.avatar_url || ''" />
       <AvatarFallback class="font-semibold">{{ initials }}</AvatarFallback>
     </Avatar>
-    <span class="w-24 shrink-0 truncate text-sm font-semibold sm:w-36">{{ name }}</span>
-    <Lock v-if="message.private" class="h-3 w-3 shrink-0 text-muted-foreground" :aria-label="t('globals.terms.privateNote')" />
+    <span class="desk-fold-row__name">{{ name }}</span>
+    <Lock v-if="message.private" class="desk-fold-row__icon" :aria-label="t('globals.terms.privateNote')" />
     <Paperclip
       v-if="message.attachments?.length"
-      class="h-3 w-3 shrink-0 text-muted-foreground"
+      class="desk-fold-row__icon"
       :aria-label="t('globals.terms.attachment', message.attachments.length)"
     />
-    <span class="min-w-0 flex-1 truncate text-sm text-muted-foreground">{{ snippet }}</span>
-    <span class="shrink-0 text-xs tabular-nums text-muted-foreground">{{ time }}</span>
+    <span class="desk-fold-row__snippet">{{ snippet }}</span>
+    <time class="desk-fold-row__time" :datetime="message.created_at">{{ time }}</time>
   </button>
 </template>
 

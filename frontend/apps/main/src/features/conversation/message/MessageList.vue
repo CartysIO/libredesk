@@ -1,10 +1,10 @@
 <template>
-  <div class="flex flex-col relative h-full">
+  <div class="desk-message-list flex flex-col relative h-full">
     <div ref="threadEl" class="flex-1 overflow-y-auto overscroll-contain [overflow-anchor:none]" @scroll="handleScroll">
       <div
         ref="contentEl"
         class="desk-thread min-h-full relative"
-        :class="isEmailThread ? 'pb-6' : 'px-4 pb-10'"
+        :class="isEmailThread ? 'desk-thread--email pb-6' : 'desk-thread--chat px-4 pb-10'"
       >
         <MessagesSkeleton
           v-if="conversationStore.messages.loading"
@@ -30,11 +30,13 @@
           <button
             v-if="item.kind === 'summary'"
             type="button"
-            class="mx-3 my-2 flex w-[calc(100%-1.5rem)] items-center gap-3 rounded-xl border border-border/70 bg-card px-4 py-2 text-left text-xs font-semibold text-muted-foreground shadow-sm transition-colors hover:bg-accent/50 hover:text-foreground"
+            class="desk-thread-summary"
             @click="expandRun(item.key)"
           >
-            <span class="flex h-6 w-6 items-center justify-center rounded-full border border-border tabular-nums">{{ item.count }}</span>
-            {{ t('conversation.earlierMessages', { count: item.count }, item.count) }}
+            <span class="desk-thread-summary__count" aria-hidden="true">{{ item.count }}</span>
+            <span class="desk-thread-summary__label">
+              {{ t('conversation.earlierMessages', { count: item.count }, item.count) }}
+            </span>
           </button>
           <MessageFoldRow
             v-else-if="item.kind === 'fold'"
@@ -45,7 +47,7 @@
             <DaySeparator
               v-if="item.row.showDaySeparator && !isEmailThread"
               :date="item.row.message.created_at"
-              class="mb-4"
+              class="desk-day-separator my-6"
             />
             <div v-if="!item.row.message.private && item.row.message.type !== 'activity'">
               <MessageBubble
@@ -77,14 +79,14 @@
       </div>
 
       <!-- Typing indicator -->
-      <div v-if="conversationStore.conversation.isTyping" class="px-4 pb-4">
+      <div v-if="conversationStore.conversation.isTyping" class="desk-thread-typing px-4 pb-4">
         <TypingIndicator />
       </div>
     </div>
 
     <div
       v-if="olderSpinner"
-      class="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-full border border-border bg-background p-2 text-muted-foreground"
+      class="desk-thread-older-spinner pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2"
       role="status"
     >
       <Loader2 class="size-4 animate-spin" aria-hidden="true" />
@@ -318,8 +320,8 @@ const canGroup = (a, b) => {
 }
 
 const getSpacingClass = (index, groupWithPrev) => {
-  if (index === 0) return 'pt-4'
-  return groupWithPrev ? 'mt-1' : 'mt-4'
+  if (index === 0) return 'pt-5'
+  return groupWithPrev ? 'mt-1.5' : 'mt-5'
 }
 
 const loadMore = async () => {
@@ -415,7 +417,7 @@ const displayRows = computed(() =>
 )
 const displayRowClass = (item) => {
   if (item.kind !== 'message') return null
-  const activity = { 'my-2': item.row.message.type === 'activity' }
+  const activity = { 'desk-thread-activity my-3': item.row.message.type === 'activity' }
   return isEmailThread.value ? activity : [item.row.spacingClass, activity]
 }
 const displayRowKey = (item) => {
@@ -442,8 +444,8 @@ watch(
 .highlight-mention::after {
   content: '';
   position: absolute;
-  inset: 0;
-  border-radius: 0.5rem;
+  inset: -2px;
+  border-radius: calc(var(--radius) + 2px);
   background-color: rgb(251 191 36 / 0.35);
   pointer-events: none;
   animation: highlightFade 2.5s ease-out forwards;
