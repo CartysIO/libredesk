@@ -1,27 +1,23 @@
 <template>
-  <div v-if="variant === 'thread'" class="py-0">
-    <div
-      v-for="idx in threadFoldCount"
-      :key="idx"
-      class="flex items-center gap-3 border-b border-border/70 px-4 py-2"
-    >
-      <div class="skel-bar h-6 w-6 shrink-0 rounded-full" />
+  <div v-if="variant === 'thread'" class="desk-thread-skeleton desk-thread--email py-2">
+    <div v-for="idx in threadFoldCount" :key="idx" class="desk-thread-skeleton__fold">
+      <div class="skel-bar h-7 w-7 shrink-0 rounded-full" />
       <div class="skel-bar h-3 w-20 shrink-0 rounded-sm sm:w-28" />
       <div class="skel-bar h-3 min-w-0 flex-1 rounded-sm" :style="{ maxWidth: threadSnippetWidth(idx) }" />
-      <div class="skel-bar h-3 w-10 shrink-0 rounded-sm" />
+      <div class="skel-bar h-3 w-12 shrink-0 rounded-sm" />
     </div>
-    <div class="border-b border-border/70 px-4 py-3">
-      <div class="mb-3 flex items-center gap-2">
-        <div class="skel-bar h-6 w-6 shrink-0 rounded-full" />
-        <div class="skel-bar h-3 w-24 rounded-sm" />
-        <div class="skel-bar ml-auto h-3 w-12 rounded-sm" />
+    <div class="desk-thread-skeleton__card">
+      <div class="desk-thread-skeleton__card-header">
+        <div class="skel-bar h-8 w-8 shrink-0 rounded-full" />
+        <div class="skel-bar h-3 w-28 rounded-sm" />
+        <div class="skel-bar ml-auto h-3 w-14 rounded-sm" />
       </div>
-      <div class="space-y-2 pl-8">
+      <div class="desk-thread-skeleton__card-body">
         <div v-for="line in 4" :key="line" class="skel-bar h-3 rounded-sm" :style="{ width: openBlockLineWidth(line) }" />
       </div>
     </div>
   </div>
-  <div v-else class="py-2 space-y-5">
+  <div v-else class="desk-thread-skeleton desk-thread--chat space-y-6 py-3">
     <div v-for="(row, idx) in rows" :key="idx">
       <div
         v-if="row.showName"
@@ -39,10 +35,7 @@
         </template>
 
         <div class="w-4/5" :class="{ 'flex justify-end': row.outgoing }">
-          <div
-            class="skel-bubble flex flex-col gap-2 px-4 pt-3 pb-3 rounded-md border border-border"
-            :style="{ width: row.width }"
-          >
+          <div class="skel-bubble desk-skel-bubble flex flex-col gap-2" :style="{ width: row.width }">
             <div
               v-for="(lineW, n) in row.lines"
               :key="n"

@@ -1,12 +1,15 @@
 <template>
-  <div class="flex flex-col text-left" :class="thread ? 'items-stretch' : isOutgoing ? 'items-end' : 'items-start'">
+  <div
+    class="desk-message flex flex-col text-left"
+    :class="thread ? 'desk-message--thread items-stretch' : isOutgoing ? 'desk-message--outgoing items-end' : 'desk-message--incoming items-start'"
+  >
     <!-- Sender Name -->
     <div
       v-if="!groupWithPrev && !thread"
-      class="mb-1 flex items-center gap-1.5"
-      :class="isOutgoing ? 'lg:pr-10' : 'lg:pl-10'"
+      class="desk-message-sender mb-1.5 flex items-center gap-2"
+      :class="isOutgoing ? 'lg:pr-11' : 'lg:pl-11'"
     >
-      <Avatar class="w-7 h-7 text-xs lg:hidden" :class="{ 'order-last': isOutgoing }">
+      <Avatar class="size-7 text-xs ring-2 ring-background lg:hidden" :class="{ 'order-last': isOutgoing }">
         <AvatarImage :src="getAvatar" />
         <AvatarFallback class="font-medium">
           {{ avatarFallback }}
@@ -33,20 +36,20 @@
       >
         {{ getFullName }}
       </router-link>
-      <p v-else class="text-muted-foreground text-sm font-medium">
+      <p v-else class="font-display text-desk-sm font-semibold text-muted-foreground">
         {{ getFullName }}
       </p>
     </div>
 
     <!-- Message Bubble -->
-    <div class="flex flex-row gap-2 w-full group" :class="{ 'justify-end': isOutgoing }">
+    <div class="desk-message-row flex w-full flex-row gap-2.5 group" :class="{ 'justify-end': isOutgoing && !thread }">
       <div
         v-if="!thread"
-        class="hidden size-8 shrink-0 lg:block"
+        class="hidden size-9 shrink-0 lg:block"
         :class="{ 'order-last': isOutgoing }"
         aria-hidden="true"
       >
-        <Avatar v-if="!groupWithPrev" class="size-8">
+        <Avatar v-if="!groupWithPrev" class="size-9 ring-2 ring-background">
           <AvatarImage :src="getAvatar" />
           <AvatarFallback class="font-medium">
             {{ avatarFallback }}
@@ -54,7 +57,10 @@
         </Avatar>
       </div>
       <div
-        :class="[thread ? 'w-full' : 'w-4/5', { 'flex justify-end items-center gap-2': isOutgoing && !thread }]"
+        :class="[
+          thread ? 'w-full min-w-0' : 'w-[min(100%,32rem)] sm:w-[min(88%,34rem)]',
+          { 'flex items-center justify-end gap-2': isOutgoing && !thread }
+        ]"
         style="contain: inline-size"
       >
         <!-- Delete note menu (private notes, appears on hover, left of bubble) -->
@@ -90,67 +96,85 @@
           <template v-else>
             <!-- Message Envelope -->
             <!-- Email thread header (Clyr desk): sender, recipients summary, time and collapse on one line. -->
-            <div v-if="thread" class="mb-2 flex min-w-0 items-center gap-2.5">
-              <Avatar class="h-6 w-6 shrink-0 text-[10px]">
+            <div v-if="thread" class="desk-thread-header">
+              <Avatar class="desk-thread-header__avatar">
                 <AvatarImage :src="getAvatar" />
                 <AvatarFallback class="font-semibold">{{ avatarFallback }}</AvatarFallback>
               </Avatar>
-              <span class="shrink-0 truncate text-sm font-semibold">{{ getFullName }}</span>
-              <Lock v-if="isPrivateMessage" :size="12" class="shrink-0 text-muted-foreground" :aria-label="t('globals.terms.privateNote')" />
-              <button
-                v-if="showEnvelope"
-                type="button"
-                class="flex min-w-0 items-center gap-1 rounded-sm text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                :aria-expanded="showDetails"
-                :title="showDetails ? t('conversation.hideMessageDetails') : t('conversation.messageDetails')"
-                @click="showDetails = !showDetails"
-              >
-                <span class="truncate">{{ recipientsSummary }}</span>
-                <ChevronDown :size="12" class="shrink-0 transition-transform" :class="{ 'rotate-180': showDetails }" />
-              </button>
-              <Tooltip>
-                <TooltipTrigger as-child>
-                  <span class="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
-                    {{ formatMessageTimestamp(message.created_at) }}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{{ formatFullTimestamp(message.created_at) }}</p>
-                </TooltipContent>
-              </Tooltip>
-              <DropdownMenu v-if="canDeleteNote">
-                <DropdownMenuTrigger as-child>
-                  <Button variant="ghost" size="icon" class="h-7 w-7 shrink-0 text-muted-foreground" :aria-label="t('conversation.deletePrivateNote')">
-                    <MoreHorizontal class="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem class="text-destructive focus:text-destructive" @click="alertOpen = true">
-                    <Trash2 class="mr-2 h-4 w-4" />
-                    {{ t('conversation.deletePrivateNote') }}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Button
-                variant="ghost"
-                size="icon"
-                class="h-7 w-7 shrink-0 text-muted-foreground"
-                :aria-label="t('globals.terms.collapse')"
-                @click="$emit('collapse')"
-              >
-                <ChevronsDownUp class="h-4 w-4" />
-              </Button>
+              <div class="desk-thread-header__identity min-w-0">
+                <span class="desk-thread-header__name">{{ getFullName }}</span>
+              </div>
+              <div class="desk-thread-header__meta">
+                <Lock
+                  v-if="isPrivateMessage"
+                  :size="12"
+                  class="shrink-0 text-muted-foreground"
+                  :aria-label="t('globals.terms.privateNote')"
+                />
+                <button
+                  v-if="showEnvelope"
+                  type="button"
+                  class="desk-thread-header__recipients"
+                  :aria-expanded="showDetails"
+                  :title="showDetails ? t('conversation.hideMessageDetails') : t('conversation.messageDetails')"
+                  @click="showDetails = !showDetails"
+                >
+                  <span class="truncate">{{ recipientsSummary }}</span>
+                  <ChevronDown :size="12" class="shrink-0 transition-transform duration-200" :class="{ 'rotate-180': showDetails }" />
+                </button>
+                <div class="desk-thread-header__trailing">
+                  <Tooltip>
+                    <TooltipTrigger as-child>
+                      <time class="desk-thread-header__time" :datetime="message.created_at">
+                        {{ formatMessageTimestamp(message.created_at) }}
+                      </time>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{{ formatFullTimestamp(message.created_at) }}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <div class="desk-thread-header__actions">
+                    <DropdownMenu v-if="canDeleteNote">
+                      <DropdownMenuTrigger as-child>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          class="desk-thread-header__icon-btn"
+                          :aria-label="t('conversation.deletePrivateNote')"
+                        >
+                          <MoreHorizontal class="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem class="text-destructive focus:text-destructive" @click="alertOpen = true">
+                          <Trash2 class="mr-2 h-4 w-4" />
+                          {{ t('conversation.deletePrivateNote') }}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="desk-thread-header__icon-btn"
+                      :aria-label="t('globals.terms.collapse')"
+                      @click="$emit('collapse')"
+                    >
+                      <ChevronsDownUp class="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
             <MessageEnvelope
               v-if="thread && showDetails && showEnvelope"
               :message="message"
-              class="mb-3 rounded-md bg-muted/70 px-3 py-2"
+              class="desk-thread-envelope mb-3"
             />
 
             <!-- Message Envelope -->
             <MessageEnvelope :message="message" v-if="showEnvelope && !thread" />
 
-            <hr class="mb-2 border-muted-foreground/20" v-if="showEnvelope && !thread" />
+            <hr class="desk-message-divider mb-2" v-if="showEnvelope && !thread" />
 
             <!-- Message Content -->
             <div
@@ -222,7 +246,7 @@
             <div
               v-if="!isOutgoing && hasQuotedContent"
               @click="toggleQuote"
-              class="text-xs cursor-pointer text-muted-foreground px-2 py-1 w-max hover:bg-muted hover:text-foreground rounded-md transition-colors duration-200"
+              class="desk-quote-toggle"
             >
               {{ showQuotedText ? t('conversation.hideQuotedText') : t('conversation.showQuotedText') }}
             </div>
@@ -237,7 +261,7 @@
             <Spinner v-if="pendingSpinner" size="sm" />
 
             <!-- Status Icons (outgoing only) -->
-            <div v-if="isOutgoing" class="flex items-center space-x-2 mt-2 self-end">
+            <div v-if="isOutgoing" class="desk-message-status mt-2.5 flex items-center gap-2 self-end">
               <Lock :size="12" v-if="isPrivateMessage" class="text-muted-foreground" />
               <Tooltip v-if="deliveryStatus">
                 <TooltipTrigger :aria-label="deliveryStatusLabel">
@@ -292,12 +316,12 @@
     </div>
 
     <!-- Timestamp tooltip -->
-    <div v-if="!groupWithNext && !thread" :class="isOutgoing ? 'lg:pr-10' : 'lg:pl-10'">
+    <div v-if="!groupWithNext && !thread" class="desk-message-timestamp" :class="isOutgoing ? 'lg:pr-11' : 'lg:pl-11'">
       <Tooltip>
-        <TooltipTrigger>
-          <span class="text-muted-foreground text-xs mt-1">
+        <TooltipTrigger as-child>
+          <time class="text-desk-2xs tabular-nums text-muted-foreground" :datetime="message.created_at">
             {{ formatMessageTimestamp(message.created_at) }}
-          </span>
+          </time>
         </TooltipTrigger>
         <TooltipContent>
           <p>{{ formatFullTimestamp(message.created_at) }}</p>
@@ -503,11 +527,27 @@ const nonInlineAttachments = computed(() =>
   props.message.attachments.filter((attachment) => attachment.disposition !== 'inline')
 )
 
+const isPrivateMessage = computed(() => isOutgoing.value && props.message.private)
+
+const groupPosition = computed(() => {
+  if (props.thread) return 'single'
+  if (!props.groupWithPrev && !props.groupWithNext) return 'single'
+  if (!props.groupWithPrev && props.groupWithNext) return 'start'
+  if (props.groupWithPrev && props.groupWithNext) return 'middle'
+  return 'end'
+})
+
 const bubbleClasses = computed(() => ({
   'message-bubble--thread': props.thread,
+  'message-bubble--thread-incoming': props.thread && !isOutgoing.value,
+  'message-bubble--thread-outgoing': props.thread && isOutgoing.value,
+  'message-bubble--incoming': !props.thread && !isOutgoing.value,
+  'message-bubble--outgoing': !props.thread && isOutgoing.value,
+  [`message-bubble--group-${groupPosition.value}`]: !props.thread,
+  'message-bubble--private': isPrivateMessage.value,
   'bg-background': props.thread && !isOutgoing.value,
-  'bg-private': isOutgoing.value && props.message.private,
-  'bg-secondary border border-border': isOutgoing.value && !props.message.private,
+  'bg-private': isOutgoing.value && props.message.private && !props.thread,
+  'bg-secondary border border-border': isOutgoing.value && !props.message.private && !props.thread,
   'opacity-50 animate-pulse': isOutgoing.value && props.message.status === 'pending',
   'border-destructive': isOutgoing.value && props.message.status === 'failed',
   relative: isOutgoing.value,
@@ -515,7 +555,6 @@ const bubbleClasses = computed(() => ({
   'hide-quoted-text': !isOutgoing.value && !showQuotedText.value
 }))
 
-const isPrivateMessage = computed(() => isOutgoing.value && props.message.private)
 const isDeleted = computed(() => !!props.message.meta?.deleted_at)
 const canDeleteNote = computed(
   () =>

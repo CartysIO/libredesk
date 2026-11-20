@@ -182,16 +182,148 @@ html[data-app='desk'] .desk-page-header {
   backdrop-filter: blur(10px);
 }
 
-// Email thread: stacked cards instead of full-width hairlines.
+// ─── Conversation thread (email + live chat) ───
+
+html[data-app='desk'] .desk-thread {
+  --desk-thread-rail: 3px;
+  background-color: hsl(var(--canvas) / 0.35);
+  background-image: linear-gradient(hsl(var(--border) / 0.35) 1px, transparent 1px);
+  background-size: 100% 2.75rem;
+  background-position: 0 0.5rem;
+}
+
+html[data-app='desk'] .desk-thread--email {
+  padding-top: 0.75rem;
+  max-width: 52rem;
+  margin-inline: auto;
+}
+
+html[data-app='desk'] .desk-thread--chat {
+  padding-top: 0.25rem;
+}
+
+html[data-app='desk'] .desk-thread-summary {
+  display: flex;
+  width: calc(100% - 1.5rem);
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0.75rem;
+  padding: 0.625rem 1rem;
+  border: 1px dashed hsl(var(--border) / 0.85);
+  border-radius: calc(var(--radius));
+  background: hsl(var(--card) / 0.75);
+  color: hsl(var(--muted-foreground));
+  font-size: var(--desk-type-xs);
+  font-weight: var(--desk-weight-semibold);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+
+  &:hover {
+    border-color: hsl(var(--primary) / 0.35);
+    background: hsl(var(--card));
+    color: hsl(var(--foreground));
+    box-shadow: var(--desk-shadow-sm);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.35);
+  }
+}
+
+html[data-app='desk'] .desk-thread-summary__count {
+  display: flex;
+  height: 1.75rem;
+  width: 1.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--border) / 0.8);
+  background: hsl(var(--muted) / 0.5);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--desk-weight-bold);
+  color: hsl(var(--foreground));
+}
+
+html[data-app='desk'] .desk-thread-summary__label {
+  min-width: 0;
+  flex: 1;
+}
+
+html[data-app='desk'] .desk-thread-older-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--border) / 0.75);
+  background: hsl(var(--card) / 0.92);
+  color: hsl(var(--muted-foreground));
+  box-shadow: var(--desk-shadow-md);
+  backdrop-filter: blur(8px);
+}
+
+html[data-app='desk'] .desk-day-separator {
+  span {
+    padding-inline: 0.75rem;
+    font-family: var(--desk-font-display);
+    font-size: var(--desk-type-2xs);
+    font-weight: var(--desk-weight-semibold);
+    letter-spacing: var(--desk-tracking-wide);
+    text-transform: none;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .h-px {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--border) / 0.9) 20%,
+      hsl(var(--border) / 0.9) 80%,
+      transparent
+    );
+  }
+}
+
+// Email thread cards — correspondence stack with sender rail.
 html[data-app='desk'] .message-bubble.message-bubble--thread {
   width: calc(100% - 1.5rem);
   max-width: 100%;
-  margin: 0.375rem 0.75rem;
+  margin: 0.5rem 0.75rem;
   min-width: 0;
-  border-width: 1px;
-  border-radius: calc(var(--radius) - 2px);
+  border: 1px solid hsl(var(--border) / 0.72);
+  border-radius: calc(var(--radius));
+  border-left-width: var(--desk-thread-rail);
   box-shadow: var(--desk-shadow-sm);
-  padding: 0.875rem 1rem 1rem;
+  padding: 1rem 1.125rem 1.125rem;
+  background: hsl(var(--card));
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+
+  &:hover {
+    border-color: hsl(var(--border));
+    box-shadow: var(--desk-shadow-md);
+  }
+
+  &.message-bubble--thread-incoming {
+    border-left-color: hsl(var(--code-customer));
+  }
+
+  &.message-bubble--thread-outgoing:not(.message-bubble--private) {
+    border-left-color: hsl(var(--primary));
+  }
+
+  &.message-bubble--private {
+    border-left-color: hsl(36 72% 42%);
+    background: hsl(var(--private));
+  }
 
   .native-html {
     font-size: var(--desk-type-md);
@@ -203,12 +335,402 @@ html[data-app='desk'] .message-bubble.message-bubble--thread {
   }
 }
 
+html[data-app='desk'] .desk-thread-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.625rem;
+  margin-bottom: 0.875rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.45);
+}
+
+html[data-app='desk'] .desk-thread-header__avatar {
+  height: 2rem;
+  width: 2rem;
+  flex-shrink: 0;
+  font-size: 0.625rem;
+  box-shadow: 0 0 0 2px hsl(var(--card)), 0 0 0 3px hsl(var(--border) / 0.55);
+}
+
+html[data-app='desk'] .desk-thread-header__identity {
+  flex: 1 1 6rem;
+  min-width: 0;
+}
+
+html[data-app='desk'] .desk-thread-header__name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--desk-font-display);
+  font-size: var(--desk-type-sm);
+  font-weight: var(--desk-weight-semibold);
+  color: hsl(var(--foreground));
+}
+
+html[data-app='desk'] .desk-thread-header__meta {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.625rem;
+  padding-left: 2.625rem;
+
+  @media (min-width: 768px) {
+    flex: 1 1 12rem;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    padding-left: 0;
+    min-width: 0;
+  }
+}
+
+html[data-app='desk'] .desk-thread-header__recipients {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: calc(var(--radius) - 4px);
+  padding: 0.125rem 0.375rem;
+  font-size: var(--desk-type-2xs);
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+
+  &:hover {
+    background: hsl(var(--muted) / 0.55);
+    color: hsl(var(--foreground));
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--ring) / 0.4);
+  }
+}
+
+html[data-app='desk'] .desk-thread-header__trailing {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+html[data-app='desk'] .desk-thread-header__time {
+  flex-shrink: 0;
+  font-size: var(--desk-type-2xs);
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--muted-foreground));
+}
+
+html[data-app='desk'] .desk-thread-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+html[data-app='desk'] .desk-thread-header__icon-btn {
+  height: 1.75rem;
+  width: 1.75rem;
+  flex-shrink: 0;
+  color: hsl(var(--muted-foreground));
+}
+
+html[data-app='desk'] .desk-thread-envelope,
+html[data-app='desk'] .desk-envelope {
+  border-radius: calc(var(--radius) - 4px);
+  border: 1px solid hsl(var(--border) / 0.55);
+  background: hsl(var(--muted) / 0.35);
+  padding: 0.625rem 0.75rem;
+}
+
+html[data-app='desk'] .desk-envelope__subject {
+  margin-bottom: 0.375rem;
+  font-family: var(--desk-font-display);
+  font-size: var(--desk-type-xs);
+  font-weight: var(--desk-weight-semibold);
+  color: hsl(var(--foreground));
+}
+
+html[data-app='desk'] .desk-envelope__routes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+html[data-app='desk'] .desk-envelope__label {
+  color: hsl(var(--muted-foreground));
+  font-weight: var(--desk-weight-semibold);
+}
+
 html[data-app='desk'] .message-bubble--thread.hide-quoted-text {
   [class*='_gmail_signature'],
   [data-smartmail='gmail_signature'],
   [id$='_Signature'],
   [class*='_gmail_quote'] {
     display: none;
+  }
+}
+
+html[data-app='desk'] .desk-fold-row {
+  display: flex;
+  width: calc(100% - 1.5rem);
+  align-items: center;
+  gap: 0.625rem;
+  margin: 0.375rem 0.75rem;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid hsl(var(--border) / 0.65);
+  border-radius: calc(var(--radius) - 2px);
+  border-left-width: var(--desk-thread-rail);
+  border-left-color: hsl(var(--border) / 0.9);
+  background: hsl(var(--card) / 0.82);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: var(--desk-shadow-sm);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+
+  &:hover {
+    border-color: hsl(var(--border));
+    background: hsl(var(--card));
+    box-shadow: var(--desk-shadow-md);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.35);
+  }
+
+  &.desk-fold-row--private {
+    border-left-color: hsl(36 72% 42%);
+    background: hsl(var(--private) / 0.55);
+  }
+}
+
+html[data-app='desk'] .desk-fold-row__avatar {
+  height: 1.625rem;
+  width: 1.625rem;
+  flex-shrink: 0;
+  font-size: 0.625rem;
+}
+
+html[data-app='desk'] .desk-fold-row__name {
+  width: 6rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--desk-font-display);
+  font-size: var(--desk-type-xs);
+  font-weight: var(--desk-weight-semibold);
+
+  @media (min-width: 640px) {
+    width: 9rem;
+  }
+}
+
+html[data-app='desk'] .desk-fold-row__icon {
+  height: 0.75rem;
+  width: 0.75rem;
+  flex-shrink: 0;
+  color: hsl(var(--muted-foreground));
+}
+
+html[data-app='desk'] .desk-fold-row__snippet {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--desk-type-xs);
+  color: hsl(var(--muted-foreground));
+}
+
+html[data-app='desk'] .desk-fold-row__time {
+  flex-shrink: 0;
+  font-size: var(--desk-type-2xs);
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--muted-foreground));
+}
+
+// Live chat bubbles (desk overrides upstream .message-bubble).
+html[data-app='desk'] .desk-thread--chat .message-bubble:not(.message-bubble--thread) {
+  min-width: 0;
+  max-width: min(100%, 28rem);
+  width: fit-content;
+  border: 1px solid hsl(var(--border) / 0.65);
+  padding: 0.625rem 0.875rem 0.75rem;
+  box-shadow: var(--desk-shadow-sm);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+
+  &.message-bubble--incoming {
+    background: hsl(var(--card));
+    border-color: hsl(var(--border) / 0.75);
+  }
+
+  &.message-bubble--outgoing:not(.message-bubble--private) {
+    background: hsl(var(--primary) / 0.08);
+    border-color: hsl(var(--primary) / 0.22);
+  }
+
+  &.message-bubble--private {
+    border-color: hsl(36 45% 72% / 0.65);
+  }
+
+  &.message-bubble--group-single.message-bubble--incoming {
+    border-radius: 1rem 1rem 1rem 0.35rem;
+  }
+
+  &.message-bubble--group-single.message-bubble--outgoing {
+    border-radius: 1rem 1rem 0.35rem 1rem;
+  }
+
+  &.message-bubble--group-start.message-bubble--incoming {
+    border-radius: 1rem 1rem 1rem 0.35rem;
+  }
+
+  &.message-bubble--group-start.message-bubble--outgoing {
+    border-radius: 1rem 1rem 0.35rem 1rem;
+  }
+
+  &.message-bubble--group-middle.message-bubble--incoming {
+    border-radius: 0.35rem 1rem 1rem 0.35rem;
+  }
+
+  &.message-bubble--group-middle.message-bubble--outgoing {
+    border-radius: 1rem 0.35rem 0.35rem 1rem;
+  }
+
+  &.message-bubble--group-end.message-bubble--incoming {
+    border-radius: 0.35rem 1rem 1rem 1rem;
+  }
+
+  &.message-bubble--group-end.message-bubble--outgoing {
+    border-radius: 1rem 0.35rem 1rem 1rem;
+  }
+}
+
+html[data-app='desk'] .desk-message-sender a {
+  font-family: var(--desk-font-display);
+  font-size: var(--desk-type-xs);
+  font-weight: var(--desk-weight-semibold);
+}
+
+html[data-app='desk'] .desk-message-timestamp {
+  margin-top: 0.25rem;
+}
+
+html[data-app='desk'] .desk-message-divider {
+  border: 0;
+  border-top: 1px solid hsl(var(--border) / 0.45);
+}
+
+html[data-app='desk'] .desk-quote-toggle {
+  margin-top: 0.375rem;
+  display: inline-flex;
+  width: max-content;
+  cursor: pointer;
+  border-radius: calc(var(--radius) - 4px);
+  padding: 0.25rem 0.5rem;
+  font-size: var(--desk-type-2xs);
+  font-weight: var(--desk-weight-semibold);
+  color: hsl(var(--muted-foreground));
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+
+  &:hover {
+    background: hsl(var(--muted) / 0.55);
+    color: hsl(var(--foreground));
+  }
+}
+
+html[data-app='desk'] .desk-activity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem 0.5rem;
+  margin-inline: auto;
+  max-width: 28rem;
+  padding: 0.375rem 0.875rem;
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--border) / 0.55);
+  background: hsl(var(--muted) / 0.4);
+}
+
+html[data-app='desk'] .desk-activity__text {
+  font-size: var(--desk-type-xs);
+  color: hsl(var(--muted-foreground));
+}
+
+html[data-app='desk'] .desk-activity__time {
+  font-size: var(--desk-type-2xs);
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--muted-foreground));
+  cursor: default;
+}
+
+html[data-app='desk'] .desk-thread-nudge {
+  border-radius: calc(var(--radius));
+  background: hsl(var(--card) / 0.95);
+  backdrop-filter: blur(10px);
+}
+
+html[data-app='desk'] .desk-thread-skeleton__fold {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.375rem 0.75rem;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid hsl(var(--border) / 0.5);
+  border-radius: calc(var(--radius) - 2px);
+  background: hsl(var(--card) / 0.5);
+}
+
+html[data-app='desk'] .desk-thread-skeleton__card {
+  margin: 0.5rem 0.75rem;
+  padding: 1rem;
+  border: 1px solid hsl(var(--border) / 0.55);
+  border-radius: calc(var(--radius));
+  background: hsl(var(--card) / 0.65);
+}
+
+html[data-app='desk'] .desk-thread-skeleton__card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-bottom: 0.875rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.4);
+}
+
+html[data-app='desk'] .desk-thread-skeleton__card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-left: 2.25rem;
+}
+
+html[data-app='desk'] .desk-skel-bubble {
+  padding: 0.75rem 1rem;
+  border: 1px solid hsl(var(--border) / 0.55);
+  border-radius: 1rem;
+  background: hsl(var(--card) / 0.65);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-app='desk'] .desk-fold-row:hover {
+    transform: none;
   }
 }
 
@@ -546,18 +1068,6 @@ html[data-app='desk'] .desk-conversation-header .desk-ticket-ref {
 html[data-app='desk'] .desk-status-chip {
   border-radius: 9999px;
   box-shadow: var(--desk-shadow-sm);
-}
-
-html[data-app='desk'] .desk-thread {
-  background: radial-gradient(ellipse 120% 80% at 50% 0%, hsl(var(--muted) / 0.5), transparent 55%);
-}
-
-html[data-app='desk'] .desk-fold-row {
-  margin: 0.25rem 0.75rem;
-  border-radius: calc(var(--radius) - 2px);
-  border: 1px solid hsl(var(--border) / 0.65);
-  box-shadow: var(--desk-shadow-sm);
-  background: hsl(var(--card));
 }
 
 html[data-app='desk'] .desk-detail-sidebar {
