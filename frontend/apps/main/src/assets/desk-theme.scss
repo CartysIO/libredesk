@@ -421,6 +421,8 @@ html[data-app='desk'] .desk-thread-header__avatar {
   box-shadow: 0 0 0 1px hsl(var(--border) / 0.7);
 }
 
+// The sender name is the header's lead element: the recipients summary takes only the room that is
+// left and truncates first; the name shrinks only when nothing else can.
 html[data-app='desk'] .desk-thread-header__name {
   flex: 0 1 auto;
   min-width: 2.5rem;
@@ -432,6 +434,7 @@ html[data-app='desk'] .desk-thread-header__name {
 }
 
 html[data-app='desk'] .desk-thread-header__recipients {
+  flex: 0 9999 auto;
   min-width: 0;
   font-size: var(--desk-type-2xs);
   color: hsl(var(--muted-foreground));
@@ -593,7 +596,8 @@ html[data-app='desk'] .desk-fold-row__icon {
   color: hsl(var(--muted-foreground));
 }
 
-// Folded private note: lock always, plus the "Private note" text where the row has spare width.
+// Folded private note: lock + "Private note" text at every width. Narrow rows make room by showing
+// the time only and a narrower name column (below).
 html[data-app='desk'] .desk-fold-row__note {
   display: inline-flex;
   flex-shrink: 0;
@@ -607,14 +611,6 @@ html[data-app='desk'] .desk-fold-row__note {
   white-space: nowrap;
 }
 
-html[data-app='desk'] .desk-fold-row__note-text {
-  display: none;
-
-  @media (min-width: 640px) {
-    display: inline;
-  }
-}
-
 html[data-app='desk'] .desk-fold-row__snippet {
   min-width: 0;
   flex: 1;
@@ -623,6 +619,26 @@ html[data-app='desk'] .desk-fold-row__snippet {
   white-space: nowrap;
   font-size: var(--desk-type-xs);
   color: hsl(var(--muted-foreground));
+}
+
+@media (max-width: 479px) {
+  html[data-app='desk'] .desk-fold-row {
+    gap: 0.5rem;
+  }
+
+  html[data-app='desk'] .desk-fold-row__name {
+    width: 5.25rem;
+  }
+
+  // The note row already breaks the snippet column with its label, so its name hugs the text.
+  html[data-app='desk'] .desk-fold-row--private .desk-fold-row__name {
+    width: auto;
+    max-width: 5.25rem;
+  }
+
+  html[data-app='desk'] .desk-fold-row__date {
+    display: none;
+  }
 }
 
 html[data-app='desk'] .desk-fold-row__time {
