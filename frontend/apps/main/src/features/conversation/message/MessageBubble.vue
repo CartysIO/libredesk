@@ -58,7 +58,7 @@
       </div>
       <div
         :class="[
-          thread ? 'w-full min-w-0' : 'w-4/5',
+          thread ? 'w-full min-w-0' : 'desk-message-body w-4/5',
           { 'flex items-center justify-end gap-2': isOutgoing && !thread }
         ]"
         style="contain: inline-size"
@@ -102,12 +102,10 @@
                 <AvatarFallback class="font-semibold">{{ avatarFallback }}</AvatarFallback>
               </Avatar>
               <span class="desk-thread-header__name shrink-0 truncate">{{ getFullName }}</span>
-              <Lock
-                v-if="isPrivateMessage"
-                :size="12"
-                class="shrink-0 text-muted-foreground"
-                :aria-label="t('globals.terms.privateNote')"
-              />
+              <span v-if="isPrivateMessage" class="desk-private-label shrink-0">
+                <Lock :size="12" aria-hidden="true" />
+                <span class="desk-private-label__text">{{ t('globals.terms.privateNote') }}</span>
+              </span>
               <button
                 v-if="showEnvelope"
                 type="button"
@@ -163,6 +161,12 @@
               class="desk-thread-envelope mb-3"
             />
 
+            <!-- Private note label (live chat): once per grouped run. -->
+            <div v-if="isPrivateMessage && !thread && !groupWithPrev" class="desk-private-label mb-1">
+              <Lock :size="12" aria-hidden="true" />
+              <span class="desk-private-label__text">{{ t('globals.terms.privateNote') }}</span>
+            </div>
+
             <!-- Message Envelope -->
             <MessageEnvelope :message="message" v-if="showEnvelope && !thread" />
 
@@ -208,7 +212,7 @@
 
               <div
                 v-if="isExpandable && !isExpanded"
-                class="absolute left-0 right-0 bottom-0 h-24 flex items-end justify-center pointer-events-none"
+                class="desk-expand-fade absolute left-0 right-0 bottom-0 h-24 flex items-end justify-center pointer-events-none"
                 :class="
                   message.private
                     ? 'bg-gradient-to-t from-private via-private/90 to-transparent'
@@ -244,7 +248,7 @@
             </div>
 
             <!-- Attachments -->
-            <BubbleAttachmentPreview :attachments="nonInlineAttachments" />
+            <BubbleAttachmentPreview v-if="nonInlineAttachments.length" :attachments="nonInlineAttachments" />
 
             <!-- CSAT Response -->
             <CSATResponseDisplay :message="message" />
@@ -253,8 +257,7 @@
             <Spinner v-if="pendingSpinner" size="sm" />
 
             <!-- Status Icons (outgoing only) -->
-            <div v-if="isOutgoing" class="desk-message-status mt-2.5 flex items-center gap-2 self-end">
-              <Lock :size="12" v-if="isPrivateMessage" class="text-muted-foreground" />
+            <div v-if="hasStatusRow" class="desk-message-status flex items-center gap-2 self-end">
               <Tooltip v-if="deliveryStatus">
                 <TooltipTrigger :aria-label="deliveryStatusLabel">
                   <CheckCheck
@@ -523,6 +526,12 @@ const isPrivateMessage = computed(() => isOutgoing.value && props.message.privat
 
 const bubbleClasses = computed(() => ({
   'message-bubble--thread': props.thread,
+  'message-bubble--chat': !props.thread,
+  'message-bubble--incoming': !isOutgoing.value,
+  'message-bubble--outgoing': isOutgoing.value && !props.message.private,
+  'message-bubble--private': isOutgoing.value && props.message.private,
+  'message-bubble--group-prev': !props.thread && props.groupWithPrev,
+  'message-bubble--group-next': !props.thread && props.groupWithNext,
   'bg-background': props.thread && !isOutgoing.value,
   'bg-private': isOutgoing.value && props.message.private,
   'bg-secondary border border-border': isOutgoing.value && !props.message.private && !props.thread,
@@ -552,6 +561,12 @@ const showRetry = computed(() => isOutgoing.value && props.message.status === 'f
 
 const sendFailureReason = computed(() =>
   props.message.status === 'failed' ? props.message.meta?.provider_failure_reason : null
+)
+// The status row only takes space when it has something to show.
+const hasStatusRow = computed(
+  () =>
+    isOutgoing.value &&
+    !!(deliveryStatus.value || props.message.meta?.continuity_emailed || sendFailureReason.value || showRetry.value)
 )
 
 const retryMessage = (msg) => {

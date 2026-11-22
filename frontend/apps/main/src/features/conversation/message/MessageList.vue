@@ -21,10 +21,10 @@
           tag="div"
         >
           <div
-            v-for="item in displayRows"
+            v-for="(item, index) in displayRows"
             :key="displayRowKey(item)"
             :data-message-uuid="item.row?.message.uuid"
-            :class="displayRowClass(item)"
+            :class="displayRowClass(item, index)"
           >
           <!-- Email threads (Clyr desk): "N earlier messages" stands for the middle of a long folded run. -->
           <button
@@ -301,7 +301,8 @@ watch(
   }
 )
 
-const GROUP_WINDOW_MS = 60_000
+// Consecutive messages from one sender group while each follows the previous within this gap.
+const GROUP_WINDOW_MS = 5 * 60_000
 
 const canGroup = (a, b) => {
   if (!a || !b) return false
@@ -314,14 +315,13 @@ const canGroup = (a, b) => {
   const bSenderId = b.author?.id ?? b.sender_id
   if (!aSenderId || aSenderId !== bSenderId) return false
 
-  const aBucket = Math.floor(new Date(a.created_at).getTime() / GROUP_WINDOW_MS)
-  const bBucket = Math.floor(new Date(b.created_at).getTime() / GROUP_WINDOW_MS)
-  return aBucket === bBucket
+  const gap = Math.abs(new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  return gap <= GROUP_WINDOW_MS
 }
 
 const getSpacingClass = (index, groupWithPrev) => {
-  if (index === 0) return 'pt-5'
-  return groupWithPrev ? 'mt-1.5' : 'mt-5'
+  if (index === 0) return 'pt-4'
+  return groupWithPrev ? 'mt-1' : 'mt-5'
 }
 
 const loadMore = async () => {
@@ -415,10 +415,18 @@ const displayRows = computed(() =>
     ? foldThreadRows(messageRows.value, isMessageOpen, openRuns.value)
     : messageRows.value.map((row) => ({ kind: 'message', row }))
 )
-const displayRowClass = (item) => {
-  if (item.kind !== 'message') return null
+// Email threads: consecutive fold/summary rows join into one stacked card (desk-theme.scss).
+const isStackRow = (item) => !!item && item.kind !== 'message'
+const displayRowClass = (item, index) => {
+  if (item.kind !== 'message') {
+    return {
+      'desk-thread-row desk-thread-row--stack': true,
+      'desk-thread-row--stack-first': !isStackRow(displayRows.value[index - 1]),
+      'desk-thread-row--stack-last': !isStackRow(displayRows.value[index + 1])
+    }
+  }
   const activity = { 'desk-thread-activity my-3': item.row.message.type === 'activity' }
-  return isEmailThread.value ? activity : [item.row.spacingClass, activity]
+  return isEmailThread.value ? ['desk-thread-row', activity] : [item.row.spacingClass, activity]
 }
 const displayRowKey = (item) => {
   if (item.kind === 'summary') return `run-${item.key}`

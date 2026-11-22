@@ -183,19 +183,90 @@ html[data-app='desk'] .desk-page-header {
 }
 
 // ─── Conversation thread (email + live chat) ───
-// DESIGN.md: flat hairline stack; open email blocks square with bottom rule, no shadow;
-// live chat keeps upstream `.message-bubble` styling.
+// DESIGN.md: layered thread. The ground is `--background`; messages sit on it as rounded
+// `--card` surfaces with a hairline border and `--desk-shadow-sm`. Ours vs theirs is carried by
+// a `--primary` wash, private notes by `--private` + a `--warning` border, never by code colours.
+
+html[data-app='desk'] .desk-message-list {
+  --desk-thread-ground: hsl(var(--background));
+  --desk-thread-hairline: hsl(var(--border) / 0.75);
+  --desk-thread-private-border: hsl(var(--warning) / 0.45);
+  --desk-thread-surface: hsl(var(--card));
+  --desk-thread-strip: hsl(var(--muted) / 0.85);
+  --desk-thread-ours: color-mix(in srgb, hsl(var(--card)) 92%, hsl(var(--primary)));
+  --desk-thread-ours-border: hsl(var(--primary) / 0.18);
+  --desk-bubble-radius: calc(var(--radius) + 0.25rem);
+  --desk-bubble-radius-tight: 0.25rem;
+  background: var(--desk-thread-ground);
+}
+
+// Light: `--primary` is a deep navy that mixes to grey, so the "ours" wash keeps its hue but is
+// re-lit (relative colour; the mix above is the fallback).
+@supports (color: hsl(from white h s l)) {
+  html[data-app='desk']:not(.dark) .desk-message-list {
+    --desk-thread-ours: hsl(from hsl(var(--primary)) h 85% 95%);
+    --desk-thread-ours-border: hsl(from hsl(var(--primary)) h 60% 82%);
+  }
+}
+
+// Dark: `--card` sits too close to the ground, so thread surfaces lift one step towards the foreground.
+html[data-app='desk'].dark .desk-message-list {
+  --desk-thread-hairline: hsl(var(--border));
+  --desk-thread-surface: color-mix(in srgb, hsl(var(--card)) 95%, hsl(var(--foreground)));
+  --desk-thread-strip: hsl(var(--foreground) / 0.045);
+  --desk-thread-ours: color-mix(in srgb, hsl(var(--card)) 84%, hsl(var(--primary)));
+  --desk-thread-ours-border: hsl(var(--primary) / 0.3);
+}
 
 html[data-app='desk'] .desk-thread {
-  background: hsl(var(--background));
+  background: var(--desk-thread-ground, hsl(var(--background)));
 }
 
 html[data-app='desk'] .desk-thread--email {
-  padding-top: 0;
+  padding: 0.75rem 0.75rem 1.5rem;
+
+  @media (min-width: 640px) {
+    padding: 1rem 1rem 1.5rem;
+  }
 }
 
 html[data-app='desk'] .desk-thread--chat {
   padding-top: 0.25rem;
+}
+
+// Email rows: open cards and stacked fold groups, 12px apart.
+html[data-app='desk'] .desk-thread--email .desk-thread-row {
+  margin: 0;
+
+  & + .desk-thread-row {
+    margin-top: 0.75rem;
+  }
+}
+
+// Consecutive fold / summary rows share one card: outer radius, inner hairlines.
+html[data-app='desk'] .desk-thread--email .desk-thread-row--stack {
+  overflow: hidden;
+  border: 1px solid var(--desk-thread-hairline);
+  border-top-color: hsl(var(--border) / 0.5);
+  border-bottom: 0;
+  background: var(--desk-thread-surface);
+  box-shadow: var(--desk-shadow-sm);
+
+  & + .desk-thread-row--stack {
+    margin-top: 0;
+  }
+
+  &.desk-thread-row--stack-first {
+    border-top-color: var(--desk-thread-hairline);
+    border-top-left-radius: var(--radius);
+    border-top-right-radius: var(--radius);
+  }
+
+  &.desk-thread-row--stack-last {
+    border-bottom: 1px solid var(--desk-thread-hairline);
+    border-bottom-left-radius: var(--radius);
+    border-bottom-right-radius: var(--radius);
+  }
 }
 
 html[data-app='desk'] .desk-thread-summary {
@@ -204,11 +275,10 @@ html[data-app='desk'] .desk-thread-summary {
   align-items: center;
   gap: 0.75rem;
   margin: 0;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.875rem;
   border: 0;
-  border-bottom: 1px solid hsl(var(--border) / 0.7);
   border-radius: 0;
-  background: transparent;
+  background: hsl(var(--muted) / 0.45);
   color: hsl(var(--muted-foreground));
   font-size: var(--desk-type-xs);
   font-weight: var(--desk-weight-semibold);
@@ -217,26 +287,28 @@ html[data-app='desk'] .desk-thread-summary {
   transition: background-color 160ms ease;
 
   &:hover {
-    background: hsl(var(--accent) / 0.5);
+    background: hsl(var(--accent) / 0.6);
     color: hsl(var(--foreground));
   }
 
   &:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.35);
+    box-shadow: inset 0 0 0 2px hsl(var(--ring) / 0.5);
   }
 }
 
 html[data-app='desk'] .desk-thread-summary__count {
   display: flex;
   height: 1.5rem;
-  width: 1.5rem;
+  min-width: 1.5rem;
+  padding-inline: 0.25rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
   border: 1px solid hsl(var(--border) / 0.8);
-  background: hsl(var(--background));
+  background: hsl(var(--card));
+  box-shadow: var(--desk-shadow-sm);
   font-size: var(--desk-type-2xs);
   font-variant-numeric: tabular-nums;
   font-weight: var(--desk-weight-bold);
@@ -256,6 +328,7 @@ html[data-app='desk'] .desk-thread-older-spinner {
   border-radius: 9999px;
   border: 1px solid hsl(var(--border) / 0.75);
   background: hsl(var(--card));
+  box-shadow: var(--desk-shadow-md);
   color: hsl(var(--muted-foreground));
 }
 
@@ -281,22 +354,39 @@ html[data-app='desk'] .desk-day-separator {
   }
 }
 
-// Email open blocks — full width, square, bottom hairline, no shadow (DESIGN.md).
+// Email open message: a full-width card with a tinted header strip.
 html[data-app='desk'] .message-bubble.message-bubble--thread {
+  --desk-bubble-bg: var(--desk-thread-surface);
+  --desk-thread-header-bg: var(--desk-thread-strip);
+  --desk-thread-header-rule: hsl(var(--border) / 0.6);
   width: 100%;
   max-width: 100%;
   min-width: 0;
   margin: 0;
-  border: none;
-  border-bottom: 1px solid hsl(var(--border) / 0.7);
-  border-radius: 0;
-  box-shadow: none;
-  padding: 0.75rem 1rem 0.875rem;
-  background: hsl(var(--card));
+  border: 1px solid var(--desk-thread-hairline);
+  border-radius: var(--radius);
+  box-shadow: var(--desk-shadow-sm);
+  padding: 0.875rem 1rem 1rem;
+  background: var(--desk-bubble-bg);
+
+  // Our replies: a faint primary wash on the header strip.
+  &.message-bubble--outgoing {
+    --desk-thread-header-bg: hsl(var(--primary) / 0.1);
+    --desk-thread-header-rule: hsl(var(--primary) / 0.18);
+    border-color: hsl(var(--primary) / 0.2);
+  }
+
+  &.message-bubble--private {
+    --desk-bubble-bg: hsl(var(--private));
+    --desk-thread-header-bg: hsl(var(--warning) / 0.1);
+    --desk-thread-header-rule: hsl(var(--warning) / 0.28);
+    border-color: var(--desk-thread-private-border);
+  }
 
   .native-html {
     font-size: var(--desk-type-md);
     line-height: var(--desk-leading-prose);
+    overflow-wrap: anywhere;
   }
 
   .email-light-canvas {
@@ -304,7 +394,23 @@ html[data-app='desk'] .message-bubble.message-bubble--thread {
   }
 }
 
+html[data-app='desk'] .message-bubble--thread .desk-thread-header {
+  margin: -0.875rem -1rem 0.75rem;
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  min-height: 2.75rem;
+  border-bottom: 1px solid var(--desk-thread-header-rule);
+  border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
+  background: var(--desk-thread-header-bg);
+}
+
+html[data-app='desk'] .desk-thread-header__avatar {
+  height: 1.75rem;
+  width: 1.75rem;
+  box-shadow: 0 0 0 1px hsl(var(--border) / 0.7);
+}
+
 html[data-app='desk'] .desk-thread-header__name {
+  max-width: 60%;
   font-family: var(--desk-font-display);
   font-size: var(--desk-type-sm);
   font-weight: var(--desk-weight-semibold);
@@ -340,6 +446,37 @@ html[data-app='desk'] .desk-thread-header__icon-btn {
   width: 1.75rem;
   flex-shrink: 0;
   color: hsl(var(--muted-foreground));
+}
+
+// "Private note" marker: lock + label, used in the email header and on chat note bubbles.
+html[data-app='desk'] .desk-private-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: var(--desk-font-display);
+  font-size: var(--desk-type-2xs);
+  font-weight: var(--desk-weight-semibold);
+  letter-spacing: var(--desk-tracking-wide);
+  color: hsl(var(--foreground) / 0.8);
+  white-space: nowrap;
+}
+
+html[data-app='desk'] .desk-thread-header .desk-private-label {
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--desk-thread-private-border);
+  border-radius: 9999px;
+
+  @media (max-width: 479px) {
+    padding: 0.1875rem;
+
+    .desk-private-label__text {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+    }
+  }
 }
 
 html[data-app='desk'] .desk-thread-envelope,
@@ -384,11 +521,10 @@ html[data-app='desk'] .desk-fold-row {
   align-items: center;
   gap: 0.625rem;
   margin: 0;
-  padding: 0.5rem 1rem;
+  padding: 0.5625rem 0.875rem;
   border: 0;
-  border-bottom: 1px solid hsl(var(--border) / 0.7);
   border-radius: 0;
-  background: hsl(var(--card));
+  background: transparent;
   text-align: left;
   cursor: pointer;
   transition: background-color 160ms ease;
@@ -399,12 +535,20 @@ html[data-app='desk'] .desk-fold-row {
 
   &:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.35);
+    box-shadow: inset 0 0 0 2px hsl(var(--ring) / 0.5);
   }
 
   &.desk-fold-row--private {
     background: hsl(var(--private));
+
+    &:hover {
+      background: color-mix(in srgb, hsl(var(--private)) 92%, hsl(var(--foreground)));
+    }
   }
+}
+
+html[data-app='desk'] .desk-fold-row__avatar {
+  box-shadow: 0 0 0 1px hsl(var(--border) / 0.7);
 }
 
 html[data-app='desk'] .desk-fold-row__name {
@@ -446,14 +590,122 @@ html[data-app='desk'] .desk-fold-row__time {
   color: hsl(var(--muted-foreground));
 }
 
-html[data-app='desk'] .desk-message-sender a {
-  font-family: var(--desk-font-display);
-  font-size: var(--desk-type-xs);
-  font-weight: var(--desk-weight-semibold);
+// ─── Live chat bubbles ───
+// Customer: card on the left. Agent: primary-washed card on the right. Private note: `--private`
+// with a dashed border. Grouped runs tighten the corners on the sender's side.
+html[data-app='desk'] .desk-message-body {
+  width: 88%;
+
+  @media (min-width: 1024px) {
+    width: 80%;
+  }
+}
+
+html[data-app='desk'] .message-bubble.message-bubble--chat {
+  --desk-bubble-bg: var(--desk-thread-surface);
+  min-width: 0;
+  max-width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--desk-thread-hairline);
+  border-radius: var(--desk-bubble-radius);
+  background: var(--desk-bubble-bg);
+  box-shadow: var(--desk-shadow-sm);
+  overflow-wrap: anywhere;
+
+  .native-html {
+    margin-bottom: 0;
+    font-size: var(--desk-type-md);
+    line-height: var(--desk-leading-prose);
+  }
+
+  &.message-bubble--incoming {
+    &.message-bubble--group-prev {
+      border-top-left-radius: var(--desk-bubble-radius-tight);
+    }
+
+    &.message-bubble--group-next {
+      border-bottom-left-radius: var(--desk-bubble-radius-tight);
+    }
+  }
+
+  &.message-bubble--outgoing,
+  &.message-bubble--private {
+    &.message-bubble--group-prev {
+      border-top-right-radius: var(--desk-bubble-radius-tight);
+    }
+
+    &.message-bubble--group-next {
+      border-bottom-right-radius: var(--desk-bubble-radius-tight);
+    }
+  }
+
+  &.message-bubble--outgoing {
+    --desk-bubble-bg: var(--desk-thread-ours);
+    border-color: var(--desk-thread-ours-border);
+  }
+
+  &.message-bubble--private {
+    --desk-bubble-bg: hsl(var(--private));
+    border: 1px dashed var(--desk-thread-private-border);
+    box-shadow: none;
+  }
+}
+
+// A lone delivery tick tucks into the bubble's bottom-right corner instead of taking a row.
+// (Tick = tooltip trigger + sr-only label; with more icons the row layout stays.)
+html[data-app='desk']
+  .message-bubble--chat:not(.message-bubble--group-next):has(> .desk-message-status):not(
+    :has(> .desk-message-status > :nth-child(3))
+  ) {
+  padding-right: 2rem;
+
+  > .desk-message-status {
+    position: absolute;
+    right: 0.5rem;
+    bottom: 0.4375rem;
+    margin: 0;
+  }
+}
+
+html[data-app='desk'] .message-bubble.border-destructive {
+  border-color: hsl(var(--destructive));
+}
+
+// "Expand" fade matches whichever surface the bubble uses.
+html[data-app='desk'] .message-bubble .desk-expand-fade {
+  background-image: linear-gradient(to top, var(--desk-bubble-bg) 35%, transparent);
+}
+
+html[data-app='desk'] .desk-message-sender {
+  margin-bottom: 0.25rem;
+
+  a,
+  p {
+    font-family: var(--desk-font-display);
+    font-size: var(--desk-type-xs);
+    font-weight: var(--desk-weight-semibold);
+  }
+}
+
+html[data-app='desk'] .desk-message-row .size-8 > span,
+html[data-app='desk'] .desk-message-sender > span {
+  box-shadow: 0 0 0 1px hsl(var(--border) / 0.7);
 }
 
 html[data-app='desk'] .desk-message-timestamp {
   margin-top: 0.25rem;
+  line-height: 1;
+}
+
+html[data-app='desk'] .desk-message-status {
+  margin-top: 0;
+  margin-bottom: -0.125rem;
+  min-height: 0.875rem;
+}
+
+// Grouped run: delivery ticks show once, on the last bubble (failed messages never group).
+html[data-app='desk'] .message-bubble--chat.message-bubble--group-next .desk-message-status {
+  display: none;
 }
 
 html[data-app='desk'] .desk-message-divider {
@@ -481,24 +733,66 @@ html[data-app='desk'] .desk-quote-toggle {
   }
 }
 
+// Activity events: a centred chip with hairlines running out to both edges.
 html[data-app='desk'] .desk-activity {
   display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.125rem 0;
+
+  &::before,
+  &::after {
+    content: '';
+    height: 1px;
+    min-width: 0.75rem;
+    flex: 1;
+    background: hsl(var(--border) / 0.9);
+  }
+
+  &::before {
+    background: linear-gradient(90deg, transparent, hsl(var(--border) / 0.9));
+  }
+
+  &::after {
+    background: linear-gradient(90deg, hsl(var(--border) / 0.9), transparent);
+  }
+
+  // Narrow panes: the chip wraps, so stub hairlines are dropped.
+  @media (max-width: 479px) {
+    justify-content: center;
+
+    &::before,
+    &::after {
+      display: none;
+    }
+  }
+}
+
+html[data-app='desk'] .desk-activity__pill {
+  display: flex;
+  min-width: 0;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: center;
-  gap: 0.375rem 0.5rem;
-  padding: 0.5rem 1rem;
+  gap: 0.125rem 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid hsl(var(--border) / 0.8);
+  border-radius: 1rem;
+  background: hsl(var(--muted) / 0.7);
   text-align: center;
 }
 
 html[data-app='desk'] .desk-activity__text {
+  min-width: 0;
   font-size: var(--desk-type-xs);
-  color: hsl(var(--muted-foreground));
+  color: hsl(var(--foreground) / 0.78);
+  overflow-wrap: anywhere;
 }
 
 html[data-app='desk'] .desk-activity__time {
   font-size: var(--desk-type-2xs);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   color: hsl(var(--muted-foreground));
   cursor: default;
 }
@@ -508,25 +802,46 @@ html[data-app='desk'] .desk-thread-nudge {
   background: hsl(var(--card));
 }
 
+// Loading skeleton mirrors the stacked fold card + open card.
 html[data-app='desk'] .desk-thread-skeleton__fold {
-  border-bottom: 1px solid hsl(var(--border) / 0.7);
+  border: 1px solid var(--desk-thread-hairline);
+  border-bottom: 0;
+  background: var(--desk-thread-surface);
+
+  &:first-child {
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+
+  &:nth-last-child(2) {
+    border-bottom: 1px solid var(--desk-thread-hairline);
+    border-radius: 0 0 var(--radius) var(--radius);
+    box-shadow: var(--desk-shadow-sm);
+  }
 }
 
 html[data-app='desk'] .desk-thread-skeleton__open {
-  border-bottom: 1px solid hsl(var(--border) / 0.7);
+  margin-top: 0.75rem;
+  border: 1px solid var(--desk-thread-hairline);
+  border-radius: var(--radius);
+  background: hsl(var(--card));
+  box-shadow: var(--desk-shadow-sm);
 }
 
 html[data-app='desk'] .desk-skel-bubble {
   border: 1px solid hsl(var(--border) / 0.65);
   border-radius: var(--radius);
   box-shadow: none;
-  background: hsl(var(--muted) / 0.35);
+  background: hsl(var(--card) / 0.7);
 }
 
 html[data-app='desk'] .desk-bubble-attachments {
   margin-top: 0.25rem;
   padding-top: 0.5rem;
   border-top: 1px solid hsl(var(--border) / 0.45);
+
+  &:empty {
+    display: none;
+  }
 }
 
 html[data-app='desk'] .desk-bubble-csat {
@@ -541,7 +856,7 @@ html[data-app='desk'] .desk-bubble-csat {
 
 html[data-app='desk'] .desk-thread-typing {
   border-top: 1px solid hsl(var(--border) / 0.45);
-  background: hsl(var(--background));
+  background: var(--desk-thread-ground, hsl(var(--background)));
 }
 
 html[data-app='desk'] .desk-message-list .absolute.bottom-5 button {
