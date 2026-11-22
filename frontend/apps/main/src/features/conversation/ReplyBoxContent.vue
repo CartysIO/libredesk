@@ -6,7 +6,7 @@
       class="flex shrink-0 items-center justify-between gap-2"
       :class="{ 'mb-2': !isFullscreen, 'border-b border-border pb-3 mb-3': isFullscreen }"
     >
-      <Tabs v-model="messageType" class="min-w-0 rounded-lg">
+      <Tabs v-model="messageType" class="desk-reply-tabs min-w-0 rounded-lg">
         <TabsList :class="isFullscreen ? '' : 'h-8 p-0.5'">
           <TabsTrigger
             v-if="canSendReply"

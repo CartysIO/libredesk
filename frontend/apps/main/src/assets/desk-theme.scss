@@ -187,8 +187,10 @@ html[data-app='desk'] .desk-page-header {
 // `--card` surfaces with a hairline border and `--desk-shadow-sm`. Ours vs theirs is carried by
 // a `--primary` wash, private notes by `--private` + a `--warning` border, never by code colours.
 
+html[data-app='desk'] .desk-thread-pane,
 html[data-app='desk'] .desk-message-list {
-  --desk-thread-ground: hsl(var(--background));
+  --desk-thread-ground: color-mix(in srgb, hsl(var(--background)) 55%, hsl(var(--accent)));
+  --desk-thread-lift: hsl(var(--foreground) / 0.1);
   --desk-thread-hairline: hsl(var(--border) / 0.75);
   --desk-thread-private-border: hsl(var(--warning) / 0.45);
   --desk-thread-surface: hsl(var(--card));
@@ -203,6 +205,7 @@ html[data-app='desk'] .desk-message-list {
 // Light: `--primary` is a deep navy that mixes to grey, so the "ours" wash keeps its hue but is
 // re-lit (relative colour; the mix above is the fallback).
 @supports (color: hsl(from white h s l)) {
+  html[data-app='desk']:not(.dark) .desk-thread-pane,
   html[data-app='desk']:not(.dark) .desk-message-list {
     --desk-thread-ours: hsl(from hsl(var(--primary)) h 85% 95%);
     --desk-thread-ours-border: hsl(from hsl(var(--primary)) h 60% 82%);
@@ -210,7 +213,10 @@ html[data-app='desk'] .desk-message-list {
 }
 
 // Dark: `--card` sits too close to the ground, so thread surfaces lift one step towards the foreground.
+html[data-app='desk'].dark .desk-thread-pane,
 html[data-app='desk'].dark .desk-message-list {
+  --desk-thread-ground: hsl(var(--background));
+  --desk-thread-lift: hsl(var(--background) / 0.7);
   --desk-thread-hairline: hsl(var(--border));
   --desk-thread-surface: color-mix(in srgb, hsl(var(--card)) 95%, hsl(var(--foreground)));
   --desk-thread-strip: hsl(var(--foreground) / 0.045);
@@ -326,15 +332,21 @@ html[data-app='desk'] .desk-thread-older-spinner {
   justify-content: center;
   padding: 0.5rem;
   border-radius: 9999px;
-  border: 1px solid hsl(var(--border) / 0.75);
-  background: hsl(var(--card));
+  border: 1px solid var(--desk-thread-hairline);
+  background: var(--desk-thread-surface);
   box-shadow: var(--desk-shadow-md);
   color: hsl(var(--muted-foreground));
 }
 
 html[data-app='desk'] .desk-day-separator {
   span {
-    padding-inline: 0.75rem;
+    margin-inline: 0.5rem;
+    padding: 0.125rem 0.625rem;
+    border: 1px solid var(--desk-thread-hairline);
+    border-radius: 9999px;
+    background: var(--desk-thread-surface);
+    box-shadow: var(--desk-shadow-sm);
+    font-variant-numeric: tabular-nums;
     font-family: var(--desk-font-display);
     font-size: var(--desk-type-2xs);
     font-weight: var(--desk-weight-semibold);
@@ -369,11 +381,11 @@ html[data-app='desk'] .message-bubble.message-bubble--thread {
   padding: 0.875rem 1rem 1rem;
   background: var(--desk-bubble-bg);
 
-  // Our replies: a faint primary wash on the header strip.
+  // Our replies: the same primary wash as our chat bubbles, on the header strip.
   &.message-bubble--outgoing {
-    --desk-thread-header-bg: hsl(var(--primary) / 0.1);
-    --desk-thread-header-rule: hsl(var(--primary) / 0.18);
-    border-color: hsl(var(--primary) / 0.2);
+    --desk-thread-header-bg: var(--desk-thread-ours);
+    --desk-thread-header-rule: var(--desk-thread-ours-border);
+    border-color: var(--desk-thread-ours-border);
   }
 
   &.message-bubble--private {
@@ -778,7 +790,7 @@ html[data-app='desk'] .desk-activity__pill {
   padding: 0.25rem 0.75rem;
   border: 1px solid hsl(var(--border) / 0.8);
   border-radius: 1rem;
-  background: hsl(var(--muted) / 0.7);
+  background: color-mix(in srgb, var(--desk-thread-surface) 70%, var(--desk-thread-ground));
   text-align: center;
 }
 
@@ -797,9 +809,11 @@ html[data-app='desk'] .desk-activity__time {
   cursor: default;
 }
 
-html[data-app='desk'] .desk-thread-nudge {
-  border-radius: calc(var(--radius));
-  background: hsl(var(--card));
+html[data-app='desk'] .desk-message-list .desk-thread-nudge {
+  border: 1px solid var(--desk-thread-hairline);
+  border-radius: var(--radius);
+  background: var(--desk-thread-surface);
+  box-shadow: var(--desk-shadow-md);
 }
 
 // Loading skeleton mirrors the stacked fold card + open card.
@@ -823,15 +837,15 @@ html[data-app='desk'] .desk-thread-skeleton__open {
   margin-top: 0.75rem;
   border: 1px solid var(--desk-thread-hairline);
   border-radius: var(--radius);
-  background: hsl(var(--card));
+  background: var(--desk-thread-surface);
   box-shadow: var(--desk-shadow-sm);
 }
 
 html[data-app='desk'] .desk-skel-bubble {
-  border: 1px solid hsl(var(--border) / 0.65);
-  border-radius: var(--radius);
-  box-shadow: none;
-  background: hsl(var(--card) / 0.7);
+  border: 1px solid var(--desk-thread-hairline);
+  border-radius: var(--desk-bubble-radius);
+  box-shadow: var(--desk-shadow-sm);
+  background: var(--desk-thread-surface);
 }
 
 html[data-app='desk'] .desk-bubble-attachments {
@@ -854,13 +868,33 @@ html[data-app='desk'] .desk-bubble-csat {
   }
 }
 
+// Typing indicator: a small incoming bubble on the ground.
 html[data-app='desk'] .desk-thread-typing {
-  border-top: 1px solid hsl(var(--border) / 0.45);
   background: var(--desk-thread-ground, hsl(var(--background)));
+
+  > * {
+    border: 1px solid var(--desk-thread-hairline);
+    border-radius: var(--desk-bubble-radius);
+    background: var(--desk-thread-surface);
+    box-shadow: var(--desk-shadow-sm);
+  }
 }
 
+// Scroll-to-bottom floats over the thread like the other chrome.
 html[data-app='desk'] .desk-message-list .absolute.bottom-5 button {
-  border-color: hsl(var(--border) / 0.75);
+  border-color: var(--desk-thread-hairline);
+  background: var(--desk-thread-surface);
+  box-shadow: var(--desk-shadow-md);
+  color: hsl(var(--foreground));
+
+  &:hover {
+    background: hsl(var(--accent));
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--ring) / 0.5), var(--desk-shadow-md);
+  }
 }
 
 html[data-app='desk'] .desk-spec {
@@ -1231,15 +1265,141 @@ html[data-app='desk'] .desk-bulk-toolbar-floating {
   }
 }
 
+// ─── Reply composer ───
+// The thread pane and the composer dock share the thread ground, so the composer is a card
+// floating over the thread instead of a footer strip. Messages fade out under the dock's top edge.
+html[data-app='desk'] .desk-thread-pane {
+  background: var(--desk-thread-ground);
+}
+
+html[data-app='desk'] .desk-reply-dock {
+  position: relative;
+  z-index: 1;
+  background: var(--desk-thread-ground, hsl(var(--background)));
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: auto 0.875rem 100% 0;
+    height: 0.875rem;
+    background: linear-gradient(to top, var(--desk-thread-ground, hsl(var(--background))), transparent);
+    pointer-events: none;
+  }
+}
+
 html[data-app='desk'] .desk-reply-surface.box {
-  margin: 0.75rem;
+  --desk-reply-shadow: 0 -8px 20px -12px var(--desk-thread-lift, transparent), var(--desk-shadow-md);
+  margin: 0.25rem 0.75rem 0.75rem;
+  border: 1px solid var(--desk-thread-hairline, hsl(var(--border) / 0.75));
   border-radius: var(--radius);
-  box-shadow: var(--desk-shadow-md);
+  box-shadow: var(--desk-reply-shadow);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+
+  // Line up with the thread cards (the thread pads 1rem from 640px).
+  @media (min-width: 640px) {
+    margin-inline: 1rem;
+  }
+
+  &:not(.desk-reply-surface--private) {
+    background: var(--desk-thread-surface, hsl(var(--card)));
+  }
+
+  &.desk-reply-surface--private {
+    border-color: var(--desk-thread-private-border, hsl(var(--warning) / 0.45));
+  }
+
+  &:focus-within {
+    border-color: hsl(var(--ring) / 0.5);
+    box-shadow: 0 0 0 2px hsl(var(--ring) / 0.1), var(--desk-reply-shadow);
+  }
+
+  &.desk-reply-surface--private:focus-within {
+    border-color: hsl(var(--warning) / 0.7);
+    box-shadow: 0 0 0 2px hsl(var(--warning) / 0.12), var(--desk-reply-shadow);
+  }
+
+  // Private note: toolbar buttons sit on the amber surface instead of `--background` blocks.
+  &.desk-reply-surface--private button.bg-background {
+    background-color: hsl(var(--foreground) / 0.05);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// Dark: `--card` is close to the ground, so the composer lifts a step further than message cards.
+html[data-app='desk'].dark .desk-reply-surface.box:not(.desk-reply-surface--private),
+html[data-app='desk'].dark .desk-reply-collapsed > button:not(.\!bg-private) {
+  border-color: hsl(var(--foreground) / 0.2);
+  background: color-mix(in srgb, hsl(var(--card)) 88%, hsl(var(--foreground)));
+}
+
+html[data-app='desk'].dark .desk-reply-surface.box:not(.desk-reply-surface--private):focus-within {
+  border-color: hsl(var(--ring) / 0.7);
 }
 
 html[data-app='desk'] .board-drawer .desk-reply-surface.box {
-  margin: 0.35rem 0.5rem 0.5rem;
-  box-shadow: var(--desk-shadow-sm, var(--desk-shadow-md));
+  --desk-reply-shadow: var(--desk-shadow-sm, var(--desk-shadow-md));
+  margin: 0.25rem 0.5rem 0.5rem;
+
+  @media (min-width: 640px) {
+    margin-inline: 0.5rem;
+  }
+}
+
+// Collapsed (mobile) composer: the same card, one row tall.
+html[data-app='desk'] .desk-reply-collapsed {
+  padding: 0.25rem 0.75rem 0.75rem;
+
+  > button {
+    border-color: var(--desk-thread-hairline, hsl(var(--border) / 0.75));
+    border-radius: var(--radius);
+    box-shadow: var(--desk-shadow-md);
+
+    &:not(.\!bg-private) {
+      background: var(--desk-thread-surface, hsl(var(--card)));
+    }
+
+    &.\!bg-private {
+      border-color: var(--desk-thread-private-border, hsl(var(--warning) / 0.45));
+    }
+  }
+}
+
+// Reply / Private note switch: a recessed track with a raised active segment.
+html[data-app='desk'] .desk-reply-tabs {
+  --desk-reply-tab-active: hsl(var(--card));
+}
+
+html[data-app='desk'].dark .desk-reply-tabs {
+  --desk-reply-tab-active: hsl(var(--foreground) / 0.14);
+}
+
+html[data-app='desk'] .desk-reply-tabs [role='tablist'] {
+  height: auto;
+  min-height: 2rem;
+  background: hsl(var(--foreground) / 0.07);
+  box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.06);
+
+  [role='tab'] {
+    font-family: var(--desk-font-display);
+    font-weight: var(--desk-weight-semibold);
+    color: hsl(var(--foreground) / 0.72);
+
+    &[data-state='active'] {
+      background: var(--desk-reply-tab-active);
+      box-shadow: var(--desk-shadow-sm);
+      color: hsl(var(--foreground));
+    }
+  }
+}
+
+// A disabled Send (empty draft) stays readable as the primary action.
+html[data-app='desk'] .desk-reply-send button:disabled {
+  opacity: 0.85;
 }
 
 html[data-app='desk'] .desk-empty-list {

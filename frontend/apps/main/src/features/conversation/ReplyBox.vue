@@ -63,7 +63,7 @@
     </AlertDialogContent>
   </AlertDialog>
 
-  <div class="text-foreground">
+  <div class="desk-reply-dock text-foreground">
     <!-- Fullscreen editor -->
     <Dialog :open="isEditorFullscreen" @update:open="isEditorFullscreen = false">
       <DialogContent
@@ -113,7 +113,7 @@
       </DialogContent>
     </Dialog>
 
-    <div v-if="isCollapsed && !isEditorFullscreen" class="p-2">
+    <div v-if="isCollapsed && !isEditorFullscreen" class="desk-reply-collapsed p-2">
       <Button
         type="button"
         variant="outline"
@@ -143,7 +143,10 @@
     <!-- Main Editor non-fullscreen -->
     <div
       class="desk-reply-surface bg-card text-card-foreground box flex flex-col relative px-2 pt-2 pb-1"
-      :class="{ '!bg-private': messageType === 'private_note', 'ai-generating': isGenerating }"
+      :class="{
+        '!bg-private desk-reply-surface--private': messageType === 'private_note',
+        'ai-generating': isGenerating
+      }"
       v-if="!isCollapsed && !isEditorFullscreen"
     >
       <ReplyBoxContent
