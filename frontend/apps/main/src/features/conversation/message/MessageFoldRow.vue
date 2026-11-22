@@ -11,7 +11,10 @@
       <AvatarFallback class="font-semibold">{{ initials }}</AvatarFallback>
     </Avatar>
     <span class="desk-fold-row__name">{{ name }}</span>
-    <Lock v-if="message.private" class="desk-fold-row__icon" :aria-label="t('globals.terms.privateNote')" />
+    <span v-if="message.private" class="desk-fold-row__note">
+      <Lock class="desk-fold-row__icon" :aria-label="t('globals.terms.privateNote')" />
+      <span class="desk-fold-row__note-text" aria-hidden="true">{{ t('globals.terms.privateNote') }}</span>
+    </span>
     <Paperclip
       v-if="message.attachments?.length"
       class="desk-fold-row__icon"

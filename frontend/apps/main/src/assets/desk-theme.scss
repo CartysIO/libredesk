@@ -422,6 +422,8 @@ html[data-app='desk'] .desk-thread-header__avatar {
 }
 
 html[data-app='desk'] .desk-thread-header__name {
+  flex: 0 1 auto;
+  min-width: 2.5rem;
   max-width: 60%;
   font-family: var(--desk-font-display);
   font-size: var(--desk-type-sm);
@@ -477,17 +479,23 @@ html[data-app='desk'] .desk-thread-header .desk-private-label {
   padding: 0.125rem 0.5rem;
   border: 1px solid var(--desk-thread-private-border);
   border-radius: 9999px;
+}
 
-  @media (max-width: 479px) {
-    padding: 0.1875rem;
+// Narrow panes: the "Private note" label stays visible; the header frees room by showing the time
+// only (the full date is in the time's `title` and tooltip) and tightening its gaps.
+@media (max-width: 479px) {
+  html[data-app='desk'] .message-bubble--thread .desk-thread-header {
+    gap: 0.375rem;
+    padding-left: 0.75rem;
+    padding-right: 0.25rem;
+  }
 
-    .desk-private-label__text {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-    }
+  html[data-app='desk'] .desk-thread-header__date {
+    display: none;
+  }
+
+  html[data-app='desk'] .desk-thread-header .desk-private-label {
+    padding: 0.125rem 0.375rem;
   }
 }
 
@@ -583,6 +591,28 @@ html[data-app='desk'] .desk-fold-row__icon {
   width: 0.75rem;
   flex-shrink: 0;
   color: hsl(var(--muted-foreground));
+}
+
+// Folded private note: lock always, plus the "Private note" text where the row has spare width.
+html[data-app='desk'] .desk-fold-row__note {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: var(--desk-font-display);
+  font-size: var(--desk-type-2xs);
+  font-weight: var(--desk-weight-semibold);
+  letter-spacing: var(--desk-tracking-wide);
+  color: hsl(var(--foreground) / 0.8);
+  white-space: nowrap;
+}
+
+html[data-app='desk'] .desk-fold-row__note-text {
+  display: none;
+
+  @media (min-width: 640px) {
+    display: inline;
+  }
 }
 
 html[data-app='desk'] .desk-fold-row__snippet {
@@ -691,11 +721,17 @@ html[data-app='desk'] .message-bubble .desk-expand-fade {
 html[data-app='desk'] .desk-message-sender {
   margin-bottom: 0.25rem;
 
+  // The name out-ranks the muted timestamp.
   a,
   p {
     font-family: var(--desk-font-display);
     font-size: var(--desk-type-xs);
-    font-weight: var(--desk-weight-semibold);
+    font-weight: 600;
+    color: hsl(var(--foreground) / 0.85);
+  }
+
+  a:hover {
+    color: hsl(var(--foreground));
   }
 }
 
@@ -881,7 +917,19 @@ html[data-app='desk'] .desk-thread-typing {
 }
 
 // Scroll-to-bottom floats over the thread like the other chrome.
+// It sits centred in the gutter just above the composer, so it stays clear of bubble edges,
+// header times and the right-hand text column while the thread is scrolled up.
+html[data-app='desk'] .desk-message-list > .absolute.bottom-5 {
+  bottom: 0.5rem;
+  left: 0;
+  right: 0;
+  width: fit-content;
+  margin-inline: auto;
+}
+
 html[data-app='desk'] .desk-message-list .absolute.bottom-5 button {
+  height: 2rem;
+  width: 2rem;
   border-color: var(--desk-thread-hairline);
   background: var(--desk-thread-surface);
   box-shadow: var(--desk-shadow-md);

@@ -268,7 +268,7 @@ The conversation thread is the deliberate exception: it is a layered surface wit
 
 1. **Thread ground** (`--desk-thread-ground`): `background` mixed towards `accent` in light mode, plain `background` in dark. It fills the whole ticket body, behind the messages and behind the composer.
 2. **Message surfaces** (`--desk-thread-surface`): `card` (lifted 5% towards `foreground` in dark, where `card` sits too close to the ground), a 1px hairline (`--desk-thread-hairline`) and `--desk-shadow-sm`. Email cards, stacked fold cards, chat bubbles, the typing bubble, day-separator chips and skeletons are all on this level.
-3. **Floating chrome**: the reply composer card, the scroll-to-bottom button, the older-messages spinner and the self-assign nudge use the same surface and hairline with `--desk-shadow-md`. The composer adds a soft upward lift so messages read as passing under it, and a short ground-coloured fade sits on the top edge of its dock.
+3. **Floating chrome**: the reply composer card, the scroll-to-bottom button, the older-messages spinner and the self-assign nudge use the same surface and hairline with `--desk-shadow-md`. The scroll-to-bottom button is a 32px circle centred in the gutter just above the composer. The composer adds a soft upward lift so messages read as passing under it, and a short ground-coloured fade sits on the top edge of its dock.
 
 All of these colours are derived from existing tokens (`hsl(var(--x) / alpha)` or `color-mix`); the thread adds no palette entries.
 
@@ -298,9 +298,9 @@ Two lines: `#reference` (16px bold, tabular) with the contact (12px muted) besid
 ### Email thread (signature)
 Email conversations (`inbox_channel === 'email'`) render as a Gmail-style thread of cards on the thread ground (see The Layered Thread Rule).
 - **Open cards:** full width, `--radius` corners, hairline border, `--desk-shadow-sm`. A one-line header strip: 24px avatar, sender (14px semibold), a recipients summary that expands the envelope, time (12px tabular, full timestamp in a tooltip), and a collapse button.
-- **Who is speaking:** a customer card has a `muted` header strip. Our replies carry the `--primary` wash (`--desk-thread-ours`) on the header strip and its border colour (`--desk-thread-ours-border`). A private note has a `--private` body, a `--warning` wash on the strip, a `--warning` border and a visible lock + "Private note" pill. None of these use a code colour.
+- **Who is speaking:** a customer card has a `muted` header strip. Our replies carry the `--primary` wash (`--desk-thread-ours`) on the header strip and its border colour (`--desk-thread-ours-border`). A private note has a `--private` body, a `--warning` wash on the strip, a `--warning` border and a visible lock + "Private note" pill. The pill keeps its text at every width; below 480px the header shows the time only (full date in `title`) to make room. None of these use a code colour.
 - **What opens by default** (`defaultOpenUUIDs`): the newest message; every message after the last public agent reply; pending or failed sends; and a message a link scrolls to. Automated replies, CSAT and continuity sends do not count as agent replies.
-- **Folded rows** (`MessageFoldRow.vue`): one line of avatar, sender, lock and paperclip icons, a one-line snippet (max 160 characters), and time. Click expands. Consecutive fold and summary rows join into one stacked card: outer `--radius`, inner hairlines, one shadow.
+- **Folded rows** (`MessageFoldRow.vue`): one line of avatar, sender, lock (with the "Private note" text from 640px up) and paperclip icons, a one-line snippet (max 160 characters), and time. Click expands. Consecutive fold and summary rows join into one stacked card: outer `--radius`, inner hairlines, one shadow.
 - **Long runs:** four or more consecutive folded messages (`FOLD_RUN_MIN = 4`) collapse to first row, an "N earlier messages" row with the count in a 24px ring, and last row.
 - **Activity** ("assigned to…", status changes): a centred chip between two hairline stubs, never a card. The stubs drop below 480px.
 - **Day separators** are hidden in email threads.

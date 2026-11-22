@@ -101,7 +101,7 @@
                 <AvatarImage :src="getAvatar" />
                 <AvatarFallback class="font-semibold">{{ avatarFallback }}</AvatarFallback>
               </Avatar>
-              <span class="desk-thread-header__name shrink-0 truncate">{{ getFullName }}</span>
+              <span class="desk-thread-header__name truncate">{{ getFullName }}</span>
               <span v-if="isPrivateMessage" class="desk-private-label shrink-0">
                 <Lock :size="12" aria-hidden="true" />
                 <span class="desk-private-label__text">{{ t('globals.terms.privateNote') }}</span>
@@ -119,8 +119,12 @@
               </button>
               <Tooltip>
                 <TooltipTrigger as-child>
-                  <time class="desk-thread-header__time ml-auto shrink-0" :datetime="message.created_at">
-                    {{ formatMessageTimestamp(message.created_at) }}
+                  <time
+                    class="desk-thread-header__time ml-auto shrink-0"
+                    :datetime="message.created_at"
+                    :title="formatFullTimestamp(message.created_at)"
+                  >
+                    <span class="desk-thread-header__date">{{ headerTimestamp.date }}</span>{{ headerTimestamp.time }}
                   </time>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -483,6 +487,13 @@ watch(
   },
   { immediate: true }
 )
+
+// "22 Nov, 01:23 PM" split so narrow panes can drop the date and keep the time (full date stays in `title`).
+const headerTimestamp = computed(() => {
+  const full = formatMessageTimestamp(props.message.created_at)
+  const cut = full.lastIndexOf(', ')
+  return cut < 0 ? { date: '', time: full } : { date: full.slice(0, cut + 2), time: full.slice(cut + 2) }
+})
 
 const getFullName = computed(() => {
   const author = props.message.author ?? {}
