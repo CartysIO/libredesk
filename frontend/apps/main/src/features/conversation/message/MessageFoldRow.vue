@@ -11,14 +11,19 @@
       <AvatarFallback class="font-semibold">{{ initials }}</AvatarFallback>
     </Avatar>
     <span class="desk-fold-row__name">{{ name }}</span>
-    <Lock v-if="message.private" class="desk-fold-row__icon" :aria-label="t('globals.terms.privateNote')" />
+    <span v-if="message.private" class="desk-fold-row__note">
+      <Lock class="desk-fold-row__icon" :aria-label="t('globals.terms.privateNote')" />
+      <span class="desk-fold-row__note-text" aria-hidden="true">{{ t('globals.terms.privateNote') }}</span>
+    </span>
     <Paperclip
       v-if="message.attachments?.length"
       class="desk-fold-row__icon"
       :aria-label="t('globals.terms.attachment', message.attachments.length)"
     />
     <span class="desk-fold-row__snippet">{{ snippet }}</span>
-    <time class="desk-fold-row__time" :datetime="message.created_at">{{ time }}</time>
+    <time class="desk-fold-row__time" :datetime="message.created_at" :title="time.full">
+      <span class="desk-fold-row__date">{{ time.date }}</span>{{ time.time }}
+    </time>
   </button>
 </template>
 
@@ -44,5 +49,12 @@ const name = computed(() => {
 })
 const initials = computed(() => toInitials(props.message.author?.first_name, props.message.author?.last_name))
 const snippet = computed(() => messageSnippet(props.message))
-const time = computed(() => formatMessageTimestamp(props.message.created_at))
+// Date and time are split so narrow panes can show the time only (the full stamp stays in `title`).
+const time = computed(() => {
+  const full = formatMessageTimestamp(props.message.created_at)
+  const cut = full.lastIndexOf(', ')
+  return cut < 0
+    ? { full, date: '', time: full }
+    : { full, date: full.slice(0, cut + 2), time: full.slice(cut + 2) }
+})
 </script>

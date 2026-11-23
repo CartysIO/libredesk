@@ -10,7 +10,7 @@
       <div class="skel-bar h-3 min-w-0 flex-1 rounded-sm" :style="{ maxWidth: threadSnippetWidth(idx) }" />
       <div class="skel-bar h-3 w-10 shrink-0 rounded-sm" />
     </div>
-    <div class="desk-thread-skeleton__open border-b border-border/70 px-4 py-3">
+    <div class="desk-thread-skeleton__open px-4 py-3">
       <div class="mb-3 flex items-center gap-2">
         <div class="skel-bar h-6 w-6 shrink-0 rounded-full" />
         <div class="skel-bar h-3 w-24 rounded-sm" />

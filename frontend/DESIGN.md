@@ -173,7 +173,7 @@ The system rejects the grey shadcn admin with one green accent. Green is identit
 - One five-value whose-move code, shown as an 8px square swatch, filled or hollow.
 - Lexend for headings and chrome emphasis; Source Sans 3 for body, forms, and tables. Rank by weight and case on a stepped scale (11–20px).
 - Tabular figures for every number, time and reference.
-- Gmail-style email thread: folded rows, newest open.
+- Gmail-style email thread: folded rows, newest open, as layered cards on a tinted thread ground with a floating composer card.
 - Unread, priority and counts are neutral; they never borrow a code colour.
 
 ## Colors
@@ -253,23 +253,33 @@ Four columns on a 1px grid, left to right:
 3. **Work pane(s)**: the conversation list, then the ticket (header, thread, composer). On the board view, lanes replace the list.
 4. **Context sidebar**: conversation details and contact, sections on hairline rules.
 
-The app shell is `bg-canvas` with `gap-px` and no padding, so panes meet on a single 1px hairline. Rhythm is 4/8px; list rows pad 8px by 12px, thread blocks 12px by 16px (14px bottom), fold rows 8px by 16px, spec rows 7px vertical.
+The app shell is `bg-canvas` with `gap-px` and no padding, so panes meet on a single 1px hairline. Rhythm is 4/8px; list rows pad 8px by 12px, thread cards 14px by 16px (16px bottom) with 12px between cards, fold rows 8px by 16px, spec rows 7px vertical. The thread itself pads 12px (16px from 640px) so its cards and the composer card share one left and right edge.
 
 On narrow screens the fold row's sender column shrinks from 144px to 96px; the rest of the shell follows upstream's responsive behaviour.
 
 ### Named Rules
-**The Hairline Pane Rule.** Panes are separated by one 1px `border` line, never by a gutter, a rounded card or a shadow.
+**The Hairline Pane Rule.** Panes are separated by one 1px `border` line, never by a gutter, a rounded card or a shadow. Inside the ticket pane, the thread is the one place that layers (see The Layered Thread Rule).
 
 ## Elevation & Depth
 
-Flat. Depth comes from the hairline grid and three grounds (rail green, nav tint, pane white). Panes, list rows, thread blocks and board cards carry no shadow; board cards show state on hover by a border shift (`border` to `input`) and an `accent/40` wash. Popovers, menus and dialogs keep upstream's `shadow-md` / `shadow-lg`, because they really are above the page.
+Mostly flat. Depth comes from the hairline grid and three grounds (rail green, nav tint, pane white). Panes, list rows and board cards carry no shadow; board cards show state on hover by a border shift (`border` to `input`) and an `accent/40` wash. Popovers, menus and dialogs keep upstream's `shadow-md` / `shadow-lg`, because they really are above the page.
+
+The conversation thread is the deliberate exception: it is a layered surface with three levels.
+
+1. **Thread ground** (`--desk-thread-ground`): `background` mixed towards `accent` in light mode, plain `background` in dark. It fills the whole ticket body, behind the messages and behind the composer.
+2. **Message surfaces** (`--desk-thread-surface`): `card` (lifted 5% towards `foreground` in dark, where `card` sits too close to the ground), a 1px hairline (`--desk-thread-hairline`) and `--desk-shadow-sm`. Email cards, stacked fold cards, chat bubbles, the typing bubble, day-separator chips and skeletons are all on this level.
+3. **Floating chrome**: the reply composer card, the scroll-to-bottom button, the older-messages spinner and the self-assign nudge use the same surface and hairline with `--desk-shadow-md`. The scroll-to-bottom button is a 32px circle centred in the gutter just above the composer. The composer adds a soft upward lift so messages read as passing under it, and a short ground-coloured fade sits on the top edge of its dock.
+
+All of these colours are derived from existing tokens (`hsl(var(--x) / alpha)` or `color-mix`); the thread adds no palette entries.
 
 ### Named Rules
 **The Flat Pane Rule.** If it is part of the page, it has no shadow. Only overlays (menus, popovers, dialogs, the board drawer) lift.
 
+**The Layered Thread Rule.** The exception to the Flat Pane Rule. Inside the thread, messages are rounded cards with a hairline and `--desk-shadow-sm`, and the composer is a rounded card with `--desk-shadow-md`, all on the thread ground. Nothing else in the page borrows this treatment, and no thread surface goes above `--desk-shadow-md`.
+
 ## Shapes
 
-Tight corners. `--radius` is 6px on the desk (upstream 8px), so `rounded-lg` 6px, `rounded-md` 4px, `rounded-sm` 2px, `rounded-xl` 10px. Panes and thread blocks are square (radius 0). The whose-move swatch is an 8px square at 1px radius. Avatars and the unread count stay round.
+Tight corners. `--radius` is 6px on the desk (upstream 8px), so `rounded-lg` 6px, `rounded-md` 4px, `rounded-sm` 2px, `rounded-xl` 10px. Panes are square (radius 0). Thread cards, stacked fold cards and the composer card use `--radius`; chat bubbles use `--radius` + 4px, tightening to 4px on the sender's side inside a grouped run; activity, day-separator and "Private note" chips are pills. The whose-move swatch is an 8px square at 1px radius. Avatars and the unread count stay round.
 
 ## Components
 
@@ -286,13 +296,28 @@ The one mark that carries ticket state. `StatusSwatch.vue` renders an 8px by 8px
 Two lines: `#reference` (16px bold, tabular) with the contact (12px muted) beside it, then the subject (14px semibold). The status trigger is an outline button (`input` border, `background`, 600 weight) with the swatch and the status name; it is not filled with the code colour.
 
 ### Email thread (signature)
-Email conversations (`inbox_channel === 'email'`) render as a Gmail-style thread. Live chat keeps upstream bubbles.
-- **Open blocks:** full width, square, a bottom hairline, no shadow. A one-line header: 24px avatar, sender (14px semibold), lock for private notes, a recipients summary that expands the envelope, time (12px tabular, full timestamp in a tooltip), and a collapse button.
+Email conversations (`inbox_channel === 'email'`) render as a Gmail-style thread of cards on the thread ground (see The Layered Thread Rule).
+- **Open cards:** full width, `--radius` corners, hairline border, `--desk-shadow-sm`. A one-line header strip: 24px avatar, sender (14px semibold), a recipients summary that expands the envelope, time (12px tabular, full timestamp in a tooltip), and a collapse button.
+- **Who is speaking:** a customer card has a `muted` header strip. Our replies carry the `--primary` wash (`--desk-thread-ours`) on the header strip and its border colour (`--desk-thread-ours-border`). A private note has a `--private` body, a `--warning` wash on the strip, a `--warning` border and a visible lock + "Private note" pill. The pill keeps its text at every width; below 480px the header shows the time only (full date in `title`) to make room. The sender name is the header's lead element: the recipients summary truncates first, and the name shrinks only when nothing else can. None of these use a code colour.
 - **What opens by default** (`defaultOpenUUIDs`): the newest message; every message after the last public agent reply; pending or failed sends; and a message a link scrolls to. Automated replies, CSAT and continuity sends do not count as agent replies.
-- **Folded rows** (`MessageFoldRow.vue`): one line of avatar, sender, lock and paperclip icons, a one-line snippet (max 160 characters), and time. Click expands.
+- **Folded rows** (`MessageFoldRow.vue`): one line of avatar, sender, lock + "Private note" label (on notes, at every width) and paperclip icons, a one-line snippet (max 160 characters), and time. Below 480px the row shows the time only (full stamp in `title`) and a narrower name column, so the label never drops; the snippet is what truncates. Click expands. Consecutive fold and summary rows join into one stacked card: outer `--radius`, inner hairlines, one shadow.
 - **Long runs:** four or more consecutive folded messages (`FOLD_RUN_MIN = 4`) collapse to first row, an "N earlier messages" row with the count in a 24px ring, and last row.
-- **Day separators** are hidden in threads.
+- **Activity** ("assigned to…", status changes): a centred chip between two hairline stubs, never a card. The stubs drop below 480px.
+- **Day separators** are hidden in email threads.
 - **Quotes and signatures:** "Show quoted text" folds the Gmail quote block (with its "On ... wrote:" line) and the sender's signature. The toggle appears for a signature alone only when the email carries a Gmail (`gmail_signature`) or Outlook (`id="Signature"`) marker.
+
+### Live chat thread
+Chat channels render bubbles on the same thread ground.
+- **Customer:** a `card` bubble on the left with hairline and `--desk-shadow-sm`. **Agent:** a `--primary`-washed bubble (`--desk-thread-ours`) on the right; a wash, not a filled primary bubble, so links, ticks and muted text keep their contrast. **Private note:** `--private` fill, dashed `--warning` border, lock + "Private note" label once per run.
+- **Grouping:** consecutive messages from one sender within 5 minutes of each other (`GROUP_WINDOW_MS`) form a run: name and avatar once, 4px between bubbles, sender-side corners tightened, and the delivery tick only on the last bubble. A failed message never groups, so its error and retry always show.
+- **Day separators** are pill chips on a hairline; activity uses the same chip as in email. The typing indicator is a small incoming bubble.
+
+### Reply composer
+- **Dock:** the composer sits on the thread ground, not on a footer strip. A 14px ground-to-transparent fade on the dock's top edge lets messages scroll under it; the thread keeps at least 24px of bottom padding so the fade never covers the last timestamp.
+- **Card:** thread surface, hairline, `--radius`, `--desk-shadow-md` plus a soft upward lift. Its side margins match the thread's padding. Focus inside turns the border to `ring` with a 2px `ring/10` glow. The board drawer keeps compact margins and `--desk-shadow-sm`.
+- **Private note mode:** `--private` surface with the same `--warning` border as private bubbles; the focus glow is `--warning` too.
+- **Reply / Private note switch:** a recessed `foreground/7` track with a raised active segment (Lexend, semibold). Send stays the one primary button; while the draft is empty it is disabled at 85% opacity.
+- **Collapsed (narrow screens):** a one-row card with the same surface, hairline, radius and shadow; expanding opens the fullscreen editor.
 
 ### Board
 - **Lanes:** 288px columns on a right hairline (`border/70`), no rounded lane, no tinted lane fill; a drop target washes `accent/50`. The lane header is a swatch plus the lane name in 14px semibold `foreground`.
@@ -318,6 +343,8 @@ Upstream shadcn primitives, recoloured by the desk tokens: primary buttons in De
 - **Do** keep chrome on the `--desk-type-*` scale; rank with Lexend vs Source Sans 3, weight, and case.
 - **Do** use `tabular-nums` on every reference, time, date and count.
 - **Do** separate panes, rows and sections with one 1px `border` line.
+- **Do** keep thread messages and the composer as rounded cards on the thread ground, with `--desk-shadow-sm` for messages and `--desk-shadow-md` for the composer and floating thread chrome.
+- **Do** show ours vs theirs with the `--primary` wash, and private notes with `--private` plus the `--warning` border and a visible label.
 - **Do** keep unread and priority neutral (`foreground` / `muted-foreground`).
 - **Do** scope new desk styling under `html[data-app='desk']` and reuse upstream token names, so rebases on upstream stay easy.
 - **Do** keep incoming email on a light canvas in dark mode (`.dark .email-light-canvas`: white, #1a1a1a text, `color-scheme: light`). Sender colours in email HTML are only legible on white. This is a deliberate exception to the theme.
@@ -326,7 +353,7 @@ Upstream shadcn primitives, recoloured by the desk tokens: primary buttons in De
 - **Don't** put a code colour on anything that is not a status swatch: no coloured chips, coloured left bars, coloured row tints or coloured lane fills.
 - **Don't** colour unread counts, unread dots or priority markers.
 - **Don't** add a fourth type size or a display tier.
-- **Don't** float panes: no gutters, rounded pane cards or pane shadows.
+- **Don't** float panes: no gutters, rounded pane cards or pane shadows. The Layered Thread Rule covers message cards and the composer only.
 - **Don't** fill a light-mode button with brand green #62C47A; white text fails on it. Use `primary`.
 - **Don't** hide a signature without a Gmail or Outlook marker. Signatures are only detected by those markers, never guessed.
 - **Don't** restyle the chat widget or the help center with desk tokens; they follow the upstream system below.

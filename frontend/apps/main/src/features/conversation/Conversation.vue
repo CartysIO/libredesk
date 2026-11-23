@@ -126,7 +126,7 @@
     />
 
     <!-- Messages & reply box -->
-    <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div class="desk-thread-pane flex min-h-0 flex-1 flex-col overflow-hidden">
       <MessageList class="min-h-0 flex-1 overflow-y-auto" />
       <WhatsAppComposer v-if="isWhatsAppChannel && canCompose" />
       <ReplyBox v-else-if="canCompose" />
