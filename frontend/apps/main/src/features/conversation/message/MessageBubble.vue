@@ -3,7 +3,8 @@
     class="desk-message flex flex-col text-left"
     :class="[
       thread ? 'desk-message--thread items-stretch' : isOutgoing ? 'desk-message--outgoing items-end' : 'desk-message--incoming items-start',
-      { 'desk-message--private': isPrivateMessage }
+      { 'desk-message--private': isPrivateMessage },
+      `desk-message--role-${role}`
     ]"
   >
     <!-- Sender line (live chat): avatar, name and a quiet time, once per grouped run. -->
@@ -42,6 +43,7 @@
       <p v-else class="font-display text-desk-sm font-semibold text-muted-foreground">
         {{ getFullName }}
       </p>
+      <MessageRoleTag :role="role" />
       <Tooltip>
         <TooltipTrigger as-child>
           <time class="desk-message-time shrink-0" :datetime="message.created_at">
@@ -130,7 +132,10 @@
                   <AvatarFallback class="font-semibold">{{ avatarFallback }}</AvatarFallback>
                 </Avatar>
                 <div class="desk-thread-header__id min-w-0 flex-1">
-                  <span class="desk-thread-header__name block truncate">{{ getFullName }}</span>
+                  <div class="desk-thread-header__title flex min-w-0 items-center gap-1.5">
+                    <span class="desk-thread-header__name min-w-0 truncate">{{ getFullName }}</span>
+                    <MessageRoleTag :role="role" />
+                  </div>
                   <div v-if="isPrivateMessage || showEnvelope" class="desk-thread-header__sub flex min-w-0 items-center gap-2">
                     <span v-if="isPrivateMessage" class="desk-private-label shrink-0">
                       <Lock :size="11" aria-hidden="true" />
@@ -414,12 +419,14 @@ import { allowedCssProperties } from 'lettersanitizer'
 import ImageLightbox from '@/components/ImageLightbox.vue'
 import BubbleAttachmentPreview from '@main/features/conversation/message/attachment/BubbleAttachmentPreview.vue'
 import MessageEnvelope from './MessageEnvelope.vue'
+import MessageRoleTag from './MessageRoleTag.vue'
 import CSATResponseDisplay from './CSATResponseDisplay.vue'
 import api from '@main/api'
 import { containsQuoteMarkers } from '@shared-ui/utils/quotedContent.js'
 import { getMessageDeliveryStatus } from './messageDeliveryStatus.js'
 import { delayedLoading } from '@main/utils/delayed-loading'
 import { initials } from '@main/utils/initials'
+import { messageRole } from '@main/utils/messageRole'
 
 const extendedCssProperties = [...allowedCssProperties, 'transform', 'transform-origin']
 // The sanitizer has no strikethrough tag, so these are rewritten to a styled span it keeps.
@@ -496,6 +503,8 @@ const aiAssistantRoute = computed(() => {
 })
 
 const isOutgoing = computed(() => props.direction === 'outgoing')
+// customer | agent | ai | note: drives the role tag, the avatar and the surface accent.
+const role = computed(() => messageRole(props.message))
 const pendingSpinner = ref(false)
 
 watch(
@@ -567,6 +576,7 @@ const bubbleClasses = computed(() => ({
   'message-bubble--incoming': !isOutgoing.value,
   'message-bubble--outgoing': isOutgoing.value && !props.message.private,
   'message-bubble--private': isOutgoing.value && props.message.private,
+  [`message-bubble--role-${role.value}`]: true,
   'message-bubble--group-prev': props.groupWithPrev,
   'message-bubble--group-next': props.groupWithNext,
   'bg-background': props.thread && !isOutgoing.value,

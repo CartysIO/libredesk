@@ -202,6 +202,15 @@ html[data-app='desk'] .desk-message-list {
   --desk-thread-private: color-mix(in srgb, hsl(var(--private)) 55%, var(--desk-thread-surface));
   --desk-thread-private-accent: hsl(var(--warning) / 0.65);
   --desk-thread-private-ink: color-mix(in srgb, hsl(var(--warning)) 62%, hsl(var(--foreground)));
+  // Roles. Customer = ink (the other party): a neutral leading bar, an inverted avatar and a
+  // "Customer" tag. Ours = the primary wash; the AI assistant adds an "AI" tag and a squared avatar.
+  --desk-thread-customer-accent: hsl(var(--foreground) / 0.62);
+  --desk-thread-customer-avatar: color-mix(in srgb, hsl(var(--foreground)) 84%, var(--desk-thread-surface));
+  --desk-thread-customer-avatar-ink: hsl(var(--background));
+  --desk-thread-customer-tag: hsl(var(--foreground) / 0.09);
+  --desk-thread-customer-tag-ink: hsl(var(--foreground) / 0.78);
+  --desk-thread-ours-ink: color-mix(in srgb, hsl(var(--primary)) 70%, hsl(var(--foreground)));
+  --desk-thread-ours-tag: color-mix(in srgb, hsl(var(--primary)) 14%, var(--desk-thread-surface));
   --desk-thread-measure: 47.5rem;
   --desk-bubble-radius: calc(var(--radius) + 0.25rem);
   --desk-bubble-radius-tight: 0.25rem;
@@ -230,6 +239,11 @@ html[data-app='desk'].dark .desk-message-list {
   --desk-thread-ours-soft: color-mix(in srgb, var(--desk-thread-ours) 50%, var(--desk-thread-surface));
   --desk-thread-private: color-mix(in srgb, hsl(var(--private)) 70%, var(--desk-thread-surface));
   --desk-thread-private-accent: hsl(var(--warning) / 0.55);
+  --desk-thread-customer-accent: hsl(var(--foreground) / 0.7);
+  --desk-thread-customer-tag: hsl(var(--foreground) / 0.14);
+  --desk-thread-customer-tag-ink: hsl(var(--foreground) / 0.88);
+  --desk-thread-ours-ink: color-mix(in srgb, hsl(var(--primary)) 45%, hsl(var(--foreground)));
+  --desk-thread-ours-tag: color-mix(in srgb, hsl(var(--primary)) 30%, var(--desk-thread-surface));
 }
 
 // The thread opens pinned to its newest message, so the oldest visible row is usually cut by the
@@ -439,6 +453,13 @@ html[data-app='desk'] .message-bubble.message-bubble--thread {
       var(--desk-shadow-sm);
   }
 
+  // Customer: the neutral surface with an ink bar on its leading edge (the note's bar, in ink).
+  &.message-bubble--role-customer {
+    box-shadow:
+      inset 3px 0 0 var(--desk-thread-customer-accent),
+      var(--desk-shadow-sm);
+  }
+
   // Grouped run: joined corners and no doubled border, so the run is one card.
   &.message-bubble--group-next {
     border-bottom-left-radius: 0;
@@ -506,6 +527,10 @@ html[data-app='desk'] .desk-thread-header__name {
   font-weight: var(--desk-weight-semibold);
   line-height: 1.125rem;
   color: hsl(var(--foreground));
+}
+
+html[data-app='desk'] .desk-thread-header__title {
+  line-height: 1.125rem;
 }
 
 html[data-app='desk'] .desk-thread-header__sub {
@@ -630,6 +655,53 @@ html[data-app='desk'] .desk-private-label {
   white-space: nowrap;
 }
 
+// Role tag beside a sender's name, once per run: "Customer" (ink chip) or "AI" (sparkle, primary
+// chip). A long translation truncates inside the chip; the name keeps its room.
+html[data-app='desk'] .desk-role-tag {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.1875rem;
+  max-width: 7.5rem;
+  padding: 0 0.4375rem;
+  border-radius: 999px;
+  font-family: var(--desk-font-display);
+  font-size: var(--desk-type-2xs);
+  font-weight: var(--desk-weight-medium, 500);
+  line-height: 1.125rem;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+
+  &.desk-role-tag--customer {
+    background: var(--desk-thread-customer-tag);
+    color: var(--desk-thread-customer-tag-ink);
+  }
+
+  &.desk-role-tag--ai {
+    background: var(--desk-thread-ours-tag);
+    color: var(--desk-thread-ours-ink);
+  }
+}
+
+// Beside a name that can truncate (open card header, chat sender line) the tag gives way first.
+html[data-app='desk'] .desk-thread-header__title .desk-role-tag,
+html[data-app='desk'] .desk-message-sender .desk-role-tag {
+  min-width: 0;
+  flex-shrink: 100;
+}
+
+html[data-app='desk'] .desk-role-tag__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html[data-app='desk'] .desk-role-tag__icon {
+  width: 0.6875rem;
+  height: 0.6875rem;
+  flex-shrink: 0;
+}
+
 // Narrow panes: the header shows the time only (the full date is in the time's `title` and tooltip).
 @media (max-width: 479px) {
   html[data-app='desk'] .message-bubble.message-bubble--thread {
@@ -715,6 +787,28 @@ html[data-app='desk'] .desk-fold-row {
     --desk-avatar-ink: color-mix(in srgb, hsl(var(--primary)) 70%, hsl(var(--foreground)));
   }
 
+  // Customer row: the open card's ink bar and inverted avatar.
+  &.desk-fold-row--role-customer {
+    --desk-avatar-bg: var(--desk-thread-customer-avatar);
+    --desk-avatar-ink: var(--desk-thread-customer-avatar-ink);
+    box-shadow: inset 3px 0 0 var(--desk-thread-customer-accent);
+
+    &:focus-visible {
+      box-shadow:
+        inset 3px 0 0 var(--desk-thread-customer-accent),
+        inset 0 0 0 2px hsl(var(--ring) / 0.5);
+    }
+  }
+
+  // Ours rows carry a light primary wash, so agent / AI rows differ from customer rows by surface too.
+  &.desk-fold-row--outgoing {
+    background: var(--desk-thread-ours-soft);
+
+    &:hover {
+      background: color-mix(in srgb, var(--desk-thread-ours-soft) 94%, hsl(var(--foreground)));
+    }
+  }
+
   &.desk-fold-row--private {
     --desk-avatar-bg: color-mix(in srgb, hsl(var(--warning)) 24%, var(--desk-thread-surface));
     --desk-avatar-ink: var(--desk-thread-private-ink);
@@ -792,9 +886,15 @@ html[data-app='desk'] .desk-fold-row__snippet {
     max-width: 8rem;
   }
 
-  // The note row also carries its label, so its name gets less.
-  html[data-app='desk'] .desk-fold-row--private .desk-fold-row__name {
+  // The note and AI rows also carry a label, so their names get less.
+  html[data-app='desk'] .desk-fold-row--private .desk-fold-row__name,
+  html[data-app='desk'] .desk-fold-row--role-ai .desk-fold-row__name {
     max-width: 5.25rem;
+  }
+
+  // The customer row keeps its ink bar and inverted avatar; the tag makes way for the snippet.
+  html[data-app='desk'] .desk-fold-row .desk-role-tag--customer {
+    display: none;
   }
 
   html[data-app='desk'] .desk-fold-row__date {
@@ -861,6 +961,14 @@ html[data-app='desk'] .message-bubble.message-bubble--chat {
   &.message-bubble--outgoing {
     --desk-bubble-bg: var(--desk-thread-ours);
     border-color: var(--desk-thread-ours-border);
+  }
+
+  // Customer: card surface with the ink bar on its leading edge.
+  &.message-bubble--role-customer {
+    padding-left: 0.875rem;
+    box-shadow:
+      inset 3px 0 0 var(--desk-thread-customer-accent),
+      var(--desk-shadow-sm);
   }
 
   &.message-bubble--private {
@@ -949,6 +1057,20 @@ html[data-app='desk'] .desk-message {
     --desk-avatar-bg: color-mix(in srgb, hsl(var(--warning)) 24%, var(--desk-thread-surface));
     --desk-avatar-ink: var(--desk-thread-private-ink);
   }
+}
+
+// Role avatars, shared by chat, open email cards and fold rows. Customer: inverted ink disc.
+// AI assistant: a squared primary tile with a ring, so it never reads as a person.
+html[data-app='desk'] .desk-message.desk-message--role-customer,
+html[data-app='desk'] .message-bubble.message-bubble--thread.message-bubble--role-customer {
+  --desk-avatar-bg: var(--desk-thread-customer-avatar);
+  --desk-avatar-ink: var(--desk-thread-customer-avatar-ink);
+}
+
+html[data-app='desk'] .desk-message--role-ai :is(.desk-chat-avatar, .desk-thread-header__avatar),
+html[data-app='desk'] .desk-fold-row--role-ai .desk-fold-row__avatar {
+  border-radius: 0.5rem;
+  box-shadow: 0 0 0 1.5px var(--desk-thread-ours-border);
 }
 
 // Wide panes: the gutter avatar lifts to the sender line, so name and avatar read as one unit

@@ -2,10 +2,13 @@
   <button
     type="button"
     class="desk-fold-row group/fold"
-    :class="{
-      'desk-fold-row--private': message.private,
-      'desk-fold-row--outgoing': message.type === 'outgoing' && !message.private
-    }"
+    :class="[
+      `desk-fold-row--role-${role}`,
+      {
+        'desk-fold-row--private': message.private,
+        'desk-fold-row--outgoing': message.type === 'outgoing' && !message.private
+      }
+    ]"
     :aria-expanded="false"
     @click="$emit('expand')"
   >
@@ -14,6 +17,7 @@
       <AvatarFallback class="font-semibold">{{ initials }}</AvatarFallback>
     </Avatar>
     <span class="desk-fold-row__name">{{ name }}</span>
+    <MessageRoleTag :role="role" />
     <span v-if="message.private" class="desk-fold-row__note">
       <Lock class="desk-fold-row__icon" :aria-label="t('globals.terms.privateNote')" />
       <span class="desk-fold-row__note-text" aria-hidden="true">{{ t('globals.terms.privateNote') }}</span>
@@ -39,6 +43,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@shared-ui/components/ui/av
 import { formatMessageTimestamp, formatFullTimestamp } from '@shared-ui/utils/datetime.js'
 import { messageSnippet } from '@main/utils/threadFold'
 import { initials as toInitials } from '@main/utils/initials'
+import { messageRole } from '@main/utils/messageRole'
+import MessageRoleTag from './MessageRoleTag.vue'
 
 const props = defineProps({
   message: { type: Object, required: true }
@@ -52,6 +58,7 @@ const name = computed(() => {
   return `${author.first_name ?? ''} ${author.last_name ?? ''}`.trim() || author.email || ''
 })
 const initials = computed(() => toInitials(props.message.author?.first_name, props.message.author?.last_name))
+const role = computed(() => messageRole(props.message))
 const snippet = computed(() => messageSnippet(props.message))
 const fullTime = computed(() => formatFullTimestamp(props.message.created_at))
 // Date and time are split so narrow panes can show the time only (the full stamp stays in `title`).
