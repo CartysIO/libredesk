@@ -222,7 +222,7 @@
             <div
               v-else
               ref="contentWrapperEl"
-              class="relative"
+              class="desk-message-content relative"
               :class="{ 'max-h-[400px] overflow-hidden': isExpandable && !isExpanded }"
             >
               <div

@@ -571,6 +571,18 @@ html[data-app='desk'] .message-bubble--thread .desk-thread-header--compact {
     transition: opacity 150ms ease;
   }
 
+  // The raised chip pokes out of its card, so the continuation must not clip: wide content
+  // scrolls inside the body wrapper instead of the card.
+  html[data-app='desk'] .message-bubble--thread.message-bubble--group-prev {
+    overflow: visible;
+
+    > .desk-message-content {
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: auto;
+    }
+  }
+
   // The chip is raised onto the run's inner rule: it covers the padding above and below the rule
   // (previous message's bottom, this one's top), never the body text.
   html[data-app='desk'] .message-bubble--thread .desk-thread-header--compact {
