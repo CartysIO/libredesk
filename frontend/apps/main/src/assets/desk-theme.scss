@@ -504,7 +504,11 @@ html[data-app='desk'] .desk-chat-avatar {
   background: var(--desk-avatar-bg, hsl(var(--secondary)));
   box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.06);
 
+  // The shared fallback paints its own opaque fill; the role disc has to be set on it too, or
+  // only the ink changes and an inverted (customer) avatar loses its contrast.
   .avatar-initials {
+    background: var(--desk-avatar-bg, hsl(var(--secondary)));
+    background-image: none;
     font-family: var(--desk-font-display);
     font-weight: var(--desk-weight-semibold);
     letter-spacing: 0.01em;
@@ -886,15 +890,12 @@ html[data-app='desk'] .desk-fold-row__snippet {
     max-width: 8rem;
   }
 
-  // The note and AI rows also carry a label, so their names get less.
+  // The note, AI and customer rows also carry a label, so their names get less. The label stays
+  // at every width; the name and the snippet give way.
   html[data-app='desk'] .desk-fold-row--private .desk-fold-row__name,
-  html[data-app='desk'] .desk-fold-row--role-ai .desk-fold-row__name {
+  html[data-app='desk'] .desk-fold-row--role-ai .desk-fold-row__name,
+  html[data-app='desk'] .desk-fold-row--role-customer .desk-fold-row__name {
     max-width: 5.25rem;
-  }
-
-  // The customer row keeps its ink bar and inverted avatar; the tag makes way for the snippet.
-  html[data-app='desk'] .desk-fold-row .desk-role-tag--customer {
-    display: none;
   }
 
   html[data-app='desk'] .desk-fold-row__date {
