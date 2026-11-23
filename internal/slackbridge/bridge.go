@@ -57,6 +57,9 @@ type Config struct {
 	// AgentEmailAliases maps a Slack account email to the Libredesk agent email, for agents whose
 	// Slack account uses another address. Keys and values are lowercase. See ParseEmailAliases.
 	AgentEmailAliases map[string]string
+	// AllowedBots maps a Slack bot_id (B...) or bot user ID (U.../W...) to the email of the Libredesk
+	// agent its thread replies are added as. Any other bot is ignored. See ParseAllowedBots.
+	AllowedBots map[string]string
 	// APIURL overrides the Slack Web API base URL (tests).
 	APIURL    string
 	QueueSize int
@@ -79,6 +82,38 @@ func ParseEmailAliases(s string) (map[string]string, error) {
 		out[from] = to
 	}
 	return out, nil
+}
+
+// ParseAllowedBots reads "U0123=bot@example.com, B0456=other@example.com" into a map of Slack bot_id
+// or bot user ID (uppercase) to agent email (lowercase). Malformed pairs are returned as an error.
+func ParseAllowedBots(s string) (map[string]string, error) {
+	out := map[string]string{}
+	for _, pair := range strings.Split(s, ",") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		id, email, ok := strings.Cut(pair, "=")
+		id, email = strings.ToUpper(strings.TrimSpace(id)), strings.ToLower(strings.TrimSpace(email))
+		if !ok || !slackBotID(id) || !plainEmail(email) {
+			return nil, fmt.Errorf("invalid slack allowed bot %q: want slack-bot-id=agent-email", pair)
+		}
+		out[id] = email
+	}
+	return out, nil
+}
+
+// slackBotID reports whether s looks like a Slack bot_id (B...) or user ID (U.../W...).
+func slackBotID(s string) bool {
+	if len(s) < 2 || !strings.ContainsRune("BUW", rune(s[0])) {
+		return false
+	}
+	for _, r := range s[1:] {
+		if (r < 'A' || r > 'Z') && (r < '0' || r > '9') {
+			return false
+		}
+	}
+	return true
 }
 
 // plainEmail reports whether s is one bare address: a single @ with text on both sides, no spaces,
@@ -135,7 +170,13 @@ type Manager struct {
 	convs    conversationStore
 	jobs     chan job
 
+	// botUserID and botID are the bridge's own Slack identity, from auth.test.
 	botUserID string
+	botID     string
+	// allowedBots is cfg.AllowedBots plus the legacy AIBotID entry.
+	allowedBots map[string]string
+	// botReplies holds, per thread, when bots last sent customer replies. Only the worker uses it.
+	botReplies map[string]*botReplyWindow
 
 	mu        sync.Mutex
 	userCache map[string]cachedUser
@@ -159,16 +200,25 @@ func New(cfg Config, db *sqlx.DB, lo *logf.Logger, users userStore, media mediaS
 	if size <= 0 {
 		size = defaultQueueSize
 	}
+	allowed := map[string]string{}
+	if cfg.AIBotID != "" {
+		allowed[cfg.AIBotID] = cfg.AIAgentEmail
+	}
+	for id, email := range cfg.AllowedBots {
+		allowed[id] = email
+	}
 	return &Manager{
-		cfg:       cfg,
-		lo:        lo,
-		api:       newSlackAPI(cfg.BotToken, cfg.APIURL),
-		store:     st,
-		users:     users,
-		media:     media,
-		settings:  settings,
-		jobs:      make(chan job, size),
-		userCache: map[string]cachedUser{},
+		cfg:         cfg,
+		lo:          lo,
+		api:         newSlackAPI(cfg.BotToken, cfg.APIURL),
+		store:       st,
+		users:       users,
+		media:       media,
+		settings:    settings,
+		jobs:        make(chan job, size),
+		userCache:   map[string]cachedUser{},
+		allowedBots: allowed,
+		botReplies:  map[string]*botReplyWindow{},
 	}, nil
 }
 
@@ -264,15 +314,16 @@ func (m *Manager) process(ctx context.Context, j job) {
 	}
 }
 
-// ensureBotUserID loads the bot's Slack user ID once. It is needed to detect @mentions of the bot.
+// ensureBotUserID loads the bot's Slack user ID (and bot_id) once. It is needed to detect @mentions
+// of the bot and to recognise the bridge's own posts.
 func (m *Manager) ensureBotUserID(ctx context.Context) string {
 	if m.botUserID == "" {
-		id, err := m.api.authTest(ctx)
+		userID, botID, err := m.api.authTest(ctx)
 		if err != nil {
 			m.lo.Error("slack auth.test failed", "error", err)
 			return ""
 		}
-		m.botUserID = id
+		m.botUserID, m.botID = userID, botID
 	}
 	return m.botUserID
 }
@@ -556,12 +607,8 @@ func (m *Manager) handleSlack(ctx context.Context, ev slackEvent) error {
 	if ev.Channel != m.cfg.ChannelID || ev.ThreadTS == "" || ev.ThreadTS == ev.TS {
 		return nil
 	}
-	// Bot messages: only the Slack AI agent. This also skips the bridge's own posts.
-	isAI := m.cfg.AIBotID != "" && ev.BotID == m.cfg.AIBotID
-	if ev.BotID != "" && !isAI {
-		return nil
-	}
-	if !isAI && ev.User == "" {
+	bot, ok := m.allowedBot(ctx, ev)
+	if !ok {
 		return nil
 	}
 
@@ -575,11 +622,95 @@ func (m *Manager) handleSlack(ctx context.Context, ev slackEvent) error {
 	}
 	// Slack does not retry an event that was answered with 200, and the event is now claimed.
 	// Every failure from here on tells the Slack user, so they can send the message again.
-	if err := m.addFromSlack(ctx, ev, t, claimID, isAI); err != nil {
-		m.replyInThread(ctx, ev, err.userText)
+	if err := m.addFromSlack(ctx, ev, t, claimID, bot); err != nil {
+		if err.userText != "" {
+			m.replyInThread(ctx, ev, err.userText)
+		}
 		return err.err
 	}
 	return nil
+}
+
+// slackBot is an allowlisted Slack bot: its messages are added as the agent with this email.
+type slackBot struct {
+	email string
+}
+
+// allowedBot decides whether an event's author may be handled. A human author gives (nil, true).
+// A bot gives its allowlist entry, or false when it is the bridge itself, is not listed, or echoes
+// one of the bridge's warnings.
+func (m *Manager) allowedBot(ctx context.Context, ev slackEvent) (*slackBot, bool) {
+	email, listed := m.allowedBots[ev.BotID]
+	if !listed && ev.User != "" {
+		email, listed = m.allowedBots[ev.User]
+	}
+	if ev.BotID == "" && ev.Subtype != "bot_message" && !listed {
+		return nil, ev.User != ""
+	}
+	// Never handle the bridge's own posts, even when its IDs are listed. Without its identity an own
+	// post cannot be told apart, so skip instead of risking a loop.
+	own := m.ensureBotUserID(ctx)
+	if own == "" {
+		m.lo.Error("slack bot message skipped: the bridge's own Slack identity is unknown", "bot_id", ev.BotID, "user", ev.User, "ts", ev.TS)
+		return nil, false
+	}
+	if ev.User == own || (m.botID != "" && ev.BotID == m.botID) || !listed {
+		return nil, false
+	}
+	if isBridgeWarning(ev.Text) {
+		m.lo.Warn("slack bot message skipped: it repeats a bridge warning", "bot_id", ev.BotID, "user", ev.User, "ts", ev.TS)
+		return nil, false
+	}
+	return &slackBot{email: email}, true
+}
+
+// Every warning the bridge posts in a thread (see replyInThread) starts with one of these.
+const (
+	warnNotAdded = "Not added to Libredesk"
+	warnNotSent  = "Not sent to the customer"
+)
+
+// isBridgeWarning reports whether text holds a warning the bridge posted, so a bot that quotes or
+// echoes the bridge's output cannot feed it back.
+func isBridgeWarning(text string) bool {
+	return strings.Contains(text, ":warning: "+warnNotAdded) || strings.Contains(text, ":warning: "+warnNotSent)
+}
+
+// A bot may send at most botReplyLimit customer replies per thread within botReplyWindowLen.
+const (
+	botReplyLimit     = 5
+	botReplyWindowLen = 10 * time.Minute
+)
+
+type botReplyWindow struct {
+	sent   []time.Time
+	warned bool
+}
+
+// botReplyAllowed counts one customer reply by a bot in a thread. Over the limit it returns false;
+// warn is true the first time, so the thread gets one warning per burst.
+func (m *Manager) botReplyAllowed(threadTS string, now time.Time) (ok, warn bool) {
+	for ts, w := range m.botReplies {
+		for len(w.sent) > 0 && now.Sub(w.sent[0]) >= botReplyWindowLen {
+			w.sent = w.sent[1:]
+		}
+		if len(w.sent) == 0 {
+			delete(m.botReplies, ts)
+		}
+	}
+	w := m.botReplies[threadTS]
+	if w == nil {
+		w = &botReplyWindow{}
+		m.botReplies[threadTS] = w
+	}
+	if len(w.sent) >= botReplyLimit {
+		warn = !w.warned
+		w.warned = true
+		return false, warn
+	}
+	w.sent = append(w.sent, now)
+	w.warned = false
+	return true, false
 }
 
 // slackError is a failure to add a Slack message, with the text shown to the Slack user.
@@ -593,8 +724,8 @@ func failed(userText string, err error) *slackError {
 }
 
 // addFromSlack adds a claimed Slack message to the conversation as a note or a customer reply.
-func (m *Manager) addFromSlack(ctx context.Context, ev slackEvent, t thread, claimID int, isAI bool) *slackError {
-	agent, email, err := m.agentFor(ctx, ev, isAI)
+func (m *Manager) addFromSlack(ctx context.Context, ev slackEvent, t thread, claimID int, bot *slackBot) *slackError {
+	agent, email, err := m.agentFor(ctx, ev, bot)
 	if err != nil {
 		if email != "" {
 			return &slackError{userText: fmt.Sprintf("Not added to Libredesk: no enabled Libredesk agent has the email %s.", email), err: err}
@@ -608,6 +739,15 @@ func (m *Manager) addFromSlack(ctx context.Context, ev slackEvent, t thread, cla
 		return failed("Not added to Libredesk: the bridge could not identify its Slack bot.", errors.New("slack bot user ID unknown"))
 	}
 	respond := strings.Contains(ev.Text, "<@"+botID+">")
+	if respond && bot != nil {
+		if ok, warn := m.botReplyAllowed(ev.ThreadTS, time.Now()); !ok {
+			e := &slackError{err: fmt.Errorf("slack bot reply dropped: over %d replies per thread in %s (bot_id %q, user %q)", botReplyLimit, botReplyWindowLen, ev.BotID, ev.User)}
+			if warn {
+				e.userText = fmt.Sprintf("%s: a bot may send at most %d replies per thread in %d minutes. Bot replies over that are dropped.", warnNotSent, botReplyLimit, int(botReplyWindowLen.Minutes()))
+			}
+			return e
+		}
+	}
 	content := mrkdwnToHTML(stripMention(ev.Text, botID), func(id string) string {
 		if u, err := m.slackUser(ctx, id); err == nil {
 			return u.Name
@@ -658,10 +798,12 @@ func (m *Manager) addFromSlack(ctx context.Context, ev slackEvent, t thread, cla
 }
 
 // agentFor returns the Libredesk agent for a Slack message: the agent with the Slack user's email,
-// or the configured AI agent for the Slack AI bot.
-func (m *Manager) agentFor(ctx context.Context, ev slackEvent, isAI bool) (umodels.User, string, error) {
-	email := m.cfg.AIAgentEmail
-	if !isAI {
+// or the configured agent for an allowlisted Slack bot.
+func (m *Manager) agentFor(ctx context.Context, ev slackEvent, bot *slackBot) (umodels.User, string, error) {
+	var email string
+	if bot != nil {
+		email = bot.email
+	} else {
 		u, err := m.slackUser(ctx, ev.User)
 		if err != nil {
 			return umodels.User{}, "", err

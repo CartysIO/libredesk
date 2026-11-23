@@ -210,6 +210,11 @@ channel_id = ""
 # bot_id of the Slack AI agent, and the email of the Libredesk agent its messages are added as.
 ai_bot_id = ""
 ai_agent_email = ""
+# Slack bots whose thread replies are handled like an agent's (mention = reply to the customer,
+# otherwise a private note): "ID=agent-email" pairs, comma separated. ID is the bot's bot_id (B...)
+# or bot user ID (U...). Any other bot is ignored, and so are the bridge's own posts. Bots may send
+# at most 5 customer replies per thread in 10 minutes.
+allowed_bots = ""
 # For agents whose Slack account uses another email than their Libredesk agent:
 # "slack-email=agent-email" pairs, comma separated.
 agent_email_aliases = ""
