@@ -19,6 +19,7 @@
           :key="`${conversationStore.current?.uuid}:${messageRows.length > 0}`"
           :enter-active-class="loadingOlder ? '' : 'animate-slide-in'"
           tag="div"
+          class="desk-thread-column"
         >
           <div
             v-for="(item, index) in displayRows"
@@ -53,8 +54,8 @@
               <MessageBubble
                 :message="item.row.message"
                 :direction="item.row.message.type"
-                :group-with-prev="item.row.groupWithPrev"
-                :group-with-next="item.row.groupWithNext"
+                :group-with-prev="item.joinPrev"
+                :group-with-next="item.joinNext"
                 :thread="isEmailThread"
                 @collapse="setOpen(item.row.message.uuid, false)"
               />
@@ -63,8 +64,8 @@
               <MessageBubble
                 :message="item.row.message"
                 direction="outgoing"
-                :group-with-prev="item.row.groupWithPrev"
-                :group-with-next="item.row.groupWithNext"
+                :group-with-prev="item.joinPrev"
+                :group-with-next="item.joinNext"
                 :thread="isEmailThread"
                 @collapse="setOpen(item.row.message.uuid, false)"
               />
@@ -302,7 +303,9 @@ watch(
 )
 
 // Consecutive messages from one sender group while each follows the previous within this gap.
+// Private notes are jotted more slowly than chat lines, so their runs get a wider window.
 const GROUP_WINDOW_MS = 5 * 60_000
+const NOTE_GROUP_WINDOW_MS = 10 * 60_000
 
 const canGroup = (a, b) => {
   if (!a || !b) return false
@@ -316,7 +319,7 @@ const canGroup = (a, b) => {
   if (!aSenderId || aSenderId !== bSenderId) return false
 
   const gap = Math.abs(new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-  return gap <= GROUP_WINDOW_MS
+  return gap <= (a.private ? NOTE_GROUP_WINDOW_MS : GROUP_WINDOW_MS)
 }
 
 const getSpacingClass = (index, groupWithPrev) => {
@@ -410,11 +413,36 @@ const expandRun = (key) => {
   openRuns.value = new Set(openRuns.value).add(key)
 }
 
-const displayRows = computed(() =>
-  isEmailThread.value
-    ? foldThreadRows(messageRows.value, isMessageOpen, openRuns.value)
-    : messageRows.value.map((row) => ({ kind: 'message', row }))
-)
+// An email carries its own envelope (recipients, subject), so it always keeps its header; notes and
+// other envelope-less messages can continue the previous sender's card.
+const hasEnvelope = (message) => {
+  const meta = message.meta || {}
+  return !!(meta.from?.length || meta.to?.length || meta.cc?.length || meta.bcc?.length || meta.subject)
+}
+
+// `joinPrev` / `joinNext`: the row renders as one run with its neighbour. Live chat groups by
+// sender (`canGroup`); an email thread also needs both rows open (a fold row breaks the run).
+const displayRows = computed(() => {
+  if (!isEmailThread.value) {
+    return messageRows.value.map((row) => ({
+      kind: 'message',
+      row,
+      joinPrev: row.groupWithPrev,
+      joinNext: row.groupWithNext
+    }))
+  }
+  const rows = foldThreadRows(messageRows.value, isMessageOpen, openRuns.value)
+  const joins = (prev, next) =>
+    prev?.kind === 'message' &&
+    next?.kind === 'message' &&
+    next.row.groupWithPrev &&
+    !hasEnvelope(next.row.message)
+  return rows.map((item, index) =>
+    item.kind === 'message'
+      ? { ...item, joinPrev: joins(rows[index - 1], item), joinNext: joins(item, rows[index + 1]) }
+      : item
+  )
+})
 // Email threads: consecutive fold/summary rows join into one stacked card (desk-theme.scss).
 const isStackRow = (item) => !!item && item.kind !== 'message'
 const displayRowClass = (item, index) => {
@@ -426,7 +454,9 @@ const displayRowClass = (item, index) => {
     }
   }
   const activity = { 'desk-thread-activity my-3': item.row.message.type === 'activity' }
-  return isEmailThread.value ? ['desk-thread-row', activity] : [item.row.spacingClass, activity]
+  return isEmailThread.value
+    ? ['desk-thread-row', { 'desk-thread-row--join-prev': item.joinPrev }, activity]
+    : [item.row.spacingClass, activity]
 }
 const displayRowKey = (item) => {
   if (item.kind === 'summary') return `run-${item.key}`
