@@ -253,7 +253,7 @@ Four columns on a 1px grid, left to right:
 3. **Work pane(s)**: the conversation list, then the ticket (header, thread, composer). On the board view, lanes replace the list.
 4. **Context sidebar**: conversation details and contact, sections on hairline rules.
 
-The app shell is `bg-canvas` with `gap-px` and no padding, so panes meet on a single 1px hairline. Rhythm is 4/8px; list rows pad 8px by 12px, thread cards 14px by 16px (16px bottom) with 12px between cards, fold rows 8px by 16px, spec rows 7px vertical. The thread itself pads 12px (16px from 640px) so its cards and the composer card share one left and right edge.
+The app shell is `bg-canvas` with `gap-px` and no padding, so panes meet on a single 1px hairline. Rhythm is 4/8px; list rows pad 8px by 12px, thread cards 12px by 16px (14px bottom) with 12px between cards (0 inside a grouped run), fold rows 8px by 16px, spec rows 7px vertical. The thread itself pads 12px (16px from 640px) so its cards and the composer card share one left and right edge. On a wide pane the message column (email cards, fold stacks, chat bubbles, chips) stops at `--desk-thread-measure` (760px) and centres.
 
 On narrow screens the fold row's sender column shrinks from 144px to 96px; the rest of the shell follows upstream's responsive behaviour.
 
@@ -267,8 +267,8 @@ Mostly flat. Depth comes from the hairline grid and three grounds (rail green, n
 The conversation thread is the deliberate exception: it is a layered surface with three levels.
 
 1. **Thread ground** (`--desk-thread-ground`): `background` mixed towards `accent` in light mode, plain `background` in dark. It fills the whole ticket body, behind the messages and behind the composer.
-2. **Message surfaces** (`--desk-thread-surface`): `card` (lifted 5% towards `foreground` in dark, where `card` sits too close to the ground), a 1px hairline (`--desk-thread-hairline`) and `--desk-shadow-sm`. Email cards, stacked fold cards, chat bubbles, the typing bubble, day-separator chips and skeletons are all on this level.
-3. **Floating chrome**: the reply composer card, the scroll-to-bottom button, the older-messages spinner and the self-assign nudge use the same surface and hairline with `--desk-shadow-md`. The scroll-to-bottom button is a 32px circle centred in the gutter just above the composer. The composer adds a soft upward lift so messages read as passing under it, and a short ground-coloured fade sits on the top edge of its dock.
+2. **Message surfaces** (`--desk-thread-surface`): `card` (lifted 5% towards `foreground` in dark, where `card` sits too close to the ground), a 1px hairline (`--desk-thread-hairline`) and `--desk-shadow-sm`. Email cards, stacked fold cards, chat bubbles, the typing bubble, day-separator chips and skeletons are all on this level. Tints stay light: our replies take a `--primary` wash (`--desk-thread-ours`, a step lighter on full-width email cards: `--desk-thread-ours-soft`), private notes a light `--private` tint (`--desk-thread-private`) plus a 3px inset `--warning` accent bar on the leading edge. A note keeps the hairline border; it never gets a full `--warning` border.
+3. **Floating chrome**: the reply composer card, the scroll-to-bottom button, the older-messages spinner and the self-assign nudge use the same surface and hairline with `--desk-shadow-md`. The scroll-to-bottom button is a 32px circle centred in the gutter just above the composer. The composer adds a soft upward lift so messages read as passing under it, and a short ground-coloured fade sits on the top edge of its dock. A matching 12px fade sits on the thread's top edge, so a row cut by the pane edge reads as scrolled content, not a clipped chip.
 
 All of these colours are derived from existing tokens (`hsl(var(--x) / alpha)` or `color-mix`); the thread adds no palette entries.
 
@@ -279,7 +279,7 @@ All of these colours are derived from existing tokens (`hsl(var(--x) / alpha)` o
 
 ## Shapes
 
-Tight corners. `--radius` is 6px on the desk (upstream 8px), so `rounded-lg` 6px, `rounded-md` 4px, `rounded-sm` 2px, `rounded-xl` 10px. Panes are square (radius 0). Thread cards, stacked fold cards and the composer card use `--radius`; chat bubbles use `--radius` + 4px, tightening to 4px on the sender's side inside a grouped run; activity, day-separator and "Private note" chips are pills. The whose-move swatch is an 8px square at 1px radius. Avatars and the unread count stay round.
+Tight corners. `--radius` is 6px on the desk (upstream 8px), so `rounded-lg` 6px, `rounded-md` 4px, `rounded-sm` 2px, `rounded-xl` 10px. Panes are square (radius 0). Thread cards, stacked fold cards and the composer card use `--radius`; chat bubbles use `--radius` + 4px, tightening to 4px on the sender's side inside a grouped run; a grouped run of email cards joins flush (inner corners square, one outer radius); activity and day-separator chips are pills. The "Private note" marker is plain text with a lock, not a pill. The whose-move swatch is an 8px square at 1px radius. Avatars and the unread count stay round.
 
 ## Components
 
@@ -297,10 +297,12 @@ Two lines: `#reference` (16px bold, tabular) with the contact (12px muted) besid
 
 ### Email thread (signature)
 Email conversations (`inbox_channel === 'email'`) render as a Gmail-style thread of cards on the thread ground (see The Layered Thread Rule).
-- **Open cards:** full width, `--radius` corners, hairline border, `--desk-shadow-sm`. A one-line header strip: 24px avatar, sender (14px semibold), a recipients summary that expands the envelope, time (12px tabular, full timestamp in a tooltip), and a collapse button.
-- **Who is speaking:** a customer card has a `muted` header strip. Our replies carry the `--primary` wash (`--desk-thread-ours`) on the header strip and its border colour (`--desk-thread-ours-border`). A private note has a `--private` body, a `--warning` wash on the strip, a `--warning` border and a visible lock + "Private note" pill. The pill keeps its text at every width; below 480px the header shows the time only (full date in `title`) to make room. The sender name is the header's lead element: the recipients summary truncates first, and the name shrinks only when nothing else can. None of these use a code colour.
+- **Open cards:** full width up to the 760px measure, `--radius` corners, hairline border, `--desk-shadow-sm`. One surface: header and body share it, with no header strip and no divider. The header is a 32px avatar, then two lines (sender in Lexend 14px semibold; below it the lock + "Private note" label or the recipients summary that expands the envelope), and the time on the right (11px tabular, full timestamp in a tooltip; the date is dropped for today's messages).
+- **Who is speaking:** a customer card is the plain thread surface with a neutral avatar. Our replies carry the soft `--primary` wash (`--desk-thread-ours-soft`), its border colour (`--desk-thread-ours-border`) and a primary-tinted avatar. A private note has the light `--private` tint, a 3px `--warning` accent bar on its leading edge, an amber-tinted avatar and a small lock + "Private note" label in `--desk-thread-private-ink` (no pill, no full amber border). The label keeps its text at every width; below 480px the header shows the time only (full date in `title`). The sender name owns its line, so it truncates only when the pane is narrower than the name. None of these use a code colour.
+- **Quiet controls:** the ⋯ menu (delete note) and the collapse button sit left of the time and are hidden at rest where a pointer can hover (`hover: hover` and `pointer: fine`). They appear on card hover, on keyboard focus inside the card and while their menu is open. Touch devices always show them.
+- **Grouped runs:** consecutive open messages from one sender form a run when each follows the previous within 5 minutes (`GROUP_WINDOW_MS`), or 10 minutes for private notes (`NOTE_GROUP_WINDOW_MS`). Only a message without an envelope (a note) continues a run; a real email always keeps its own header so its recipients stay reachable. The continuation sits flush under the previous card with a faint inner rule and no avatar or name; its controls and time float in the top-right corner on hover or focus (a slim static row on touch). A fold row, a failed message or another sender breaks the run.
 - **What opens by default** (`defaultOpenUUIDs`): the newest message; every message after the last public agent reply; pending or failed sends; and a message a link scrolls to. Automated replies, CSAT and continuity sends do not count as agent replies.
-- **Folded rows** (`MessageFoldRow.vue`): one line of avatar, sender, lock + "Private note" label (on notes, at every width) and paperclip icons, a one-line snippet (max 160 characters), and time. Below 480px the row shows the time only (full stamp in `title`) and a narrower name column, so the label never drops; the snippet is what truncates. Click expands. Consecutive fold and summary rows join into one stacked card: outer `--radius`, inner hairlines, one shadow.
+- **Folded rows** (`MessageFoldRow.vue`): one line of 26px tinted avatar, sender, lock + "Private note" label (on notes, at every width) and paperclip icons, a one-line snippet (max 160 characters), and time. Below 480px the row shows the time only (full stamp in `title`) and a narrower name column, so the label never drops; the snippet is what truncates. A folded note keeps the light tint and the accent bar. Click expands. Consecutive fold and summary rows join into one stacked card: outer `--radius`, inner hairlines, one shadow.
 - **Long runs:** four or more consecutive folded messages (`FOLD_RUN_MIN = 4`) collapse to first row, an "N earlier messages" row with the count in a 24px ring, and last row.
 - **Activity** ("assigned to…", status changes): a centred chip between two hairline stubs, never a card. The stubs drop below 480px.
 - **Day separators** are hidden in email threads.
@@ -308,14 +310,17 @@ Email conversations (`inbox_channel === 'email'`) render as a Gmail-style thread
 
 ### Live chat thread
 Chat channels render bubbles on the same thread ground.
-- **Customer:** a `card` bubble on the left with hairline and `--desk-shadow-sm`. **Agent:** a `--primary`-washed bubble (`--desk-thread-ours`) on the right; a wash, not a filled primary bubble, so links, ticks and muted text keep their contrast. **Private note:** `--private` fill, dashed `--warning` border, lock + "Private note" label once per run.
-- **Grouping:** consecutive messages from one sender within 5 minutes of each other (`GROUP_WINDOW_MS`) form a run: name and avatar once, 4px between bubbles, sender-side corners tightened, and the delivery tick only on the last bubble. A failed message never groups, so its error and retry always show.
-- **Day separators** are pill chips on a hairline; activity uses the same chip as in email. The typing indicator is a small incoming bubble.
+- **Customer:** a `card` bubble on the left with hairline and `--desk-shadow-sm`. **Agent:** a `--primary`-washed bubble (`--desk-thread-ours`) on the right; a wash, not a filled primary bubble, so links, ticks and muted text keep their contrast. **Private note:** the email note's treatment: light `--private` tint, hairline border, 3px `--warning` accent bar on the leading edge, and the small lock + "Private note" label once per run. No dashed or full amber border.
+- **Sender line:** once per run, above its first bubble: name (Lexend 12px semibold) and a quiet time (11px tabular, muted; time only, because the day separator carries the date; full timestamp in a tooltip). On our side the time sits on the inside and the name next to the avatar. There is no separate timestamp row under a run. A continuation bubble shows its own time beside it on hover or keyboard focus (pointer devices only; the slot is zero-width, so it never narrows the bubble).
+- **Avatars:** 32px, tinted like the email header's (contact neutral, agent primary, note amber). From 1024px the avatar sits in a gutter beside the run's first bubble, lifted to the sender line; below that it sits in the sender line itself, so it never takes width from the bubbles.
+- **Measure:** the chat column shares the email column's 760px cap and is centred. A bubble takes at most 75% of the column from 1024px and 88% below.
+- **Grouping:** consecutive messages from one sender within 5 minutes of each other (`GROUP_WINDOW_MS`; 10 minutes for private notes, `NOTE_GROUP_WINDOW_MS`) form a run: sender line and avatar once, 4px between bubbles, sender-side corners tightened, and the delivery tick only on the last bubble. A failed message never groups, so its error and retry always show.
+- **Day separators** are pill chips on a hairline; activity uses the same chip as in email. The typing indicator is a small incoming bubble, aligned with the bubbles inside the same measure.
 
 ### Reply composer
 - **Dock:** the composer sits on the thread ground, not on a footer strip. A 14px ground-to-transparent fade on the dock's top edge lets messages scroll under it; the thread keeps at least 24px of bottom padding so the fade never covers the last timestamp.
 - **Card:** thread surface, hairline, `--radius`, `--desk-shadow-md` plus a soft upward lift. Its side margins match the thread's padding. Focus inside turns the border to `ring` with a 2px `ring/10` glow. The board drawer keeps compact margins and `--desk-shadow-sm`.
-- **Private note mode:** `--private` surface with the same `--warning` border as private bubbles; the focus glow is `--warning` too.
+- **Private note mode:** `--private` surface with a `--warning` border and a `--warning` focus glow. This input-state cue is the one place a note keeps a full amber border; notes in the thread do not.
 - **Reply / Private note switch:** a recessed `foreground/7` track with a raised active segment (Lexend, semibold). Send stays the one primary button; while the draft is empty it is disabled at 85% opacity.
 - **Collapsed (narrow screens):** a one-row card with the same surface, hairline, radius and shadow; expanding opens the fullscreen editor.
 
@@ -331,7 +336,7 @@ A two-column grid (`.desk-spec`): label column `max-content`, value column `minm
 Accordion sections on a top hairline (`border/70`), no grey rounded blocks. Triggers are 12px uppercase labels with `tracking-wider` in `muted-foreground`, turning `foreground` on hover.
 
 ### Avatars and initials
-Initials are the first letter of the first name and of the last name ("Dana Levi" gives "DL"); one name gives one letter; no name gives the fallback ("A" for agent, "U" for user, "?" elsewhere). Thread and fold avatars are 24px with 10px semibold initials. The contact avatar in the sidebar is 48px. Inside the rail, avatar fallbacks sit on `rail-raised`.
+Initials are the first letter of the first name and of the last name ("Dana Levi" gives "DL"); one name gives one letter; no name gives the fallback ("A" for agent, "U" for user, "?" elsewhere). Thread avatars (email header, chat) are 32px and fold-row avatars 26px, with semibold Lexend initials on a token-derived tint (`--desk-avatar-bg` / `--desk-avatar-ink`): neutral for contacts, `--primary` for agents, `--warning` for notes. Never a code colour. The contact avatar in the sidebar is 48px. Inside the rail, avatar fallbacks sit on `rail-raised`.
 
 ### Buttons, inputs, menus
 Upstream shadcn primitives, recoloured by the desk tokens: primary buttons in Deep Desk Green, 4px radius, sizes as upstream. Focus rings use `ring` (light `hsl(137 45% 46%)`).
@@ -344,7 +349,9 @@ Upstream shadcn primitives, recoloured by the desk tokens: primary buttons in De
 - **Do** use `tabular-nums` on every reference, time, date and count.
 - **Do** separate panes, rows and sections with one 1px `border` line.
 - **Do** keep thread messages and the composer as rounded cards on the thread ground, with `--desk-shadow-sm` for messages and `--desk-shadow-md` for the composer and floating thread chrome.
-- **Do** show ours vs theirs with the `--primary` wash, and private notes with `--private` plus the `--warning` border and a visible label.
+- **Do** show ours vs theirs with the `--primary` wash, and private notes with the light `--private` tint, a thin `--warning` accent bar and a visible lock + "Private note" label.
+- **Do** group consecutive messages from one sender (5 minutes; notes 10) under one header in email and in chat.
+- **Do** reveal secondary message controls (⋯, collapse, a continuation's time) on hover, and keep them reachable by keyboard focus and always visible on touch.
 - **Do** keep unread and priority neutral (`foreground` / `muted-foreground`).
 - **Do** scope new desk styling under `html[data-app='desk']` and reuse upstream token names, so rebases on upstream stay easy.
 - **Do** keep incoming email on a light canvas in dark mode (`.dark .email-light-canvas`: white, #1a1a1a text, `color-scheme: light`). Sender colours in email HTML are only legible on white. This is a deliberate exception to the theme.
@@ -353,6 +360,8 @@ Upstream shadcn primitives, recoloured by the desk tokens: primary buttons in De
 - **Don't** put a code colour on anything that is not a status swatch: no coloured chips, coloured left bars, coloured row tints or coloured lane fills.
 - **Don't** colour unread counts, unread dots or priority markers.
 - **Don't** add a fourth type size or a display tier.
+- **Don't** give a private note a thick, dashed or full `--warning` border, or an outlined "Private note" pill, in the thread. A run of notes must not read as a wall of amber boxes.
+- **Don't** repeat avatar, name and controls on every message of a run, and don't add a timestamp row under each chat run.
 - **Don't** float panes: no gutters, rounded pane cards or pane shadows. The Layered Thread Rule covers message cards and the composer only.
 - **Don't** fill a light-mode button with brand green #62C47A; white text fails on it. Use `primary`.
 - **Don't** hide a signature without a Gmail or Outlook marker. Signatures are only detected by those markers, never guessed.

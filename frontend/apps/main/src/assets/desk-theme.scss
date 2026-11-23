@@ -261,8 +261,10 @@ html[data-app='desk'] .desk-thread--chat {
   padding-top: 0.25rem;
 }
 
-// Readable measure: on a wide pane the email column (cards, fold stacks, chips) stops growing and centres.
-html[data-app='desk'] .desk-thread--email > * {
+// Readable measure: on a wide pane the column (cards, fold stacks, bubbles, chips) stops growing
+// and centres. Email and live chat share the same measure.
+html[data-app='desk'] .desk-thread--email > *,
+html[data-app='desk'] .desk-thread--chat > * {
   max-width: var(--desk-thread-measure);
   margin-inline: auto;
 }
@@ -470,7 +472,8 @@ html[data-app='desk'] .message-bubble--thread .desk-thread-header {
 }
 
 html[data-app='desk'] .desk-thread-header__avatar,
-html[data-app='desk'] .desk-fold-row__avatar {
+html[data-app='desk'] .desk-fold-row__avatar,
+html[data-app='desk'] .desk-chat-avatar {
   background: var(--desk-avatar-bg, hsl(var(--secondary)));
   box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.06);
 
@@ -779,13 +782,13 @@ html[data-app='desk'] .desk-fold-row__time {
 }
 
 // ─── Live chat bubbles ───
-// Customer: card on the left. Agent: primary-washed card on the right. Private note: `--private`
-// with a dashed border. Grouped runs tighten the corners on the sender's side.
+// Customer: card on the left. Agent: primary-washed card on the right. Private note: the email
+// note's light tint + thin accent bar. Grouped runs tighten the corners on the sender's side.
 html[data-app='desk'] .desk-message-body {
   width: 88%;
 
   @media (min-width: 1024px) {
-    width: 80%;
+    width: 75%;
   }
 }
 
@@ -833,9 +836,11 @@ html[data-app='desk'] .message-bubble.message-bubble--chat {
   }
 
   &.message-bubble--private {
-    --desk-bubble-bg: hsl(var(--private));
-    border: 1px dashed var(--desk-thread-private-border);
-    box-shadow: none;
+    --desk-bubble-bg: var(--desk-thread-private);
+    padding-left: 0.875rem;
+    box-shadow:
+      inset 3px 0 0 var(--desk-thread-private-accent),
+      var(--desk-shadow-sm);
   }
 }
 
@@ -864,16 +869,22 @@ html[data-app='desk'] .message-bubble .desk-expand-fade {
   background-image: linear-gradient(to top, var(--desk-bubble-bg) 35%, transparent);
 }
 
+// Sender line: avatar (narrow panes), name and a quiet time, once per grouped run.
 html[data-app='desk'] .desk-message-sender {
+  min-width: 0;
+  max-width: 100%;
   margin-bottom: 0.25rem;
 
-  // The name out-ranks the muted timestamp.
+  // The name out-ranks the muted time.
   a,
   p {
+    min-width: 0;
     font-family: var(--desk-font-display);
     font-size: var(--desk-type-xs);
     font-weight: 600;
+    line-height: 1.25rem;
     color: hsl(var(--foreground) / 0.85);
+    overflow-wrap: anywhere;
   }
 
   a:hover {
@@ -881,14 +892,69 @@ html[data-app='desk'] .desk-message-sender {
   }
 }
 
-html[data-app='desk'] .desk-message-row .size-8 > span,
-html[data-app='desk'] .desk-message-sender > span {
-  box-shadow: 0 0 0 1px hsl(var(--border) / 0.7);
+html[data-app='desk'] .desk-message-time,
+html[data-app='desk'] .desk-message-hover-time {
+  font-size: var(--desk-type-2xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25rem;
+  white-space: nowrap;
+  color: hsl(var(--muted-foreground));
+  cursor: default;
 }
 
-html[data-app='desk'] .desk-message-timestamp {
-  margin-top: 0.25rem;
-  line-height: 1;
+// Ours: the time sits on the inside, the name next to the avatar.
+html[data-app='desk'] .desk-message--outgoing .desk-message-time {
+  order: -1;
+}
+
+// Avatars: the email header's tinted disc (contact neutral, agent primary, note amber).
+html[data-app='desk'] .desk-message {
+  --desk-avatar-bg: color-mix(in srgb, hsl(var(--foreground)) 9%, var(--desk-thread-surface));
+  --desk-avatar-ink: hsl(var(--foreground) / 0.8);
+
+  &.desk-message--outgoing {
+    --desk-avatar-bg: color-mix(in srgb, hsl(var(--primary)) 18%, var(--desk-thread-surface));
+    --desk-avatar-ink: color-mix(in srgb, hsl(var(--primary)) 70%, hsl(var(--foreground)));
+  }
+
+  &.desk-message--private {
+    --desk-avatar-bg: color-mix(in srgb, hsl(var(--warning)) 24%, var(--desk-thread-surface));
+    --desk-avatar-ink: var(--desk-thread-private-ink);
+  }
+}
+
+// Wide panes: the gutter avatar lifts to the sender line, so name and avatar read as one unit
+// above the run's first bubble.
+@media (min-width: 1024px) {
+  html[data-app='desk'] .desk-chat-avatar--gutter {
+    display: flex;
+    margin-top: -1.375rem;
+  }
+}
+
+// Continuation bubbles: the time shows beside the bubble on hover / keyboard focus. The slot is
+// zero-width so it never narrows the bubble; touch devices rely on the run's sender line.
+html[data-app='desk'] .desk-message-hover-time {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  html[data-app='desk'] .desk-message-hover-time {
+    display: flex;
+    width: 0;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  html[data-app='desk'] .desk-message--outgoing .desk-message-hover-time {
+    justify-content: flex-end;
+  }
+
+  html[data-app='desk'] .desk-message-row:hover .desk-message-hover-time,
+  html[data-app='desk'] .desk-message-row:focus-within .desk-message-hover-time {
+    opacity: 1;
+  }
 }
 
 html[data-app='desk'] .desk-message-status {
@@ -900,6 +966,12 @@ html[data-app='desk'] .desk-message-status {
 // Grouped run: delivery ticks show once, on the last bubble (failed messages never group).
 html[data-app='desk'] .message-bubble--chat.message-bubble--group-next .desk-message-status {
   display: none;
+}
+
+// Chat note label: one tight line above the note's text.
+html[data-app='desk'] .message-bubble--chat > .desk-private-label {
+  align-self: flex-start;
+  line-height: 1rem;
 }
 
 html[data-app='desk'] .desk-message-divider {
@@ -1052,7 +1124,15 @@ html[data-app='desk'] .desk-bubble-csat {
 
 // Typing indicator: a small incoming bubble on the ground.
 html[data-app='desk'] .desk-thread-typing {
+  // Same measure as the chat column (plus its own 1rem side padding).
+  max-width: calc(var(--desk-thread-measure, 47.5rem) + 2rem);
+  margin-inline: auto;
   background: var(--desk-thread-ground, hsl(var(--background)));
+
+  // Wide panes: lines up with the bubbles, past the avatar gutter.
+  @media (min-width: 1024px) {
+    padding-left: 3.625rem;
+  }
 
   > * {
     border: 1px solid var(--desk-thread-hairline);

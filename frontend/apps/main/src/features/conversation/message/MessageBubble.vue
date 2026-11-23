@@ -1,17 +1,20 @@
 <template>
   <div
     class="desk-message flex flex-col text-left"
-    :class="thread ? 'desk-message--thread items-stretch' : isOutgoing ? 'desk-message--outgoing items-end' : 'desk-message--incoming items-start'"
+    :class="[
+      thread ? 'desk-message--thread items-stretch' : isOutgoing ? 'desk-message--outgoing items-end' : 'desk-message--incoming items-start',
+      { 'desk-message--private': isPrivateMessage }
+    ]"
   >
-    <!-- Sender Name -->
+    <!-- Sender line (live chat): avatar, name and a quiet time, once per grouped run. -->
     <div
       v-if="!groupWithPrev && !thread"
       class="desk-message-sender mb-1.5 flex items-center gap-2"
       :class="isOutgoing ? 'lg:pr-10' : 'lg:pl-10'"
     >
-      <Avatar class="size-7 text-xs lg:hidden" :class="{ 'order-last': isOutgoing }">
+      <Avatar class="desk-chat-avatar size-8 shrink-0 text-xs lg:hidden" :class="{ 'order-last': isOutgoing }">
         <AvatarImage :src="getAvatar" />
-        <AvatarFallback class="font-medium">
+        <AvatarFallback class="font-semibold">
           {{ avatarFallback }}
         </AvatarFallback>
       </Avatar>
@@ -39,6 +42,16 @@
       <p v-else class="font-display text-desk-sm font-semibold text-muted-foreground">
         {{ getFullName }}
       </p>
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <time class="desk-message-time shrink-0" :datetime="message.created_at">
+            {{ headerTimestamp.time }}
+          </time>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{{ formatFullTimestamp(message.created_at) }}</p>
+        </TooltipContent>
+      </Tooltip>
     </div>
 
     <!-- Message Bubble -->
@@ -49,9 +62,9 @@
         :class="{ 'order-last': isOutgoing }"
         aria-hidden="true"
       >
-        <Avatar v-if="!groupWithPrev" class="size-8">
+        <Avatar v-if="!groupWithPrev" class="desk-chat-avatar desk-chat-avatar--gutter size-8 text-xs">
           <AvatarImage :src="getAvatar" />
-          <AvatarFallback class="font-medium">
+          <AvatarFallback class="font-semibold">
             {{ avatarFallback }}
           </AvatarFallback>
         </Avatar>
@@ -59,10 +72,20 @@
       <div
         :class="[
           thread ? 'w-full min-w-0' : 'desk-message-body w-4/5',
-          { 'flex items-center justify-end gap-2': isOutgoing && !thread }
+          { 'flex items-center gap-2': !thread, 'justify-end': isOutgoing && !thread }
         ]"
         style="contain: inline-size"
       >
+        <!-- A continuation bubble has no sender line: its time shows beside it on hover (zero-width slot). -->
+        <time
+          v-if="groupWithPrev && !thread"
+          class="desk-message-hover-time"
+          :class="{ 'order-last': !isOutgoing }"
+          :datetime="message.created_at"
+          :title="formatFullTimestamp(message.created_at)"
+        >
+          <span>{{ headerTimestamp.time }}</span>
+        </time>
         <!-- Delete note menu (private notes, appears on hover, left of bubble) -->
         <div
           v-if="canDeleteNote && !thread"
@@ -325,20 +348,6 @@
         </div>
       </div>
 
-    </div>
-
-    <!-- Timestamp tooltip -->
-    <div v-if="!groupWithNext && !thread" class="desk-message-timestamp" :class="isOutgoing ? 'lg:pr-10' : 'lg:pl-10'">
-      <Tooltip>
-        <TooltipTrigger as-child>
-          <time class="text-desk-2xs tabular-nums text-muted-foreground" :datetime="message.created_at">
-            {{ formatMessageTimestamp(message.created_at) }}
-          </time>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{{ formatFullTimestamp(message.created_at) }}</p>
-        </TooltipContent>
-      </Tooltip>
     </div>
   </div>
 
