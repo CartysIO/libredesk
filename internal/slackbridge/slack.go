@@ -112,15 +112,16 @@ func (a *slackAPI) call(ctx context.Context, method string, form url.Values, out
 	}
 }
 
-// authTest returns the bot's own Slack user ID.
-func (a *slackAPI) authTest(ctx context.Context) (string, error) {
+// authTest returns the bot's own Slack user ID and bot_id.
+func (a *slackAPI) authTest(ctx context.Context) (userID, botID string, err error) {
 	var out struct {
 		UserID string `json:"user_id"`
+		BotID  string `json:"bot_id"`
 	}
 	if err := a.call(ctx, "auth.test", url.Values{}, &out); err != nil {
-		return "", err
+		return "", "", err
 	}
-	return out.UserID, nil
+	return out.UserID, out.BotID, nil
 }
 
 // postMessage posts text to a channel, in a thread when threadTS is set, and returns the message ts.

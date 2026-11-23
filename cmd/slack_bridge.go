@@ -39,6 +39,12 @@ func initSlackBridge(db *sqlx.DB, users *user.Manager, mediaStore *media.Manager
 		log.Fatalf("error reading slack.agent_email_aliases: %v", err)
 	}
 	cfg.AgentEmailAliases = aliases
+	// The legacy ai_bot_id/ai_agent_email pair joins this allowlist in slackbridge.New.
+	bots, err := slackbridge.ParseAllowedBots(ko.String("slack.allowed_bots"))
+	if err != nil {
+		log.Fatalf("error reading slack.allowed_bots: %v", err)
+	}
+	cfg.AllowedBots = bots
 	m, err := slackbridge.New(cfg, db, initLogger("slack_bridge"), users, mediaStore, settings)
 	if err != nil {
 		log.Fatalf("error initializing slack bridge: %v", err)

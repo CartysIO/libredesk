@@ -76,7 +76,7 @@ func newFakeSlack(t *testing.T) *fakeSlack {
 				io.WriteString(w, `{"ok":false,"error":"invalid_auth"}`)
 				return
 			}
-			io.WriteString(w, `{"ok":true,"user_id":"UBOT"}`)
+			io.WriteString(w, `{"ok":true,"user_id":"UBOT","bot_id":"BSELF"}`)
 		case "chat.postMessage":
 			fmt.Fprintf(w, `{"ok":true,"ts":"1700000000.%06d"}`, n)
 		case "users.info":
@@ -201,7 +201,7 @@ type harness struct {
 	eran  umodels.User
 }
 
-func newHarness(t *testing.T) *harness {
+func newHarness(t *testing.T, opts ...func(*Config)) *harness {
 	t.Helper()
 	db := testutil.NewDB(t, "slackbridge")
 	var contactID, eranID, inboxID int
@@ -228,8 +228,11 @@ func newHarness(t *testing.T) *harness {
 	slack := newFakeSlack(t)
 	lo := logf.New(logf.Opts{Level: logf.ErrorLevel})
 	media := &fakeMedia{}
-	m, err := New(Config{BotToken: "xoxb-test", SigningSecret: "s", ChannelID: testChannel, APIURL: slack.srv.URL + "/api/"},
-		db, &lo, fakeUsers{agents: agents}, media, fakeSettings{})
+	cfg := Config{BotToken: "xoxb-test", SigningSecret: "s", ChannelID: testChannel, APIURL: slack.srv.URL + "/api/"}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	m, err := New(cfg, db, &lo, fakeUsers{agents: agents}, media, fakeSettings{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -614,5 +617,249 @@ func TestUnsavedRootIsDeleted(t *testing.T) {
 	}
 	if _, ok, _ := h.m.store.threadByConversation(h.convs.conv.ID); ok {
 		t.Fatal("thread saved although the insert failed")
+	}
+}
+
+const supportBotEmail = "support-bot@clyr.io"
+
+// newBotHarness is a harness with a thread, the given allowed bots and an enabled agent for supportBotEmail.
+func newBotHarness(t *testing.T, bots map[string]string) (h *harness, botAgentID int, ts string) {
+	t.Helper()
+	h = newHarness(t, func(c *Config) { c.AllowedBots = bots })
+	if err := h.db.QueryRow(`INSERT INTO users (type, first_name, last_name, email) VALUES ('agent', 'Support', 'Bot', $1) RETURNING id`, supportBotEmail).Scan(&botAgentID); err != nil {
+		t.Fatalf("inserting bot agent: %v", err)
+	}
+	h.convs.agents[botAgentID] = umodels.User{ID: botAgentID, FirstName: "Support", LastName: "Bot", Email: null.StringFrom(supportBotEmail), Enabled: true}
+	h.contactMessage(t, "help")
+	h.drain(t)
+	return h, botAgentID, h.rootTS(t)
+}
+
+func TestAllowedBotByBotIDBecomesNote(t *testing.T) {
+	h, botAgent, ts := newBotHarness(t, map[string]string{"BSUP": supportBotEmail})
+	ev := map[string]any{"type": "message", "channel": testChannel, "user": "USUP", "bot_id": "BSUP", "app_id": "A1", "text": "Checking the logs", "ts": "1700000050.1", "thread_ts": ts}
+	h.slackEvent(t, ev)
+	h.slackEvent(t, ev) // Slack retry
+	h.drain(t)
+	if len(h.convs.notes) != 1 || len(h.convs.reply) != 0 || h.convs.notes[0].SenderID != botAgent {
+		t.Fatalf("want one note by the bot's agent, got notes %+v, %d replies", h.convs.notes, len(h.convs.reply))
+	}
+	// Root + contact message only: the bot's note is not posted back.
+	if n := len(h.slack.byMethod("chat.postMessage")); n != 2 {
+		t.Fatalf("bot note echoed to Slack: %d posts", n)
+	}
+}
+
+func TestAllowedBotByUserIDMentionSendsReply(t *testing.T) {
+	h, botAgent, ts := newBotHarness(t, map[string]string{"USUP": supportBotEmail})
+	text := "<@UBOT> Your export is fixed"
+	// The bot_id is not listed; the bot user ID is. Slack sends message and app_mention for one mention.
+	h.slackEvent(t, map[string]any{"type": "message", "channel": testChannel, "user": "USUP", "bot_id": "BUNLISTED", "text": text, "ts": "1700000051.1", "thread_ts": ts})
+	h.slackEvent(t, map[string]any{"type": "app_mention", "channel": testChannel, "user": "USUP", "bot_id": "BUNLISTED", "text": text, "ts": "1700000051.1", "thread_ts": ts})
+	h.drain(t)
+	if len(h.convs.reply) != 1 || len(h.convs.notes) != 0 || h.convs.reply[0].SenderID != botAgent {
+		t.Fatalf("want one reply by the bot's agent, got replies %+v, %d notes", h.convs.reply, len(h.convs.notes))
+	}
+	if got := h.convs.reply[0].Content; got != "<p>Your export is fixed</p>" {
+		t.Fatalf("reply content %q", got)
+	}
+	if r := h.slack.byMethod("reactions.add"); len(r) != 1 || r[0].form.Get("name") != reactionReply {
+		t.Fatalf("want one outbox reaction, got %v", r)
+	}
+}
+
+func TestAllowedBotMessageSubtypeWithoutUser(t *testing.T) {
+	h, botAgent, ts := newBotHarness(t, map[string]string{"BSUP": supportBotEmail})
+	h.slackEvent(t, map[string]any{"type": "message", "subtype": "bot_message", "channel": testChannel, "bot_id": "BSUP", "text": "internal remark", "ts": "1700000052.1", "thread_ts": ts})
+	h.slackEvent(t, map[string]any{"type": "message", "subtype": "bot_message", "channel": testChannel, "bot_id": "BSUP", "text": "<@UBOT> hello there", "ts": "1700000052.2", "thread_ts": ts})
+	h.drain(t)
+	if len(h.convs.notes) != 1 || len(h.convs.reply) != 1 || h.convs.notes[0].SenderID != botAgent || h.convs.reply[0].SenderID != botAgent {
+		t.Fatalf("want a note and a reply by the bot's agent, got notes %+v replies %+v", h.convs.notes, h.convs.reply)
+	}
+}
+
+func TestUnknownBotIsIgnored(t *testing.T) {
+	h, _, ts := newBotHarness(t, map[string]string{"BSUP": supportBotEmail})
+	for _, ev := range []map[string]any{
+		{"type": "message", "channel": testChannel, "user": "UOTHERBOT", "bot_id": "BOTHER", "text": "<@UBOT> spam", "ts": "1700000053.1", "thread_ts": ts},
+		{"type": "message", "subtype": "bot_message", "channel": testChannel, "bot_id": "BOTHER", "text": "spam", "ts": "1700000053.2", "thread_ts": ts},
+		{"type": "message", "subtype": "bot_message", "channel": testChannel, "text": "no ids", "ts": "1700000053.3", "thread_ts": ts},
+		// A bot user that has a users.info email of a real agent is still not guessed.
+		{"type": "app_mention", "channel": testChannel, "user": "UERAN", "bot_id": "BOTHER", "text": "<@UBOT> spam", "ts": "1700000053.4", "thread_ts": ts},
+	} {
+		h.slackEvent(t, ev)
+	}
+	h.drain(t)
+	if len(h.convs.notes)+len(h.convs.reply) != 0 {
+		t.Fatalf("unknown bot created messages: %d notes, %d replies", len(h.convs.notes), len(h.convs.reply))
+	}
+	if n := len(h.slack.byMethod("chat.postMessage")); n != 2 {
+		t.Fatalf("unknown bot got an answer in Slack: %d posts", n)
+	}
+}
+
+func TestOwnPostsIgnoredEvenWhenListed(t *testing.T) {
+	h, _, ts := newBotHarness(t, map[string]string{"UBOT": supportBotEmail, "BSELF": supportBotEmail})
+	for _, ev := range []map[string]any{
+		{"type": "message", "channel": testChannel, "user": "UBOT", "bot_id": "BSELF", "text": "<@UBOT> own post", "ts": "1700000054.1", "thread_ts": ts},
+		{"type": "message", "subtype": "bot_message", "channel": testChannel, "bot_id": "BSELF", "text": "own legacy post", "ts": "1700000054.2", "thread_ts": ts},
+		{"type": "message", "channel": testChannel, "user": "UBOT", "text": "own post without bot_id", "ts": "1700000054.3", "thread_ts": ts},
+		{"type": "app_mention", "channel": testChannel, "user": "UBOT", "bot_id": "BOTHER", "text": "<@UBOT> own user, other bot_id", "ts": "1700000054.4", "thread_ts": ts},
+	} {
+		h.slackEvent(t, ev)
+	}
+	h.drain(t)
+	if len(h.convs.notes)+len(h.convs.reply) != 0 {
+		t.Fatalf("the bridge handled its own post: %d notes, %d replies", len(h.convs.notes), len(h.convs.reply))
+	}
+	if n := len(h.slack.byMethod("chat.postMessage")); n != 2 {
+		t.Fatalf("the bridge answered its own post: %d posts", n)
+	}
+}
+
+func TestBotIgnoredWhenOwnIdentityUnknown(t *testing.T) {
+	h, _, ts := newBotHarness(t, map[string]string{"BSUP": supportBotEmail})
+	h.slack.failAuth = true
+	h.slackEvent(t, map[string]any{"type": "message", "channel": testChannel, "user": "USUP", "bot_id": "BSUP", "text": "<@UBOT> hi", "ts": "1700000055.1", "thread_ts": ts})
+	h.drain(t)
+	if len(h.convs.notes)+len(h.convs.reply) != 0 {
+		t.Fatalf("bot message added without the bridge's identity: %d notes, %d replies", len(h.convs.notes), len(h.convs.reply))
+	}
+	// No warning either: the event could be the bridge's own post.
+	if n := len(h.slack.byMethod("chat.postMessage")); n != 2 {
+		t.Fatalf("want no post in Slack, got %d posts", n)
+	}
+}
+
+func TestLegacyAIBotIDStillWorks(t *testing.T) {
+	h := newHarness(t, func(c *Config) { c.AIBotID, c.AIAgentEmail = "BAI", "eran@clyr.io" })
+	h.contactMessage(t, "help")
+	h.drain(t)
+	ts := h.rootTS(t)
+	h.slackEvent(t, map[string]any{"type": "message", "channel": testChannel, "bot_id": "BAI", "text": "AI summary", "ts": "1700000056.1", "thread_ts": ts})
+	h.slackEvent(t, map[string]any{"type": "message", "channel": testChannel, "bot_id": "BAI", "text": "<@UBOT> AI answer", "ts": "1700000056.2", "thread_ts": ts})
+	h.drain(t)
+	if len(h.convs.notes) != 1 || len(h.convs.reply) != 1 || h.convs.notes[0].SenderID != h.eran.ID || h.convs.reply[0].SenderID != h.eran.ID {
+		t.Fatalf("want a note and a reply by the AI agent, got notes %+v replies %+v", h.convs.notes, h.convs.reply)
+	}
+}
+
+func TestAllowedBotWithoutAgentGetsWarning(t *testing.T) {
+	h, _, ts := newBotHarness(t, map[string]string{"BSUP": "nobody@clyr.io"})
+	h.slackEvent(t, map[string]any{"type": "message", "channel": testChannel, "user": "USUP", "bot_id": "BSUP", "text": "<@UBOT> hi", "ts": "1700000057.1", "thread_ts": ts})
+	h.drain(t)
+	if len(h.convs.notes)+len(h.convs.reply) != 0 {
+		t.Fatal("message added for a bot with no agent")
+	}
+	posts := h.slack.byMethod("chat.postMessage")
+	last := posts[len(posts)-1].form
+	if len(posts) != 3 || last.Get("thread_ts") != ts || !strings.Contains(last.Get("text"), "no enabled Libredesk agent has the email nobody@clyr.io") {
+		t.Fatalf("want one warning in the thread naming the email, got %d posts, last %v", len(posts), last)
+	}
+	// The warning is what the bridge itself would get back from Slack; a bot repeating it is ignored.
+	if !isBridgeWarning(last.Get("text")) {
+		t.Fatalf("isBridgeWarning misses the bridge's own warning %q", last.Get("text"))
+	}
+}
+
+func TestBridgeWarningFromBotIsIgnored(t *testing.T) {
+	h, _, ts := newBotHarness(t, map[string]string{"BSUP": supportBotEmail})
+	for i, text := range []string{
+		":warning: Not added to Libredesk: no enabled Libredesk agent has the email x@clyr.io.",
+		"<@UBOT> :warning: Not sent to the customer: the conversation could not be loaded. Please send it again.",
+		"&gt; :warning: Not added to Libredesk: a file could not be copied. Please send it again.",
+	} {
+		h.slackEvent(t, map[string]any{"type": "message", "channel": testChannel, "user": "USUP", "bot_id": "BSUP", "text": text, "ts": fmt.Sprintf("1700000058.%d", i), "thread_ts": ts})
+	}
+	h.drain(t)
+	if len(h.convs.notes)+len(h.convs.reply) != 0 {
+		t.Fatalf("a bridge warning was fed back: %d notes, %d replies", len(h.convs.notes), len(h.convs.reply))
+	}
+	if n := len(h.slack.byMethod("chat.postMessage")); n != 2 {
+		t.Fatalf("want no post in Slack, got %d posts", n)
+	}
+	// A human may quote a warning.
+	h.slackEvent(t, map[string]any{"type": "message", "channel": testChannel, "user": "UERAN", "text": "saw :warning: Not added to Libredesk above", "ts": "1700000058.9", "thread_ts": ts})
+	h.drain(t)
+	if len(h.convs.notes) != 1 {
+		t.Fatalf("human note quoting a warning was dropped")
+	}
+}
+
+func TestBotReplyCapPerThread(t *testing.T) {
+	h, _, ts := newBotHarness(t, map[string]string{"BSUP": supportBotEmail})
+	send := func(i int, text string) {
+		h.slackEvent(t, map[string]any{"type": "message", "channel": testChannel, "user": "USUP", "bot_id": "BSUP", "text": text, "ts": fmt.Sprintf("1700000059.%d", i), "thread_ts": ts})
+	}
+	for i := 0; i < botReplyLimit+3; i++ {
+		send(i, fmt.Sprintf("<@UBOT> reply %d", i))
+	}
+	send(100, "a note is not capped")
+	h.drain(t)
+	if len(h.convs.reply) != botReplyLimit || len(h.convs.notes) != 1 {
+		t.Fatalf("want %d replies and 1 note, got %d replies, %d notes", botReplyLimit, len(h.convs.reply), len(h.convs.notes))
+	}
+	// Root + contact message + exactly one warning. The replies themselves are not posted back.
+	posts := h.slack.byMethod("chat.postMessage")
+	if len(posts) != 3 {
+		t.Fatalf("want one cap warning, got %d posts", len(posts))
+	}
+	if last := posts[2].form; last.Get("thread_ts") != ts || !isBridgeWarning(last.Get("text")) || !strings.Contains(last.Get("text"), "at most 5 replies") {
+		t.Fatalf("cap warning wrong: %v", last)
+	}
+	// A human is not capped.
+	h.slackEvent(t, map[string]any{"type": "message", "channel": testChannel, "user": "UERAN", "text": "<@UBOT> from a human", "ts": "1700000059.200", "thread_ts": ts})
+	h.drain(t)
+	if len(h.convs.reply) != botReplyLimit+1 {
+		t.Fatalf("human reply was capped: %d replies", len(h.convs.reply))
+	}
+}
+
+func TestBotReplyAllowedWindow(t *testing.T) {
+	m := &Manager{botReplies: map[string]*botReplyWindow{}}
+	now := time.Unix(1700000000, 0)
+	for i := 0; i < botReplyLimit; i++ {
+		if ok, _ := m.botReplyAllowed("t1", now.Add(time.Duration(i)*time.Minute)); !ok {
+			t.Fatalf("reply %d refused", i)
+		}
+	}
+	at := now.Add(5 * time.Minute)
+	if ok, warn := m.botReplyAllowed("t1", at); ok || !warn {
+		t.Fatalf("over the cap: ok=%v warn=%v, want false, true", ok, warn)
+	}
+	if ok, warn := m.botReplyAllowed("t1", at); ok || warn {
+		t.Fatalf("second refusal: ok=%v warn=%v, want false, false", ok, warn)
+	}
+	if ok, _ := m.botReplyAllowed("t2", at); !ok {
+		t.Fatal("another thread was capped")
+	}
+	// The oldest reply leaves the window after 10 minutes; a new burst warns again.
+	at = now.Add(botReplyWindowLen)
+	if ok, _ := m.botReplyAllowed("t1", at); !ok {
+		t.Fatal("still capped after the window moved")
+	}
+	if ok, warn := m.botReplyAllowed("t1", at); ok || !warn {
+		t.Fatalf("new burst: ok=%v warn=%v, want false, true", ok, warn)
+	}
+	if m.botReplyAllowed("t3", now.Add(time.Hour)); len(m.botReplies) != 1 {
+		t.Fatalf("expired threads not pruned: %d left", len(m.botReplies))
+	}
+}
+
+func TestParseAllowedBots(t *testing.T) {
+	got, err := ParseAllowedBots(" U0CBDPSTZ3R = Support-Bot@clyr.io ,, b0123=other@clyr.io, W9=a@x.com ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["U0CBDPSTZ3R"] != "support-bot@clyr.io" || got["B0123"] != "other@clyr.io" || got["W9"] != "a@x.com" || len(got) != 3 {
+		t.Fatalf("got %v", got)
+	}
+	if empty, err := ParseAllowedBots(""); err != nil || len(empty) != 0 {
+		t.Fatalf("empty input: %v %v", empty, err)
+	}
+	for _, bad := range []string{"U0CBDPSTZ3R", "U0CBDPSTZ3R=", "=bot@clyr.io", "U1=nope", "U1=a@x.com=typo", "X123=a@x.com", "U=a@x.com", "U 1=a@x.com", "a@x.com=U1", "U1=a@x.com U2=b@x.com", "<@U1>=a@x.com"} {
+		if _, err := ParseAllowedBots(bad); err == nil {
+			t.Fatalf("want an error for %q", bad)
+		}
 	}
 }
