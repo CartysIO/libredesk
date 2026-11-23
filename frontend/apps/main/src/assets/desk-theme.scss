@@ -249,6 +249,12 @@ html[data-app='desk'] .desk-thread {
   background: var(--desk-thread-ground, hsl(var(--background)));
 }
 
+// The thread column is narrow on a phone, but also on a laptop with the list and the details
+// sidebar open. Rows that adapt to "narrow" key on the pane's own width, not the viewport.
+html[data-app='desk'] .desk-message-list {
+  container: desk-thread / inline-size;
+}
+
 html[data-app='desk'] .desk-thread--email {
   padding: 0.75rem 0.75rem 1.5rem;
 
@@ -557,7 +563,7 @@ html[data-app='desk'] .message-bubble--thread .desk-thread-header--compact {
 }
 
 // Pointer devices: header controls appear on hover, on keyboard focus and while their menu is open.
-// A continuation's whole control strip floats over the card's top-right corner the same way.
+// A continuation's whole control strip appears the same way, as a small raised chip.
 @media (hover: hover) and (pointer: fine) {
   html[data-app='desk'] .message-bubble--thread .desk-thread-header__actions,
   html[data-app='desk'] .message-bubble--thread .desk-thread-header--compact {
@@ -565,19 +571,28 @@ html[data-app='desk'] .message-bubble--thread .desk-thread-header--compact {
     transition: opacity 150ms ease;
   }
 
+  // The chip is raised onto the run's inner rule: it covers the padding above and below the rule
+  // (previous message's bottom, this one's top), never the body text.
   html[data-app='desk'] .message-bubble--thread .desk-thread-header--compact {
     position: absolute;
-    top: 0.25rem;
+    top: -1rem;
     right: 0.5rem;
     z-index: 1;
     margin: 0;
-    padding: 0.125rem 0.5rem 0.125rem 0.25rem;
-    border-radius: calc(var(--radius) - 4px);
+    padding: 0.0625rem 0.5rem 0.0625rem 0.25rem;
+    border-radius: calc(var(--radius) - 2px);
     background: var(--desk-bubble-bg);
-    box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.06);
+    box-shadow:
+      0 0 0 1px hsl(var(--foreground) / 0.08),
+      var(--desk-shadow-sm);
 
     .desk-thread-header__actions {
       opacity: 1;
+    }
+
+    .desk-thread-header__icon-btn {
+      height: 1.5rem;
+      width: 1.5rem;
     }
   }
 
@@ -666,6 +681,8 @@ html[data-app='desk'] .desk-fold-row {
   background: transparent;
   text-align: left;
   cursor: pointer;
+  // A tight row truncates the name and the snippet; it never pushes the time past the edge.
+  overflow: hidden;
   transition: background-color 160ms ease;
 
   &:hover {
@@ -705,18 +722,15 @@ html[data-app='desk'] .desk-fold-row {
 }
 
 html[data-app='desk'] .desk-fold-row__name {
-  width: 6rem;
-  flex-shrink: 0;
+  width: 9rem;
+  min-width: 3rem;
+  flex-shrink: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--desk-font-display);
   font-size: var(--desk-type-xs);
   font-weight: var(--desk-weight-semibold);
-
-  @media (min-width: 640px) {
-    width: 9rem;
-  }
 }
 
 html[data-app='desk'] .desk-fold-row__icon {
@@ -726,8 +740,8 @@ html[data-app='desk'] .desk-fold-row__icon {
   color: hsl(var(--muted-foreground));
 }
 
-// Folded private note: lock + "Private note" text at every width. Narrow rows make room by showing
-// the time only and a narrower name column (below).
+// Folded private note: lock + "Private note" text at every width. Narrow columns make room by
+// showing the time only and a narrower name (below).
 html[data-app='desk'] .desk-fold-row__note {
   display: inline-flex;
   flex-shrink: 0;
@@ -754,18 +768,20 @@ html[data-app='desk'] .desk-fold-row__snippet {
   color: hsl(var(--muted-foreground));
 }
 
-@media (max-width: 479px) {
+// Narrow column (phone, or a laptop pane between the list and the sidebar): time only, and the
+// name hugs its text so the snippet keeps the room.
+@container desk-thread (max-width: 30rem) {
   html[data-app='desk'] .desk-fold-row {
     gap: 0.5rem;
   }
 
   html[data-app='desk'] .desk-fold-row__name {
-    width: 5.25rem;
+    width: auto;
+    max-width: 8rem;
   }
 
-  // The note row already breaks the snippet column with its label, so its name hugs the text.
+  // The note row also carries its label, so its name gets less.
   html[data-app='desk'] .desk-fold-row--private .desk-fold-row__name {
-    width: auto;
     max-width: 5.25rem;
   }
 
@@ -1023,8 +1039,11 @@ html[data-app='desk'] .desk-activity {
     background: linear-gradient(90deg, hsl(var(--border) / 0.9), transparent);
   }
 
-  // Narrow panes: the chip wraps, so stub hairlines are dropped.
-  @media (max-width: 479px) {
+}
+
+// Narrow column: the chip needs the full width, so the stub hairlines are dropped.
+@container desk-thread (max-width: 30rem) {
+  html[data-app='desk'] .desk-activity {
     justify-content: center;
 
     &::before,
