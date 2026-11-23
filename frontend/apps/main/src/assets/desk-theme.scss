@@ -660,7 +660,8 @@ html[data-app='desk'] .desk-private-label {
 }
 
 // Role tag beside a sender's name, once per run: "Customer" (ink chip) or "AI" (sparkle, primary
-// chip). A long translation truncates inside the chip; the name keeps its room.
+// chip). The tag never shrinks below its label: a long name beside it truncates instead. Only a
+// translation wider than the 7.5rem cap ellipsises inside the chip.
 html[data-app='desk'] .desk-role-tag {
   display: inline-flex;
   flex-shrink: 0;
@@ -685,13 +686,6 @@ html[data-app='desk'] .desk-role-tag {
     background: var(--desk-thread-ours-tag);
     color: var(--desk-thread-ours-ink);
   }
-}
-
-// Beside a name that can truncate (open card header, chat sender line) the tag gives way first.
-html[data-app='desk'] .desk-thread-header__title .desk-role-tag,
-html[data-app='desk'] .desk-message-sender .desk-role-tag {
-  min-width: 0;
-  flex-shrink: 100;
 }
 
 html[data-app='desk'] .desk-role-tag__text {
@@ -890,12 +884,10 @@ html[data-app='desk'] .desk-fold-row__snippet {
     max-width: 8rem;
   }
 
-  // The note, AI and customer rows also carry a label, so their names get less. The label stays
-  // at every width; the name and the snippet give way.
-  html[data-app='desk'] .desk-fold-row--private .desk-fold-row__name,
-  html[data-app='desk'] .desk-fold-row--role-ai .desk-fold-row__name,
-  html[data-app='desk'] .desk-fold-row--role-customer .desk-fold-row__name {
-    max-width: 5.25rem;
+  // The note, AI and customer rows also carry a label, which stays at every width. The name takes
+  // the room it needs and gives way only once the snippet is down to its floor.
+  html[data-app='desk'] .desk-fold-row__snippet {
+    min-width: 4rem;
   }
 
   html[data-app='desk'] .desk-fold-row__date {
@@ -1021,7 +1013,11 @@ html[data-app='desk'] .desk-message-sender {
     font-weight: 600;
     line-height: 1.25rem;
     color: hsl(var(--foreground) / 0.85);
-    overflow-wrap: anywhere;
+    // A long name (or an email used as the name) truncates on one line; the role tag and the
+    // time beside it keep their full width.
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   a:hover {
