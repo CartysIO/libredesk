@@ -185,7 +185,8 @@ html[data-app='desk'] .desk-page-header {
 // ─── Conversation thread (email + live chat) ───
 // DESIGN.md: layered thread. The ground is `--background`; messages sit on it as rounded
 // `--card` surfaces with a hairline border and `--desk-shadow-sm`. Ours vs theirs is carried by
-// a `--primary` wash, private notes by `--private` + a `--warning` border, never by code colours.
+// a `--primary` wash, private notes by a light `--private` tint + a thin `--warning` accent bar,
+// never by code colours.
 
 html[data-app='desk'] .desk-thread-pane,
 html[data-app='desk'] .desk-message-list {
@@ -194,9 +195,14 @@ html[data-app='desk'] .desk-message-list {
   --desk-thread-hairline: hsl(var(--border) / 0.75);
   --desk-thread-private-border: hsl(var(--warning) / 0.45);
   --desk-thread-surface: hsl(var(--card));
-  --desk-thread-strip: hsl(var(--muted) / 0.85);
   --desk-thread-ours: color-mix(in srgb, hsl(var(--card)) 92%, hsl(var(--primary)));
   --desk-thread-ours-border: hsl(var(--primary) / 0.18);
+  // Email cards are one surface each, so their tints stay a step lighter than the chat bubbles'.
+  --desk-thread-ours-soft: color-mix(in srgb, var(--desk-thread-ours) 45%, var(--desk-thread-surface));
+  --desk-thread-private: color-mix(in srgb, hsl(var(--private)) 55%, var(--desk-thread-surface));
+  --desk-thread-private-accent: hsl(var(--warning) / 0.65);
+  --desk-thread-private-ink: color-mix(in srgb, hsl(var(--warning)) 62%, hsl(var(--foreground)));
+  --desk-thread-measure: 47.5rem;
   --desk-bubble-radius: calc(var(--radius) + 0.25rem);
   --desk-bubble-radius-tight: 0.25rem;
   background: var(--desk-thread-ground);
@@ -219,9 +225,24 @@ html[data-app='desk'].dark .desk-message-list {
   --desk-thread-lift: hsl(var(--background) / 0.7);
   --desk-thread-hairline: hsl(var(--border));
   --desk-thread-surface: color-mix(in srgb, hsl(var(--card)) 95%, hsl(var(--foreground)));
-  --desk-thread-strip: hsl(var(--foreground) / 0.045);
   --desk-thread-ours: color-mix(in srgb, hsl(var(--card)) 84%, hsl(var(--primary)));
   --desk-thread-ours-border: hsl(var(--primary) / 0.3);
+  --desk-thread-ours-soft: color-mix(in srgb, var(--desk-thread-ours) 50%, var(--desk-thread-surface));
+  --desk-thread-private: color-mix(in srgb, hsl(var(--private)) 70%, var(--desk-thread-surface));
+  --desk-thread-private-accent: hsl(var(--warning) / 0.55);
+}
+
+// The thread opens pinned to its newest message, so the oldest visible row is usually cut by the
+// pane's top edge. A short fade into the ground makes that read as scrolled content, not a clipped
+// chip. At scroll top the fade only covers the thread's own top padding.
+html[data-app='desk'] .desk-message-list::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 1;
+  height: 0.75rem;
+  background: linear-gradient(to bottom, var(--desk-thread-ground), transparent);
+  pointer-events: none;
 }
 
 html[data-app='desk'] .desk-thread {
@@ -240,12 +261,23 @@ html[data-app='desk'] .desk-thread--chat {
   padding-top: 0.25rem;
 }
 
+// Readable measure: on a wide pane the email column (cards, fold stacks, chips) stops growing and centres.
+html[data-app='desk'] .desk-thread--email > * {
+  max-width: var(--desk-thread-measure);
+  margin-inline: auto;
+}
+
 // Email rows: open cards and stacked fold groups, 12px apart.
 html[data-app='desk'] .desk-thread--email .desk-thread-row {
   margin: 0;
 
   & + .desk-thread-row {
     margin-top: 0.75rem;
+  }
+
+  // A grouped run (same sender, minutes apart) reads as one card: the continuation sits flush.
+  & + .desk-thread-row--join-prev {
+    margin-top: 0;
   }
 }
 
@@ -366,11 +398,13 @@ html[data-app='desk'] .desk-day-separator {
   }
 }
 
-// Email open message: a full-width card with a tinted header strip.
+// Email open message: a full-width, single-surface card. Header and body share the surface; ours
+// vs theirs is the surface tint, a private note adds a thin accent bar on its leading edge.
 html[data-app='desk'] .message-bubble.message-bubble--thread {
   --desk-bubble-bg: var(--desk-thread-surface);
-  --desk-thread-header-bg: var(--desk-thread-strip);
-  --desk-thread-header-rule: hsl(var(--border) / 0.6);
+  --desk-avatar-bg: color-mix(in srgb, hsl(var(--foreground)) 9%, var(--desk-thread-surface));
+  --desk-avatar-ink: hsl(var(--foreground) / 0.8);
+  position: relative;
   width: 100%;
   max-width: 100%;
   min-width: 0;
@@ -378,21 +412,45 @@ html[data-app='desk'] .message-bubble.message-bubble--thread {
   border: 1px solid var(--desk-thread-hairline);
   border-radius: var(--radius);
   box-shadow: var(--desk-shadow-sm);
-  padding: 0.875rem 1rem 1rem;
+  padding: 0.75rem 1rem 0.875rem;
   background: var(--desk-bubble-bg);
 
-  // Our replies: the same primary wash as our chat bubbles, on the header strip.
   &.message-bubble--outgoing {
-    --desk-thread-header-bg: var(--desk-thread-ours);
-    --desk-thread-header-rule: var(--desk-thread-ours-border);
+    --desk-bubble-bg: var(--desk-thread-ours-soft);
+    --desk-avatar-bg: color-mix(in srgb, hsl(var(--primary)) 18%, var(--desk-thread-surface));
+    --desk-avatar-ink: color-mix(in srgb, hsl(var(--primary)) 70%, hsl(var(--foreground)));
     border-color: var(--desk-thread-ours-border);
   }
 
   &.message-bubble--private {
-    --desk-bubble-bg: hsl(var(--private));
-    --desk-thread-header-bg: hsl(var(--warning) / 0.1);
-    --desk-thread-header-rule: hsl(var(--warning) / 0.28);
-    border-color: var(--desk-thread-private-border);
+    --desk-bubble-bg: var(--desk-thread-private);
+    --desk-avatar-bg: color-mix(in srgb, hsl(var(--warning)) 24%, var(--desk-thread-surface));
+    --desk-avatar-ink: var(--desk-thread-private-ink);
+    box-shadow:
+      inset 3px 0 0 var(--desk-thread-private-accent),
+      var(--desk-shadow-sm);
+  }
+
+  // Grouped run: joined corners and no doubled border, so the run is one card.
+  &.message-bubble--group-next {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  &.message-bubble--group-prev {
+    border-top: 0;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    padding-top: 0.625rem;
+
+    // A faint rule inside the padding separates the run's messages.
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0 1rem auto;
+      height: 1px;
+      background: hsl(var(--foreground) / 0.07);
+    }
   }
 
   .native-html {
@@ -407,34 +465,45 @@ html[data-app='desk'] .message-bubble.message-bubble--thread {
 }
 
 html[data-app='desk'] .message-bubble--thread .desk-thread-header {
-  margin: -0.875rem -1rem 0.75rem;
-  padding: 0.5rem 0.5rem 0.5rem 1rem;
-  min-height: 2.75rem;
-  border-bottom: 1px solid var(--desk-thread-header-rule);
-  border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
-  background: var(--desk-thread-header-bg);
+  align-items: flex-start;
+  margin-bottom: 0.625rem;
 }
 
-html[data-app='desk'] .desk-thread-header__avatar {
-  height: 1.75rem;
-  width: 1.75rem;
-  box-shadow: 0 0 0 1px hsl(var(--border) / 0.7);
+html[data-app='desk'] .desk-thread-header__avatar,
+html[data-app='desk'] .desk-fold-row__avatar {
+  background: var(--desk-avatar-bg, hsl(var(--secondary)));
+  box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.06);
+
+  .avatar-initials {
+    font-family: var(--desk-font-display);
+    font-weight: var(--desk-weight-semibold);
+    letter-spacing: 0.01em;
+    color: var(--desk-avatar-ink, hsl(var(--foreground)));
+  }
 }
 
-// The sender name is the header's lead element: the recipients summary takes only the room that is
-// left and truncates first; the name shrinks only when nothing else can.
+// Sender on the first line, "Private note" / recipients summary on the second. The name owns its
+// line, so it only truncates when the pane is narrower than the name itself.
+html[data-app='desk'] .desk-thread-header__id {
+  display: flex;
+  min-height: 2rem;
+  flex-direction: column;
+  justify-content: center;
+}
+
 html[data-app='desk'] .desk-thread-header__name {
-  flex: 0 1 auto;
-  min-width: 2.5rem;
-  max-width: 60%;
   font-family: var(--desk-font-display);
   font-size: var(--desk-type-sm);
   font-weight: var(--desk-weight-semibold);
+  line-height: 1.125rem;
   color: hsl(var(--foreground));
 }
 
+html[data-app='desk'] .desk-thread-header__sub {
+  line-height: 1rem;
+}
+
 html[data-app='desk'] .desk-thread-header__recipients {
-  flex: 0 9999 auto;
   min-width: 0;
   font-size: var(--desk-type-2xs);
   color: hsl(var(--muted-foreground));
@@ -455,7 +524,14 @@ html[data-app='desk'] .desk-thread-header__recipients {
 html[data-app='desk'] .desk-thread-header__time {
   font-size: var(--desk-type-2xs);
   font-variant-numeric: tabular-nums;
+  line-height: 1.125rem;
+  white-space: nowrap;
   color: hsl(var(--muted-foreground));
+}
+
+// ⋯ and collapse sit on the name's line, pulled up so the 28px targets centre on it.
+html[data-app='desk'] .desk-thread-header__actions {
+  margin: -0.3125rem 0 -0.3125rem auto;
 }
 
 html[data-app='desk'] .desk-thread-header__icon-btn {
@@ -465,40 +541,77 @@ html[data-app='desk'] .desk-thread-header__icon-btn {
   color: hsl(var(--muted-foreground));
 }
 
-// "Private note" marker: lock + label, used in the email header and on chat note bubbles.
+// Continuation of a grouped run: no avatar or name, only the controls and the time. Touch keeps
+// them as a slim right-aligned row above the body.
+html[data-app='desk'] .message-bubble--thread .desk-thread-header--compact {
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 0.125rem;
+
+  .desk-thread-header__actions {
+    margin: 0;
+  }
+}
+
+// Pointer devices: header controls appear on hover, on keyboard focus and while their menu is open.
+// A continuation's whole control strip floats over the card's top-right corner the same way.
+@media (hover: hover) and (pointer: fine) {
+  html[data-app='desk'] .message-bubble--thread .desk-thread-header__actions,
+  html[data-app='desk'] .message-bubble--thread .desk-thread-header--compact {
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+
+  html[data-app='desk'] .message-bubble--thread .desk-thread-header--compact {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.5rem;
+    z-index: 1;
+    margin: 0;
+    padding: 0.125rem 0.5rem 0.125rem 0.25rem;
+    border-radius: calc(var(--radius) - 4px);
+    background: var(--desk-bubble-bg);
+    box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.06);
+
+    .desk-thread-header__actions {
+      opacity: 1;
+    }
+  }
+
+  html[data-app='desk'] .message-bubble--thread:hover > .desk-thread-header .desk-thread-header__actions,
+  html[data-app='desk'] .message-bubble--thread:focus-within > .desk-thread-header .desk-thread-header__actions,
+  html[data-app='desk'] .message-bubble--thread .desk-thread-header__actions:has([data-state='open']),
+  html[data-app='desk'] .message-bubble--thread:hover > .desk-thread-header--compact,
+  html[data-app='desk'] .message-bubble--thread:focus-within > .desk-thread-header--compact,
+  html[data-app='desk'] .message-bubble--thread > .desk-thread-header--compact:has([data-state='open']) {
+    opacity: 1;
+  }
+}
+
+// "Private note" marker: a small quiet lock + label, used in the email header and on chat note bubbles.
 html[data-app='desk'] .desk-private-label {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
   font-family: var(--desk-font-display);
   font-size: var(--desk-type-2xs);
-  font-weight: var(--desk-weight-semibold);
-  letter-spacing: var(--desk-tracking-wide);
-  color: hsl(var(--foreground) / 0.8);
+  font-weight: var(--desk-weight-medium, 500);
+  color: var(--desk-thread-private-ink);
   white-space: nowrap;
 }
 
-html[data-app='desk'] .desk-thread-header .desk-private-label {
-  padding: 0.125rem 0.5rem;
-  border: 1px solid var(--desk-thread-private-border);
-  border-radius: 9999px;
-}
-
-// Narrow panes: the "Private note" label stays visible; the header frees room by showing the time
-// only (the full date is in the time's `title` and tooltip) and tightening its gaps.
+// Narrow panes: the header shows the time only (the full date is in the time's `title` and tooltip).
 @media (max-width: 479px) {
-  html[data-app='desk'] .message-bubble--thread .desk-thread-header {
-    gap: 0.375rem;
-    padding-left: 0.75rem;
-    padding-right: 0.25rem;
+  html[data-app='desk'] .message-bubble.message-bubble--thread {
+    padding-inline: 0.75rem;
+  }
+
+  html[data-app='desk'] .message-bubble--thread.message-bubble--group-prev::before {
+    inset-inline: 0.75rem;
   }
 
   html[data-app='desk'] .desk-thread-header__date {
     display: none;
-  }
-
-  html[data-app='desk'] .desk-thread-header .desk-private-label {
-    padding: 0.125rem 0.375rem;
   }
 }
 
@@ -561,17 +674,31 @@ html[data-app='desk'] .desk-fold-row {
     box-shadow: inset 0 0 0 2px hsl(var(--ring) / 0.5);
   }
 
+  // Avatar tints match the open cards: contact neutral, agent primary, note amber.
+  --desk-avatar-bg: color-mix(in srgb, hsl(var(--foreground)) 9%, var(--desk-thread-surface));
+  --desk-avatar-ink: hsl(var(--foreground) / 0.8);
+
+  &.desk-fold-row--outgoing {
+    --desk-avatar-bg: color-mix(in srgb, hsl(var(--primary)) 18%, var(--desk-thread-surface));
+    --desk-avatar-ink: color-mix(in srgb, hsl(var(--primary)) 70%, hsl(var(--foreground)));
+  }
+
   &.desk-fold-row--private {
-    background: hsl(var(--private));
+    --desk-avatar-bg: color-mix(in srgb, hsl(var(--warning)) 24%, var(--desk-thread-surface));
+    --desk-avatar-ink: var(--desk-thread-private-ink);
+    background: var(--desk-thread-private);
+    box-shadow: inset 3px 0 0 var(--desk-thread-private-accent);
 
     &:hover {
-      background: color-mix(in srgb, hsl(var(--private)) 92%, hsl(var(--foreground)));
+      background: color-mix(in srgb, var(--desk-thread-private) 94%, hsl(var(--foreground)));
+    }
+
+    &:focus-visible {
+      box-shadow:
+        inset 3px 0 0 var(--desk-thread-private-accent),
+        inset 0 0 0 2px hsl(var(--ring) / 0.5);
     }
   }
-}
-
-html[data-app='desk'] .desk-fold-row__avatar {
-  box-shadow: 0 0 0 1px hsl(var(--border) / 0.7);
 }
 
 html[data-app='desk'] .desk-fold-row__name {
@@ -605,10 +732,13 @@ html[data-app='desk'] .desk-fold-row__note {
   gap: 0.25rem;
   font-family: var(--desk-font-display);
   font-size: var(--desk-type-2xs);
-  font-weight: var(--desk-weight-semibold);
-  letter-spacing: var(--desk-tracking-wide);
-  color: hsl(var(--foreground) / 0.8);
+  font-weight: var(--desk-weight-medium, 500);
+  color: var(--desk-thread-private-ink);
   white-space: nowrap;
+
+  .desk-fold-row__icon {
+    color: inherit;
+  }
 }
 
 html[data-app='desk'] .desk-fold-row__snippet {
