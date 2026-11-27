@@ -235,6 +235,11 @@ func main() {
 		os.Exit(0)
 	}
 
+	if ko.Bool("pylon-sync") {
+		runPylonSync(ctx, db, fs, settings)
+		os.Exit(0)
+	}
+
 	if ko.Bool("pylon-sla-reconcile") {
 		runPylonSLAReconcile()
 		os.Exit(0)

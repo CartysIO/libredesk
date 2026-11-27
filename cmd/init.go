@@ -154,7 +154,7 @@ func initFlags() {
 	// Clyr fork: one-time Pylon history import (cmd/pylon_import.go).
 	f.Bool("pylon-import", false, "import the Pylon history (reads PYLON_API_KEY) and exit")
 	f.String("pylon-cache", "pylon-cache", "with --pylon-import: directory that caches every Pylon response and file")
-	f.Bool("dry-run", false, "with --pylon-import: print what would be imported and write nothing")
+	f.Bool("dry-run", false, "with --pylon-import or --pylon-sync: plan only and write nothing to the database (or uploads on sync)")
 	f.Int("limit", 0, "with --pylon-import: import at most this many conversations (0 = all)")
 	f.String("since", "", "with --pylon-import: only issues created on or after this date (YYYY-MM-DD); also limits Pylon API issue listing unless issues.json is already cached")
 	f.Int("pylon-inbox", 0, "with --pylon-import: email inbox id for email and form issues (default: the only email inbox)")
@@ -167,6 +167,11 @@ func initFlags() {
 	f.Bool("pylon-refresh-issues", false, "with --pylon-import: refetch the issue list from the Pylon API instead of issues.json cache")
 	f.StringSlice("pylon-agent-alias", []string{"omer.menashe@gmail.com=omer@clyr.io"}, "with --pylon-import: pylon-user-email=libredesk-agent-email")
 	f.Bool("pylon-purge-non-imported", false, "with --pylon-import: after import, delete conversations that have no pylon_issue_id or pylon_merged_issue_id in meta (dry-run import only prints counts)")
+
+	// Clyr fork: incremental sync for conversations created from Pylon (cmd/pylon_sync.go).
+	f.Bool("pylon-sync", false, "sync migrated Pylon conversations (status and missing messages; reads PYLON_API_KEY) and exit")
+	f.String("pylon-cutover-end", "", "with --pylon-sync: RFC3339 instant when agents stopped using Pylon (required)")
+	f.String("pylon-sync-report", "pylon-sync-report.json", "with --pylon-sync: path for the JSON report (dry-run and live)")
 
 	// Clyr fork: compare Pylon cache medians to UI targets (cmd/pylon_sla_reconcile.go).
 	f.Bool("pylon-sla-reconcile", false, "analyze Pylon issues.json SLA medians for one Workforce week and exit")
