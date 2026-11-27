@@ -1390,6 +1390,10 @@ func (im *Importer) prepareMessagePlans(db getter, convID int, msgs []Message, m
 				plans = append(plans, msgPlan{kind: msgPlanReconcile, m: m})
 				continue
 			}
+			// Same-thread email already in this conversation (e.g. live inbound): --pylon-sync tags via planTagMetaUpdates; do not insert again.
+			if !merge && convID > 0 && sourceByID[sourceID] == convID {
+				continue
+			}
 			if merge && sourceByID[sourceID] > 0 && sourceByID[sourceID] != convID {
 				im.rep.SkippedMessages++
 				continue

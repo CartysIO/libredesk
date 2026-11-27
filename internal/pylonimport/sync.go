@@ -241,19 +241,12 @@ func (s *Syncer) syncConversation(ctx context.Context, c importedConversation, i
 }
 
 func (s *Syncer) planConversation(c importedConversation, is Issue, msgs []Message, statusPlan StatusSyncPlan, entry *SyncConversationReport) error {
-	s.Imp.convFiles = map[string]string{}
-	s.Imp.convUploads = nil
-	plans, err := s.Imp.prepareMessagePlans(s.DB, c.ID, msgs, false)
+	insertPlans, tagMsgs, err := s.prepareSyncMessagePlans(c.ID, msgs)
 	if err != nil {
 		return err
 	}
-	insertPlans := sortInsertPlans(plans)
 	for _, p := range insertPlans {
 		entry.WouldInsertMessages = append(entry.WouldInsertMessages, syncActionFromPlan(p))
-	}
-	tagMsgs, err := s.Imp.planTagMetaUpdates(s.DB, c.ID, msgs)
-	if err != nil {
-		return err
 	}
 	for _, m := range tagMsgs {
 		entry.WouldTagMessages = append(entry.WouldTagMessages, SyncMessageAction{PylonMessageID: m.ID, Timestamp: m.Timestamp, Private: m.IsPrivate})
@@ -266,16 +259,23 @@ func (s *Syncer) planConversation(c importedConversation, is Issue, msgs []Messa
 	return nil
 }
 
-func (s *Syncer) applyConversation(ctx context.Context, c importedConversation, is Issue, msgs []Message, statusPlan StatusSyncPlan, entry *SyncConversationReport) error {
-	s.Imp.pendingSourceIDs = map[string]int{}
+func (s *Syncer) prepareSyncMessagePlans(convID int, msgs []Message) ([]msgPlan, []Message, error) {
 	s.Imp.convFiles = map[string]string{}
 	s.Imp.convUploads = nil
-	plans, err := s.Imp.prepareMessagePlans(s.DB, c.ID, msgs, false)
+	plans, err := s.Imp.prepareMessagePlans(s.DB, convID, msgs, false)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	insertPlans := sortInsertPlans(plans)
-	tagMsgs, err := s.Imp.planTagMetaUpdates(s.DB, c.ID, msgs)
+	tagMsgs, err := s.Imp.planTagMetaUpdates(s.DB, convID, msgs)
+	if err != nil {
+		return nil, nil, err
+	}
+	return sortInsertPlans(plans), tagMsgs, nil
+}
+
+func (s *Syncer) applyConversation(ctx context.Context, c importedConversation, is Issue, msgs []Message, statusPlan StatusSyncPlan, entry *SyncConversationReport) error {
+	s.Imp.pendingSourceIDs = map[string]int{}
+	insertPlans, tagMsgs, err := s.prepareSyncMessagePlans(c.ID, msgs)
 	if err != nil {
 		return err
 	}

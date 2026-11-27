@@ -69,6 +69,54 @@ func TestSyncerInsertsMissingMessageAndUpdatesStatus(t *testing.T) {
 	}
 }
 
+func TestSyncerTagsBySourceIDWithoutDuplicateInsert(t *testing.T) {
+	db := testutil.NewDB(t, "pylon_sync_tag")
+	t0 := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+	cutover := time.Date(2026, 3, 15, 18, 0, 0, 0, time.UTC)
+
+	var inbox, contact int
+	db.Get(&inbox, `INSERT INTO inboxes (name, channel, enabled) VALUES ('Support', 'email', FALSE) RETURNING id`)
+	db.Get(&contact, `INSERT INTO users (type, email, first_name) VALUES ('contact', 'v@example.com', 'V') RETURNING id`)
+
+	meta, _ := json.Marshal(map[string]string{MetaIssueID: "i1"})
+	var conv int
+	db.Get(&conv, `INSERT INTO conversations (reference_number, contact_id, inbox_id, status_id, subject, created_at, last_message_at, meta)
+		VALUES ('4003', $1, $2, (SELECT id FROM conversation_statuses WHERE name = 'Open'), 'Help', $3, $3, $4) RETURNING id`,
+		contact, inbox, t0, meta)
+	db.MustExec(`INSERT INTO conversation_messages (type, status, conversation_id, sender_id, sender_type, content, source_id, created_at)
+		VALUES ('incoming', 'received', $1, $2, 'contact', 'live email', '<live@mail>', $3)`,
+		conv, contact, t0)
+
+	d := Data{
+		Contacts: []Contact{{ID: "c1", Email: "v@example.com"}},
+		Issues:   []Issue{{ID: "i1", Number: 4003, State: "open", Source: "email", Requester: &Ref{ID: "c1"}, CreatedAt: t0}},
+		Messages: map[string][]Message{
+			"i1": {{
+				ID: "m-live", MessageHTML: "live email", Timestamp: t0,
+				Author:    &MessageAuthor{Contact: &Ref{ID: "c1"}},
+				EmailInfo: &EmailInfo{MessageID: "<live@mail>"},
+			}},
+		},
+	}
+	im := &Importer{DB: db, Opt: Options{MediaStore: "fs", AllowMissingFiles: true}}
+	if err := im.load(d); err != nil {
+		t.Fatal(err)
+	}
+	rep, err := (&Syncer{DB: db, Imp: im, Opt: SyncOptions{CutoverEnd: cutover}}).Run(context.Background(), d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Summary.MessagesInserted != 0 || rep.Summary.MessagesTagged != 1 {
+		t.Fatalf("summary: %+v", rep.Summary)
+	}
+	if n := count(t, db, `SELECT COUNT(*) FROM conversation_messages WHERE conversation_id = $1`, conv); n != 1 {
+		t.Fatalf("message count = %d", n)
+	}
+	if got := str(t, db, `SELECT meta->>'pylon_message_id' FROM conversation_messages WHERE conversation_id = $1`, conv); got != "m-live" {
+		t.Fatalf("pylon_message_id = %q", got)
+	}
+}
+
 func TestSyncerSkipsStatusWhenNativeAfterCutover(t *testing.T) {
 	db := testutil.NewDB(t, "pylon_sync_native")
 	t0 := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)

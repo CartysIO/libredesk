@@ -153,19 +153,19 @@ func initFlags() {
 
 	// Clyr fork: one-time Pylon history import (cmd/pylon_import.go).
 	f.Bool("pylon-import", false, "import the Pylon history (reads PYLON_API_KEY) and exit")
-	f.String("pylon-cache", "pylon-cache", "with --pylon-import: directory that caches every Pylon response and file")
+	f.String("pylon-cache", "pylon-cache", "with --pylon-import or --pylon-sync: directory that caches every Pylon response and file")
 	f.Bool("dry-run", false, "with --pylon-import or --pylon-sync: plan only and write nothing to the database (or uploads on sync)")
-	f.Int("limit", 0, "with --pylon-import: import at most this many conversations (0 = all)")
-	f.String("since", "", "with --pylon-import: only issues created on or after this date (YYYY-MM-DD); also limits Pylon API issue listing unless issues.json is already cached")
+	f.Int("limit", 0, "with --pylon-import or --pylon-sync: process at most this many conversations (0 = all)")
+	f.String("since", "", "with --pylon-import or --pylon-sync: only issues created on or after this date (YYYY-MM-DD); also limits Pylon API issue listing unless issues.json is already cached")
 	f.Int("pylon-inbox", 0, "with --pylon-import: email inbox id for email and form issues (default: the only email inbox)")
 	f.Int("pylon-chat-inbox", 0, "with --pylon-import: livechat inbox id for chat_widget issues (default: the only livechat inbox, or the first enabled when several exist)")
 	f.Int("pylon-sla-policy-id", 0, "with --pylon-import: SLA policy id to simulate on imported conversations (0 = default first policy)")
 	f.Int("pylon-reference-floor", 4000, "with --pylon-import: new conversations get reference numbers from here up (at least the highest Pylon number + 1)")
-	f.Bool("pylon-allow-missing-files", false, "with --pylon-import: import even when some files cannot be downloaded (their URLs stay in message meta)")
+	f.Bool("pylon-allow-missing-files", false, "with --pylon-import or --pylon-sync: continue when some files cannot be downloaded (URLs stay in message meta)")
 	f.Bool("pylon-reconcile", false, "with --pylon-import: after import, re-merge every already-imported issue (sibling absorption and live message timestamps)")
-	f.Bool("pylon-verify-live", true, "with --pylon-import: skip issues that no longer exist in Pylon (GET /issues/{id}); needs PYLON_API_KEY")
-	f.Bool("pylon-refresh-issues", false, "with --pylon-import: refetch the issue list from the Pylon API instead of issues.json cache")
-	f.StringSlice("pylon-agent-alias", []string{"omer.menashe@gmail.com=omer@clyr.io"}, "with --pylon-import: pylon-user-email=libredesk-agent-email")
+	f.Bool("pylon-verify-live", true, "with --pylon-import or --pylon-sync: skip issues that no longer exist in Pylon (GET /issues/{id}); needs PYLON_API_KEY")
+	f.Bool("pylon-refresh-issues", false, "with --pylon-import or --pylon-sync: refetch the issue list from the Pylon API instead of issues.json cache")
+	f.StringSlice("pylon-agent-alias", []string{"omer.menashe@gmail.com=omer@clyr.io"}, "with --pylon-import or --pylon-sync: pylon-user-email=libredesk-agent-email")
 	f.Bool("pylon-purge-non-imported", false, "with --pylon-import: after import, delete conversations that have no pylon_issue_id or pylon_merged_issue_id in meta (dry-run import only prints counts)")
 
 	// Clyr fork: incremental sync for conversations created from Pylon (cmd/pylon_sync.go).
