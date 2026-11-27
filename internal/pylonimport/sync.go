@@ -115,6 +115,10 @@ func (s *Syncer) Run(ctx context.Context, data Data) (SyncReport, error) {
 	for _, is := range data.Issues {
 		issueByID[is.ID] = is
 	}
+	// agentFor and insertMessagePlan update im.rep counters; import Run always initializes this.
+	if s.Imp.rep == nil {
+		s.Imp.rep = &Report{DryRun: s.Opt.DryRun}
+	}
 	if err := s.Imp.load(data); err != nil {
 		return rep, err
 	}
